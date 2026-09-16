@@ -1,0 +1,194 @@
+# SecureLeaf — GraphQL Schema
+# Split into logical files per module as the schema grows.
+# Spring for GraphQL auto-discovers all .graphqls files under classpath:graphql/
+
+# ── Scalars ──────────────────────────────────────────────────────────────────
+scalar DateTime
+scalar BigDecimal
+scalar UUID
+
+# ── Enums ─────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+    BUYER
+    CREATOR
+    ADMIN
+}
+
+enum ProductStatus {
+    PROCESSING
+    LIVE
+    UNPUBLISHED
+    FAILED
+}
+
+enum OrderStatus {
+    PENDING
+    COMPLETED
+    FAILED
+    REFUNDED
+}
+
+# ── Types ─────────────────────────────────────────────────────────────────────
+
+type User {
+    id: UUID!
+    email: String!
+    displayName: String!
+    roles: [UserRole!]!
+    createdAt: DateTime!
+}
+
+type Product {
+    id: UUID!
+    title: String!
+    description: String!
+    price: BigDecimal!
+    status: ProductStatus!
+    creator: User!
+    category: Category!
+    tags: [String!]!
+    thumbnailUrl: String
+    averageRating: Float
+    totalSales: Int!
+    freePreviewPages: Int!
+    createdAt: DateTime!
+}
+
+type Category {
+    id: UUID!
+    name: String!
+    slug: String!
+}
+
+type ProductPage {
+    content: [Product!]!
+    totalElements: Int!
+    totalPages: Int!
+    pageNumber: Int!
+}
+
+type Review {
+    id: UUID!
+    buyer: User!
+    rating: Int!
+    comment: String
+    createdAt: DateTime!
+}
+
+type Entitlement {
+    id: UUID!
+    product: Product!
+    purchasedAt: DateTime!
+    isActive: Boolean!
+}
+
+type Notification {
+    id: UUID!
+    title: String!
+    message: String!
+    isRead: Boolean!
+    createdAt: DateTime!
+}
+
+# ── Inputs ────────────────────────────────────────────────────────────────────
+
+input RegisterInput {
+    email: String!
+    password: String!
+    displayName: String!
+}
+
+input LoginInput {
+    email: String!
+    password: String!
+}
+
+input ProductFilterInput {
+    categorySlug: String
+    minPrice: BigDecimal
+    maxPrice: BigDecimal
+    isFree: Boolean
+    searchQuery: String
+    sortBy: String   # newest | popular | rating | price_asc | price_desc
+}
+
+input CreateProductInput {
+    title: String!
+    description: String!
+    price: BigDecimal!
+    categoryId: UUID!
+    tags: [String!]!
+    freePreviewPages: Int!
+}
+
+input SubmitReviewInput {
+    productId: UUID!
+    rating: Int!
+    comment: String
+}
+
+# ── Queries ───────────────────────────────────────────────────────────────────
+
+type Query {
+    # Marketplace
+    products(filter: ProductFilterInput, page: Int = 0, size: Int = 20): ProductPage!
+    product(id: UUID!): Product
+
+    # Buyer
+    myLibrary: [Entitlement!]!
+    myNotifications: [Notification!]!
+
+    # Creator
+    myProducts: [Product!]!
+
+    # Reviews
+    productReviews(productId: UUID!, page: Int = 0, size: Int = 10): [Review!]!
+
+    # Admin
+    allUsers(page: Int = 0, size: Int = 50): [User!]!
+    allProducts(page: Int = 0, size: Int = 50): [Product!]!
+}
+
+# ── Mutations ─────────────────────────────────────────────────────────────────
+
+type Mutation {
+    # Auth
+    register(input: RegisterInput!): User!
+    login(input: LoginInput!): AuthPayload!
+    refreshToken(token: String!): AuthPayload!
+    logout: Boolean!
+
+    # Products (Creator)
+    createProduct(input: CreateProductInput!): Product!
+    unpublishProduct(id: UUID!): Product!
+    deleteProduct(id: UUID!): Boolean!
+
+    # Commerce
+    initiateOrder(productId: UUID!): InitiateOrderPayload!
+    confirmMockPayment(orderId: UUID!): Entitlement!
+
+    # Reviews
+    submitReview(input: SubmitReviewInput!): Review!
+
+    # Notifications
+    markNotificationRead(id: UUID!): Boolean!
+
+    # Admin
+    suspendUser(userId: UUID!): User!
+    approveProduct(productId: UUID!): Product!
+    takeDownProduct(productId: UUID!): Product!
+}
+
+# ── Payload Types ─────────────────────────────────────────────────────────────
+
+type AuthPayload {
+    accessToken: String!
+    refreshToken: String!
+    user: User!
+}
+
+type InitiateOrderPayload {
+    orderId: UUID!
+    clientSecret: String   # For real payment gateway (Stripe/Razorpay); null for mock
+}
