@@ -1,0 +1,188 @@
+version: "3.9"
+
+# =============================================================================
+# SecureLeaf — Local Development Infrastructure
+# =============================================================================
+# Services:
+#   postgres   — Primary database (PostgreSQL 16)
+#   redis      — Session locks, signed URL tokens, Pub/Sub (Redis 7)
+#   minio      — S3-compatible object store for raw PDFs + image tiles
+#   minio-init — One-shot sidecar that creates MinIO buckets on first run
+#   pgadmin    — Visual PostgreSQL admin UI (optional, comment out to save RAM)
+#
+# Usage:
+#   Start all:        docker compose up -d
+#   Stop all:         docker compose down
+#   Wipe all data:    docker compose down -v
+#   View logs:        docker compose logs -f [service]
+#   Restart one:      docker compose restart [service]
+# =============================================================================
+
+networks:
+  secureleaf-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  pgadmin_data:
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL 16
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: secureleaf-postgres
+    restart: unless-stopped
+    networks:
+      - secureleaf-net
+    ports:
+      - "5432:5432"                         # exposed to host for IDE/DBeaver connection
+    environment:
+      POSTGRES_DB:       secureleaf
+      POSTGRES_USER:     secureleaf_user
+      POSTGRES_PASSWORD: secureleaf_pass    # change before any cloud deployment
+      PGDATA:            /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Mount your schema SQL here — runs automatically on first container creation
+      # Uncomment once db_schema.sql is generated from db_schema.md:
+      # - ./infra/sql/init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U secureleaf_user -d secureleaf"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+
+  # ---------------------------------------------------------------------------
+  # Redis 7
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: secureleaf-redis
+    restart: unless-stopped
+    networks:
+      - secureleaf-net
+    ports:
+      - "6379:6379"                         # exposed to host for Redis CLI / IDE inspection
+    command: >
+      redis-server
+      --requirepass secureleaf_redis_pass
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "secureleaf_redis_pass", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 320m
+
+  # ---------------------------------------------------------------------------
+  # MinIO (S3-compatible object store)
+  # Two buckets are used:
+  #   secureleaf-raw   — raw uploaded PDFs (private, never publicly accessible)
+  #   secureleaf-tiles — processed image tiles (private, served via signed URLs)
+  # ---------------------------------------------------------------------------
+  minio:
+    image: minio/minio:latest
+    container_name: secureleaf-minio
+    restart: unless-stopped
+    networks:
+      - secureleaf-net
+    ports:
+      - "9000:9000"                         # S3 API — Spring Boot connects here
+      - "9001:9001"                         # MinIO Web Console (browser UI)
+    environment:
+      MINIO_ROOT_USER:     secureleaf_minio_user
+      MINIO_ROOT_PASSWORD: secureleaf_minio_pass  # min 8 chars required by MinIO
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+
+  # ---------------------------------------------------------------------------
+  # MinIO Init (one-shot sidecar)
+  # Creates buckets and sets access policies after MinIO is healthy.
+  # Exits with code 0 on success — Docker Compose does not restart it.
+  # ---------------------------------------------------------------------------
+  minio-init:
+    image: minio/mc:latest
+    container_name: secureleaf-minio-init
+    networks:
+      - secureleaf-net
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER:     secureleaf_minio_user
+      MINIO_ROOT_PASSWORD: secureleaf_minio_pass
+    entrypoint: >
+      /bin/sh -c "
+        echo '==> Waiting for MinIO to be ready...' &&
+        until mc alias set local http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD; do
+          echo '    MinIO not ready yet, retrying in 3s...' && sleep 3;
+        done &&
+
+        echo '==> Creating bucket: secureleaf-raw (raw PDF uploads)' &&
+        mc mb --ignore-existing local/secureleaf-raw &&
+        mc anonymous set none local/secureleaf-raw &&
+
+        echo '==> Creating bucket: secureleaf-tiles (processed image tiles)' &&
+        mc mb --ignore-existing local/secureleaf-tiles &&
+        mc anonymous set none local/secureleaf-tiles &&
+
+        echo '==> All buckets created and set to private. Done.'
+      "
+    restart: "no"                           # do not restart; this is a one-shot init job
+
+  # ---------------------------------------------------------------------------
+  # pgAdmin 4 (optional — comment out to save ~300MB RAM)
+  # Access at: http://localhost:5050
+  # Login:     admin@secureleaf.local / admin
+  # ---------------------------------------------------------------------------
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: secureleaf-pgadmin
+    restart: unless-stopped
+    networks:
+      - secureleaf-net
+    ports:
+      - "5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL:    admin@secureleaf.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: "False"   # single-user mode, no login required
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 256m
