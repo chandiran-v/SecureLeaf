@@ -229,7 +229,7 @@ Creators (teachers, professionals, designers, students) upload their digital kno
 
 | Layer | Technology | Why |
 |-------|-----------|-----|
-| **Frontend** | React 18, TypeScript, Apollo Client | Interactive SPA with secure Canvas viewer; Apollo for GraphQL queries |
+| **Frontend** | React 18, TypeScript, Tailwind CSS v3, Apollo Client | Interactive SPA with secure Canvas viewer; Apollo for GraphQL queries |
 | **API Layer** | GraphQL (Spring for GraphQL) + REST | GraphQL for data queries; REST for file uploads & signed tile URLs |
 | **Backend** | Java 21, Spring Boot 3 | Enterprise-grade APIs with modern Java features |
 | **Security** | Spring Security 6, JWT | Role-based + object-level auth with token rotation |

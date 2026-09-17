@@ -10,7 +10,7 @@ Think: *Gumroad for selling + Kindle DRM for viewing*.
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | React 18, TypeScript, Apollo Client, Vite |
+| Frontend | React 18, TypeScript, Tailwind CSS v3, Apollo Client, Vite |
 | API | GraphQL (Spring for GraphQL) + REST |
 | Backend | Java 21, Spring Boot 3, Spring Security 6 |
 | Auth | JWT (access + refresh rotation), Google OAuth2 |
