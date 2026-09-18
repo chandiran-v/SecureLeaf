@@ -28,6 +28,6 @@ public class OrderItem {
      * Stored in paise (smallest currency unit) to avoid floating-point errors.
      */
     @Column(name = "price_paise", nullable = false)
-    private Integer pricePaise;
+    private Long pricePaise;
 
 }

@@ -1,5 +1,6 @@
-package com.secureleaf.auth.entity;
+package com.secureleaf.creator.entity;
 
+import com.secureleaf.auth.entity.User;
 import com.secureleaf.common.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.Getter;

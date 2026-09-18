@@ -18,10 +18,12 @@ import lombok.Setter;
 public abstract class BaseEntity {
 
     @CreatedDate
+    @lombok.Setter(lombok.AccessLevel.NONE)
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
     @LastModifiedDate
+    @lombok.Setter(lombok.AccessLevel.NONE)
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 

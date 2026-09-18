@@ -5,7 +5,6 @@
 # ── Scalars ──────────────────────────────────────────────────────────────────
 scalar DateTime
 scalar BigDecimal
-scalar UUID
 
 # ── Enums ─────────────────────────────────────────────────────────────────────
 
@@ -16,6 +15,7 @@ enum UserRole {
 }
 
 enum ProductStatus {
+    DRAFT
     PROCESSING
     LIVE
     UNPUBLISHED
@@ -32,7 +32,7 @@ enum OrderStatus {
 # ── Types ─────────────────────────────────────────────────────────────────────
 
 type User {
-    id: UUID!
+    id: ID!
     email: String!
     displayName: String!
     roles: [UserRole!]!
@@ -40,7 +40,7 @@ type User {
 }
 
 type Product {
-    id: UUID!
+    id: ID!
     title: String!
     description: String!
     price: BigDecimal!
@@ -56,7 +56,7 @@ type Product {
 }
 
 type Category {
-    id: UUID!
+    id: ID!
     name: String!
     slug: String!
 }
@@ -69,24 +69,24 @@ type ProductPage {
 }
 
 type Review {
-    id: UUID!
+    id: ID!
     buyer: User!
     rating: Int!
-    comment: String
+    reviewText: String
     createdAt: DateTime!
 }
 
 type Entitlement {
-    id: UUID!
+    id: ID!
     product: Product!
     purchasedAt: DateTime!
     isActive: Boolean!
 }
 
 type Notification {
-    id: UUID!
+    id: ID!
     title: String!
-    message: String!
+    body: String!
     isRead: Boolean!
     createdAt: DateTime!
 }
@@ -117,15 +117,15 @@ input CreateProductInput {
     title: String!
     description: String!
     price: BigDecimal!
-    categoryId: UUID!
+    categoryId: ID!
     tags: [String!]!
     freePreviewPages: Int!
 }
 
 input SubmitReviewInput {
-    productId: UUID!
+    productId: ID!
     rating: Int!
-    comment: String
+    reviewText: String
 }
 
 # ── Queries ───────────────────────────────────────────────────────────────────
@@ -133,7 +133,7 @@ input SubmitReviewInput {
 type Query {
     # Marketplace
     products(filter: ProductFilterInput, page: Int = 0, size: Int = 20): ProductPage!
-    product(id: UUID!): Product
+    product(id: ID!): Product
 
     # Buyer
     myLibrary: [Entitlement!]!
@@ -143,7 +143,7 @@ type Query {
     myProducts: [Product!]!
 
     # Reviews
-    productReviews(productId: UUID!, page: Int = 0, size: Int = 10): [Review!]!
+    productReviews(productId: ID!, page: Int = 0, size: Int = 10): [Review!]!
 
     # Admin
     allUsers(page: Int = 0, size: Int = 50): [User!]!
@@ -161,23 +161,23 @@ type Mutation {
 
     # Products (Creator)
     createProduct(input: CreateProductInput!): Product!
-    unpublishProduct(id: UUID!): Product!
-    deleteProduct(id: UUID!): Boolean!
+    unpublishProduct(id: ID!): Product!
+    deleteProduct(id: ID!): Boolean!
 
     # Commerce
-    initiateOrder(productId: UUID!): InitiateOrderPayload!
-    confirmMockPayment(orderId: UUID!): Entitlement!
+    initiateOrder(productId: ID!): InitiateOrderPayload!
+    confirmMockPayment(orderId: ID!): Entitlement!
 
     # Reviews
     submitReview(input: SubmitReviewInput!): Review!
 
     # Notifications
-    markNotificationRead(id: UUID!): Boolean!
+    markNotificationRead(id: ID!): Boolean!
 
     # Admin
-    suspendUser(userId: UUID!): User!
-    approveProduct(productId: UUID!): Product!
-    takeDownProduct(productId: UUID!): Product!
+    suspendUser(userId: ID!): User!
+    approveProduct(productId: ID!): Product!
+    takeDownProduct(productId: ID!): Product!
 }
 
 # ── Payload Types ─────────────────────────────────────────────────────────────
@@ -189,6 +189,6 @@ type AuthPayload {
 }
 
 type InitiateOrderPayload {
-    orderId: UUID!
+    orderId: ID!
     clientSecret: String   # For real payment gateway (Stripe/Razorpay); null for mock
 }

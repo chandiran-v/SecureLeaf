@@ -87,12 +87,13 @@ CREATE TABLE products (
     slug               VARCHAR(300)   NOT NULL,
     description        TEXT           NOT NULL,
     cover_image_url    VARCHAR(500),
-    price_paise        INTEGER        NOT NULL DEFAULT 0 CHECK (price_paise >= 0),
+    price_paise        BIGINT         NOT NULL DEFAULT 0 CHECK (price_paise >= 0),
     free_preview_pages INTEGER        NOT NULL DEFAULT 3 CHECK (free_preview_pages >= 0),
     status             product_status NOT NULL DEFAULT 'DRAFT',
     total_sales        INTEGER        NOT NULL DEFAULT 0 CHECK (total_sales >= 0),
     average_rating     NUMERIC(3,2)   CHECK (average_rating BETWEEN 1.00 AND 5.00),
     review_count       INTEGER        NOT NULL DEFAULT 0 CHECK (review_count >= 0),
+    version            BIGINT         NOT NULL DEFAULT 0,
     created_at         TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
     updated_at         TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
     deleted_at         TIMESTAMPTZ,
@@ -148,7 +149,7 @@ CREATE INDEX idx_content_pages_document_version_id ON content_pages (document_ve
 CREATE TABLE orders (
     id           BIGSERIAL    PRIMARY KEY,
     buyer_id     BIGINT       NOT NULL REFERENCES users (id),
-    total_amount_paise INTEGER NOT NULL CHECK (total_amount_paise >= 0),
+    total_amount_paise BIGINT NOT NULL CHECK (total_amount_paise >= 0),
     status       order_status NOT NULL DEFAULT 'PENDING',
     created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW()
@@ -160,7 +161,7 @@ CREATE TABLE order_items (
     id           BIGSERIAL    PRIMARY KEY,
     order_id     BIGINT       NOT NULL REFERENCES orders (id) ON DELETE CASCADE,
     product_id   BIGINT       NOT NULL REFERENCES products (id),
-    price_paise  INTEGER      NOT NULL CHECK (price_paise >= 0),
+    price_paise  BIGINT       NOT NULL CHECK (price_paise >= 0),
     CONSTRAINT uq_order_items_order_product UNIQUE (order_id, product_id)
 );
 CREATE INDEX idx_order_items_order_id ON order_items (order_id);
@@ -171,7 +172,7 @@ CREATE TABLE payments (
     idempotency_key      VARCHAR(255)   NOT NULL,
     provider_payment_id  VARCHAR(255),
     provider_name        VARCHAR(50)    NOT NULL DEFAULT 'MOCK',
-    amount_paise         INTEGER        NOT NULL CHECK (amount_paise >= 0),
+    amount_paise         BIGINT         NOT NULL CHECK (amount_paise >= 0),
     status               payment_status NOT NULL DEFAULT 'PENDING',
     created_at           TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
     updated_at           TIMESTAMPTZ    NOT NULL DEFAULT NOW(),

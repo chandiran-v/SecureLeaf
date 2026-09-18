@@ -31,7 +31,7 @@ public class Payment extends BaseEntity {
     private String providerName = "MOCK";
 
     @Column(name = "amount_paise", nullable = false)
-    private Integer amountPaise;
+    private Long amountPaise;
 
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)

@@ -44,7 +44,7 @@ public class Product extends BaseEntity {
     private String coverImageUrl;
 
     @Column(name = "price_paise", nullable = false)
-    private Integer pricePaise = 0;
+    private Long pricePaise = 0L;
 
     @Column(name = "free_preview_pages", nullable = false)
     private Integer freePreviewPages = 3;
@@ -62,6 +62,10 @@ public class Product extends BaseEntity {
 
     @Column(name = "review_count", nullable = false)
     private Integer reviewCount = 0;
+
+    @Version
+    @Column(nullable = false)
+    private Long version = 0L;
 
     @Column(name = "deleted_at")
     private Instant deletedAt;
