@@ -4,6 +4,8 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableAsync;
 
+import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
+
 /**
  * SecureLeaf — DRM-protected digital content marketplace.
  *
@@ -13,6 +15,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
  */
 @SpringBootApplication
 @EnableAsync
+@EnableJpaAuditing
 public class SecureLeafApplication {
 
     public static void main(String[] args) {
