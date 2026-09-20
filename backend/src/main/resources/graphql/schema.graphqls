@@ -14,6 +14,13 @@ enum UserRole {
     ADMIN
 }
 
+enum EntitlementStatus {
+    ACTIVE
+    REVOKED
+    EXPIRED
+}
+
+
 enum ProductStatus {
     DRAFT
     PROCESSING
@@ -43,7 +50,7 @@ type Product {
     id: ID!
     title: String!
     description: String!
-    price: BigDecimal!
+    pricePaise: Int!
     status: ProductStatus!
     creator: User!
     category: Category!
@@ -80,13 +87,13 @@ type Entitlement {
     id: ID!
     product: Product!
     purchasedAt: DateTime!
-    isActive: Boolean!
+    status: EntitlementStatus!
 }
 
 type Notification {
     id: ID!
     title: String!
-    body: String!
+    body: String
     isRead: Boolean!
     createdAt: DateTime!
 }
@@ -106,8 +113,8 @@ input LoginInput {
 
 input ProductFilterInput {
     categorySlug: String
-    minPrice: BigDecimal
-    maxPrice: BigDecimal
+    minPricePaise: Int
+    maxPricePaise: Int
     isFree: Boolean
     searchQuery: String
     sortBy: String   # newest | popular | rating | price_asc | price_desc
@@ -116,7 +123,7 @@ input ProductFilterInput {
 input CreateProductInput {
     title: String!
     description: String!
-    price: BigDecimal!
+    pricePaise: Int!
     categoryId: ID!
     tags: [String!]!
     freePreviewPages: Int!
@@ -131,6 +138,9 @@ input SubmitReviewInput {
 # ── Queries ───────────────────────────────────────────────────────────────────
 
 type Query {
+    # Auth
+    me: User
+
     # Marketplace
     products(filter: ProductFilterInput, page: Int = 0, size: Int = 20): ProductPage!
     product(id: ID!): Product
@@ -156,8 +166,9 @@ type Mutation {
     # Auth
     register(input: RegisterInput!): User!
     login(input: LoginInput!): AuthPayload!
+    googleLogin(idToken: String!): AuthPayload!
     refreshToken(token: String!): AuthPayload!
-    logout: Boolean!
+    logout(refreshToken: String!): Boolean!
 
     # Products (Creator)
     createProduct(input: CreateProductInput!): Product!

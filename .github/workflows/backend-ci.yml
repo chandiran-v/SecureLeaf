@@ -58,6 +58,7 @@ jobs:
           DB_PASSWORD: secureleaf
           REDIS_HOST: localhost
           REDIS_PORT: 6379
+          REDIS_PASSWORD: ""
           JWT_SECRET: ci-test-secret-key-256bit-placeholder
 
       - name: Upload test reports

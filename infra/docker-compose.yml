@@ -100,7 +100,7 @@ services:
   #   secureleaf-tiles — processed image tiles (private, served via signed URLs)
   # ---------------------------------------------------------------------------
   minio:
-    image: minio/minio:latest
+    image: quay.io/minio/minio:latest
     container_name: secureleaf-minio
     restart: unless-stopped
     networks:
@@ -131,7 +131,7 @@ services:
   # Exits with code 0 on success — Docker Compose does not restart it.
   # ---------------------------------------------------------------------------
   minio-init:
-    image: minio/mc:latest
+    image: quay.io/minio/mc:latest
     container_name: secureleaf-minio-init
     networks:
       - secureleaf-net

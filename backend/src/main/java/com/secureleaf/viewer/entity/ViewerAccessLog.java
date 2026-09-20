@@ -46,10 +46,10 @@ public class ViewerAccessLog {
     @Column(name = "page_number", nullable = false)
     private Integer pageNumber;
 
-    @Column(name = "ip_address", columnDefinition = "inet")
+    @Column(name = "ip_address")
     private String ipAddress;
 
-    @Column(name = "user_agent", columnDefinition = "TEXT")
+    @Column(name = "user_agent")
     private String userAgent;
 
     @Column(name = "correlation_id", length = 100)
