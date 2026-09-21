@@ -10,6 +10,8 @@ import com.secureleaf.common.exception.BusinessException;
 import com.secureleaf.common.exception.DuplicateResourceException;
 import com.secureleaf.common.exception.ErrorCode;
 import com.secureleaf.common.exception.ResourceNotFoundException;
+import com.secureleaf.creator.entity.CreatorProfile;
+import com.secureleaf.creator.repository.CreatorProfileRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -36,6 +38,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final UserRoleRepository userRoleRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final CreatorProfileRepository creatorProfileRepository;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
     private final GoogleOAuthService googleOAuthService;
@@ -204,9 +207,62 @@ public class AuthService {
         user.getRoles().add(buyerRole);
     }
 
+    /**
+     * Returns the user with roles eagerly loaded.
+     * Uses findWithRolesById (EntityGraph) so UserMapper.toDto can safely iterate
+     * user.getRoles() even with open-in-view=false.
+     * Fix for bug A1: was using findById (lazy roles → LazyInitializationException).
+     */
+    @Transactional(readOnly = true)
     public User getUserById(Long id) {
-        return userRepository.findById(id)
+        return userRepository.findWithRolesById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User", id));
+    }
+
+    // ── Become Creator (AUTH-06) ─────────────────────────────────────────────
+
+    /**
+     * Idempotently grants the CREATOR role to a user and upserts their creator profile.
+     *
+     * Idempotent means: calling this twice has the same effect as calling it once.
+     * We check whether the CREATOR UserRole row exists before inserting a new one,
+     * and we either create or update the CreatorProfile.
+     *
+     * Important: a role change does NOT invalidate the already-issued 15-minute
+     * access token. The client MUST call refreshToken immediately after this
+     * mutation to obtain a JWT that carries ROLE_CREATOR.
+     */
+    @Transactional
+    public User becomeCreator(Long userId, String bio, String payoutEmail, String payoutUpi) {
+        User user = userRepository.findWithRolesById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
+
+        // Idempotent: only add CREATOR role if the user doesn't already have it
+        boolean alreadyCreator = user.getRoles().stream()
+                .anyMatch(r -> r.getRole() == Role.CREATOR);
+        if (!alreadyCreator) {
+            UserRole creatorRole = new UserRole();
+            creatorRole.setUser(user);
+            creatorRole.setRole(Role.CREATOR);
+            user.getRoles().add(creatorRole);
+            log.info("CREATOR role granted to user id={}", userId);
+        }
+
+        // Upsert creator profile — create if absent, update fields if present
+        CreatorProfile profile = creatorProfileRepository.findById(userId)
+                .orElseGet(() -> {
+                    CreatorProfile newProfile = new CreatorProfile();
+                    // @MapsId: set the User reference, not the raw id
+                    newProfile.setUser(user);
+                    return newProfile;
+                });
+        if (bio != null) profile.setBio(bio);
+        if (payoutEmail != null) profile.setPayoutEmail(payoutEmail);
+        if (payoutUpi != null) profile.setPayoutUpi(payoutUpi);
+        creatorProfileRepository.save(profile);
+
+        log.info("Creator profile upserted for user id={}", userId);
+        return user;
     }
 
     private void revokeAllUserTokens(User user) {

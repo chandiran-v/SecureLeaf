@@ -49,8 +49,16 @@ export const REFRESH_TOKEN_MUTATION = gql`
   }
 `;
 
+/**
+ * Bug A2 fix: the logout mutation MUST pass the refreshToken argument
+ * so the server can revoke that specific token in the DB.
+ * The previous version sent `mutation Logout { logout }` with no argument —
+ * a GraphQL validation error swallowed by the catch block, meaning the
+ * server never invalidated the token and it stayed valid for 7 days.
+ */
 export const LOGOUT_MUTATION = gql`
-  mutation Logout {
-    logout
+  mutation Logout($refreshToken: String!) {
+    logout(refreshToken: $refreshToken)
   }
 `;
+

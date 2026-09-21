@@ -1,33 +1,31 @@
-# SecureLeaf - AI Assistant Rules
+# GEMINI.md — SecureLeaf
 
-This file provides context and rules for the AI assistant working on the SecureLeaf project.
+## Read these first, in this order
 
-## Project Context
-- **Name**: SecureLeaf
-- **Description**: A DRM-protected digital content marketplace where creators upload PDFs and buyers view them in a secure, non-downloadable canvas viewer.
+1. **[`AI_RULES.md`](AI_RULES.md)** — mandatory working rules for every AI assistant on this repo
+2. **[`CLAUDE.md`](CLAUDE.md)** — project context and coding conventions (they apply to you too, despite the filename)
+3. **[`docs/requirements.md`](docs/requirements.md)** — numbered functional requirements and MVP scope
 
-## Tech Stack
-- **Frontend**: React 18, TypeScript, Apollo Client, Vite
-- **Backend**: Java 21, Spring Boot 3, Spring Security 6
-- **Database**: PostgreSQL 16 (via Flyway migrations)
-- **Infrastructure**: Local Docker Compose (Postgres, Redis, MinIO)
-- **Production**: Render (Backend), Supabase (DB + Storage), Vercel (Frontend), Upstash (Redis)
+---
 
-## Coding Conventions
-### Backend (Java / Spring Boot)
-- **Java 21**: Use modern Java features like Records, Pattern Matching, and virtual threads where appropriate.
-- **Database**: Always use Flyway for schema migrations. Never let Hibernate auto-generate the DDL (`spring.jpa.hibernate.ddl-auto=validate`).
-- **REST / GraphQL**: The project uses both Spring for GraphQL and standard REST. Prefer GraphQL for data fetching and REST for file uploads/downloads.
-- **Null Safety**: Avoid returning `null`. Use `Optional` or throw specific business exceptions.
-- **Types**: Always use `paise` (smallest currency unit, integers) for monetary values. Use `TIMESTAMPTZ` in Postgres and `OffsetDateTime` or `Instant` in Java for dates.
+## ⚠️ The rule most easily missed
 
-### Frontend (React / TypeScript)
-- **Styling**: Tailwind CSS v3. Use utility classes for rapid development of modern UI patterns (glassmorphism, vibrant gradients, micro-animations). Ensure the design feels premium and state-of-the-art.
-- **Components**: Functional components only. Use custom hooks for complex logic.
-- **State**: Use Apollo Client for remote GraphQL state and Zustand for local/client state.
-- **Strict Typing**: Avoid `any`. Define proper TypeScript interfaces/types for all domain models matching the backend.
+The owner is using this project to learn engineering and to prepare for technical interviews. **Every feature, phase, or non-trivial change must ship with a learning note in `docs/learning-notes/`** — written for a beginner, explaining what was built, why, the best practices applied, the alternatives rejected, and interview Q&A at beginner/intermediate/advanced levels.
 
-### Database (PostgreSQL)
-- **Naming**: Use `snake_case` for all tables and columns.
-- **Primary Keys**: Use `BIGSERIAL` (mapped to Java `Long`).
-- **Soft Deletes**: Use `deleted_at` (TIMESTAMPTZ) for entities like products and users to preserve audit trails and buyer entitlements.
+This is **part of the task, not an optional extra**. Do not wait to be asked. Code that works with no note is a **half-finished** phase.
+
+Start from `docs/learning-notes/TEMPLATE.md`. `AI_RULES.md` has the full standard and the definition of done.
+
+---
+
+## Project in one paragraph
+
+SecureLeaf is a DRM-protected digital content marketplace. Creators upload PDFs; buyers purchase and view them inside a secure browser-based Canvas viewer, never as a downloadable file. Pages are converted server-side to image tiles, watermarked per-request with the buyer's identity, and served via 30-second signed URLs. Stack: Java 21 / Spring Boot 3 / GraphQL / PostgreSQL / Redis / MinIO, and React 18 + TypeScript + Apollo + Tailwind.
+
+## Hard constraints
+
+- **Flyway owns the schema.** `ddl-auto` is `validate`. Never edit an applied migration — add a new one. A validation failure means fix the *entity*, not the migration.
+- **Money is `paise`** — integers only, never floats.
+- **GraphQL for data, REST only for file upload/download.**
+- **Never return `null`** from a service — use `Optional` or a specific business exception.
+- **Clean, unwatermarked tiles must never reach a browser**, and MinIO buckets must never be made public.

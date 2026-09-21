@@ -99,7 +99,10 @@ export function useAuth() {
 
   const logout = useCallback(async () => {
     try {
-      await logoutMutation();
+      const { refreshToken } = useAuthStore.getState();
+      if (refreshToken) {
+        await logoutMutation({ variables: { refreshToken } });
+      }
     } catch {
       // Even if the server call fails, clear local state
     }

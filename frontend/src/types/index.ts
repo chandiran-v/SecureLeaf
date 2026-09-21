@@ -23,7 +23,7 @@ export interface AuthPayload {
 
 // ── Products ──────────────────────────────────────────────────────────────────
 
-export type ProductStatus = 'PROCESSING' | 'LIVE' | 'UNPUBLISHED' | 'FAILED';
+export type ProductStatus = 'DRAFT' | 'PROCESSING' | 'LIVE' | 'UNPUBLISHED' | 'FAILED';
 
 export interface Category {
   id: UUID;
@@ -35,7 +35,7 @@ export interface Product {
   id: UUID;
   title: string;
   description: string;
-  price: number;
+  pricePaise: number;  // always in paise (₹1 = 100 paise) — never floats for money
   status: ProductStatus;
   creator: User;
   category: Category;

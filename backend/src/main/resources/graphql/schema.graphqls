@@ -111,6 +111,12 @@ input LoginInput {
     password: String!
 }
 
+input BecomeCreatorInput {
+    bio: String
+    payoutEmail: String
+    payoutUpi: String
+}
+
 input ProductFilterInput {
     categorySlug: String
     minPricePaise: Int
@@ -169,6 +175,7 @@ type Mutation {
     googleLogin(idToken: String!): AuthPayload!
     refreshToken(token: String!): AuthPayload!
     logout(refreshToken: String!): Boolean!
+    becomeCreator(input: BecomeCreatorInput!): User!
 
     # Products (Creator)
     createProduct(input: CreateProductInput!): Product!

@@ -1,6 +1,7 @@
 package com.secureleaf.auth.resolver;
 
 import com.secureleaf.auth.dto.AuthPayload;
+import com.secureleaf.auth.dto.BecomeCreatorInput;
 import com.secureleaf.auth.dto.LoginInput;
 import com.secureleaf.auth.dto.RegisterInput;
 import com.secureleaf.auth.dto.UserDto;
@@ -57,6 +58,20 @@ public class AuthResolver {
     public boolean logout(@Argument String refreshToken) {
         authService.logout(refreshToken);
         return true;
+    }
+
+    @MutationMapping
+    @PreAuthorize("isAuthenticated()")
+    public UserDto becomeCreator(@Argument BecomeCreatorInput input) {
+        SecureLeafUserDetails userDetails = getCurrentUser();
+        return UserMapper.toDto(
+                authService.becomeCreator(
+                        userDetails.getUserId(),
+                        input.bio(),
+                        input.payoutEmail(),
+                        input.payoutUpi()
+                )
+        );
     }
 
     // ── Queries ─────────────────────────────────────────────────────────────────
