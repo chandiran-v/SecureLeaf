@@ -31,19 +31,27 @@ export interface Category {
   slug: string;
 }
 
+// Public-safe projection of a product's creator — never carries email.
+// Matches the backend's CreatorSummary GraphQL type (see D4, phase-3 design doc).
+export interface CreatorSummary {
+  id: UUID;
+  displayName: string;
+}
+
 export interface Product {
   id: UUID;
   title: string;
   description: string;
   pricePaise: number;  // always in paise (₹1 = 100 paise) — never floats for money
   status: ProductStatus;
-  creator: User;
+  creator: CreatorSummary;
   category: Category;
   tags: string[];
   thumbnailUrl?: string;
   averageRating?: number;
   totalSales: number;
   freePreviewPages: number;
+  pageCount?: number;
   createdAt: string;
 }
 
@@ -95,13 +103,15 @@ export interface Notification {
 
 // ── Filters & Pagination ──────────────────────────────────────────────────────
 
+export type ProductSortBy = 'newest' | 'popular' | 'rating' | 'price_asc' | 'price_desc';
+
 export interface ProductFilterInput {
   categorySlug?: string;
-  minPrice?: number;
-  maxPrice?: number;
+  minPricePaise?: number;
+  maxPricePaise?: number;
   isFree?: boolean;
   searchQuery?: string;
-  sortBy?: 'newest' | 'popular' | 'rating' | 'price_asc' | 'price_desc';
+  sortBy?: ProductSortBy;
 }
 
 export interface PaginationParams {

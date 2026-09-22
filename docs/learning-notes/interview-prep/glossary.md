@@ -25,3 +25,12 @@
 | **Work factor** | BCrypt's tunable slowness dial | [Phase 1](../phase-01-auth.md) |
 | **Magic Bytes** | The first few bytes of a file that uniquely identify its true format | [Phase 2](../phase-02-upload-pipeline.md) |
 | **SKIP LOCKED** | Database-level concurrency control for high-throughput job queues | [Phase 2](../phase-02-upload-pipeline.md) |
+| **GIN index** | A PostgreSQL index good at composite/array-like values — used for full-text search | [Phase 3](../phase-03-marketplace.md) |
+| **tsvector / tsquery** | PostgreSQL's normalized, searchable document/query representations for full-text search | [Phase 3](../phase-03-marketplace.md) |
+| **ts_rank** | Scores how well a `tsvector` matches a `tsquery`, for relevance-ordered search results | [Phase 3](../phase-03-marketplace.md) |
+| **HHH000104** | Hibernate's warning for pagination + collection-fetch join in one query — falls back to in-memory paging | [Phase 3](../phase-03-marketplace.md) |
+| **Entity graph** | Spring Data JPA's declarative way to eagerly join lazy associations in one query (`@EntityGraph`) | [Phase 3](../phase-03-marketplace.md) |
+| **Offset vs. keyset pagination** | `LIMIT`/`OFFSET` ("page N") vs. `WHERE cursor < :last` — simple-but-slower vs. fast-but-no-jump-to-page-N | [Phase 3](../phase-03-marketplace.md) |
+| **Presigned URL** | A time-limited, signed URL granting temporary access to one storage object without separate auth | [Phase 3](../phase-03-marketplace.md) |
+| **Strategy pattern** | An interface with interchangeable implementations, chosen at runtime — the caller only depends on the interface | [Phase 3](../phase-03-marketplace.md) |
+| **Field resolver (GraphQL)** | A method bound to one field, run only when a client's query selects that field | [Phase 3](../phase-03-marketplace.md) |

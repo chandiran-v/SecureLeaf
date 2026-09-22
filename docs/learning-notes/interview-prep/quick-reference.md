@@ -46,6 +46,23 @@
 
 ---
 
+## Phase 3 — Marketplace · [full note](../phase-03-marketplace.md)
+
+| Concept | The one-line answer |
+|---|---|
+| FTS predicate (verbatim) | `to_tsvector('english', title \|\| ' ' \|\| description) @@ plainto_tsquery('english', :q)` — must match the GIN expression index exactly or it silently seq-scans |
+| Why native SQL, not Criteria/QueryDSL | Criteria may rewrite the FTS expression and drop the index silently; native SQL is honest here |
+| The 3-query paging recipe | 1) `SELECT id ... LIMIT/OFFSET` (no join) 2) `COUNT(*)` same WHERE 3) `@EntityGraph findAllByIdIn(ids)` (no LIMIT) — then re-order in Java to step 1's order |
+| `HHH000104` | Pagination + collection-fetch join in one query → Hibernate silently loads everything into memory to paginate there |
+| `@SchemaMapping` snippet | `@SchemaMapping(typeName = "Product", field = "thumbnailUrl")` — computed only if the client selects the field |
+| Presigned thumbnails, never presigned tiles | Thumbnails are public marketing assets (1h TTL); tiles are protected content — always streamed watermarked, never signed |
+| 404 not 403 | Hidden/out-of-range resources return "not found," never "forbidden" — a 403 would confirm the resource exists |
+| Sort whitelist | `sortBy` matched against a fixed `switch`, never interpolated into SQL — closes the injection door even in hand-built SQL |
+
+**Weakest point to volunteer:** the free-preview endpoint is public and does real CPU work (watermark render) per request with only a page-range check as protection — no rate limiting yet (deferred to MVP-2), and the optional read-through cache wasn't built in this pass.
+
+---
+
 ## Cross-cutting themes to weave into any answer
 
 1. **Threat-model each decision.** Every security choice here has a "what attack does this stop" answer. Say it.

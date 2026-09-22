@@ -14,7 +14,7 @@ import { useAuthStore } from '../../store/authStore';
  */
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { logout } = useAuth();
-  const { user } = useAuthStore();
+  const { user, isAuthenticated } = useAuthStore();
   const navigate = useNavigate();
 
   const isCreator = user?.roles.includes('CREATOR') ?? false;
@@ -49,39 +49,53 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             >
               Marketplace
             </Link>
-            {isCreator ? (
-              <Link
-                to="/creator"
-                className="px-3 py-2 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-100 hover:text-gray-900 transition-colors"
-              >
-                Creator Dashboard
-              </Link>
-            ) : (
-              <Link
-                to="/become-creator"
-                className="px-3 py-2 text-sm font-medium text-emerald-600 rounded-lg hover:bg-emerald-50 transition-colors"
-              >
-                Become a Creator
-              </Link>
+            {isAuthenticated && (
+              isCreator ? (
+                <Link
+                  to="/creator"
+                  className="px-3 py-2 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-100 hover:text-gray-900 transition-colors"
+                >
+                  Creator Dashboard
+                </Link>
+              ) : (
+                <Link
+                  to="/become-creator"
+                  className="px-3 py-2 text-sm font-medium text-emerald-600 rounded-lg hover:bg-emerald-50 transition-colors"
+                >
+                  Become a Creator
+                </Link>
+              )
             )}
           </nav>
 
           {/* User menu */}
           <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-500 hidden sm:block">
-              {user?.displayName}
-            </span>
-            <button
-              id="logout-button"
-              onClick={handleLogout}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-100 hover:text-gray-900 transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-              <span className="hidden sm:inline">Log out</span>
-            </button>
+            {isAuthenticated ? (
+              <>
+                <span className="text-sm text-gray-500 hidden sm:block">
+                  {user?.displayName}
+                </span>
+                <button
+                  id="logout-button"
+                  onClick={handleLogout}
+                  className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-100 hover:text-gray-900 transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                  <span className="hidden sm:inline">Log out</span>
+                </button>
+              </>
+            ) : (
+              <Link
+                to="/login"
+                id="login-link"
+                className="px-3 py-2 text-sm font-medium text-emerald-600 rounded-lg hover:bg-emerald-50 transition-colors"
+              >
+                Log in
+              </Link>
+            )}
           </div>
         </div>
       </header>

@@ -52,14 +52,21 @@ type Product {
     description: String!
     pricePaise: Int!
     status: ProductStatus!
-    creator: User!
+    creator: CreatorSummary!
     category: Category!
     tags: [String!]!
     thumbnailUrl: String
     averageRating: Float
     totalSales: Int!
     freePreviewPages: Int!
+    pageCount: Int
     createdAt: DateTime!
+}
+
+# Public-safe projection of a product's creator — never exposes email.
+type CreatorSummary {
+    id: ID!
+    displayName: String!
 }
 
 type Category {
@@ -150,6 +157,7 @@ type Query {
     # Marketplace
     products(filter: ProductFilterInput, page: Int = 0, size: Int = 20): ProductPage!
     product(id: ID!): Product
+    categories: [Category!]!
 
     # Buyer
     myLibrary: [Entitlement!]!

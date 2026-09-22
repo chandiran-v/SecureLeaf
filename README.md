@@ -129,6 +129,18 @@ All design documents live in [`docs/`](docs/):
 
 ---
 
+## Marketplace & Free Preview (Phase 3)
+
+Public, unauthenticated browsing at `/marketplace`: full-text search (PostgreSQL `tsvector`/GIN),
+filter by category/price/free, sort, and paginate through every `LIVE` product. Each product's
+detail page (`/product/:id`) shows a watermarked free preview of its first `freePreviewPages` pages
+— rendered onto an HTML5 canvas, not an `<img>` — streamed through a backend endpoint that
+watermarks on the way out so a clean page tile never reaches the browser. See
+[`docs/learning-notes/phase-03-marketplace.md`](docs/learning-notes/phase-03-marketplace.md) for the
+full design write-up.
+
+---
+
 ## Key Architecture: DRM Secure Viewer
 
 The star feature — content is **never** sent as a downloadable file:

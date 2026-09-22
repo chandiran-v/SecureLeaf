@@ -1,7 +1,5 @@
 package com.secureleaf.marketplace.dto;
 
-import com.secureleaf.auth.dto.UserDto;
-
 import java.time.OffsetDateTime;
 import java.util.List;
 
@@ -15,6 +13,15 @@ import java.util.List;
  * 3. DTOs decouple the API surface from the database model — adding a column to the
  *    products table doesn't automatically leak into the API response.
  *
+ * {@code creator} is a {@link CreatorSummaryDto}, not the full {@code UserDto} — the
+ * marketplace is public, so the creator's email must never reach this DTO in the
+ * first place (see D4 in the phase-3 design doc).
+ *
+ * {@code thumbnailKey} holds the raw MinIO object key, not a URL. Turning it into a
+ * presigned, browsable URL is done by {@link com.secureleaf.marketplace.resolver.ProductFieldResolver}
+ * only when a client actually selects {@code Product.thumbnailUrl} (D3) — that keeps
+ * this mapper a dependency-free static utility.
+ *
  * All mapping from entity → DTO happens inside @Transactional service methods
  * so the session is still open when lazy associations are accessed.
  */
@@ -24,12 +31,13 @@ public record ProductDto(
         String description,
         Long pricePaise,
         String status,
-        UserDto creator,
+        CreatorSummaryDto creator,
         CategoryDto category,
         List<String> tags,
-        String thumbnailUrl,
+        String thumbnailKey,
         Double averageRating,
         Integer totalSales,
         Integer freePreviewPages,
+        Integer pageCount,
         OffsetDateTime createdAt
 ) {}

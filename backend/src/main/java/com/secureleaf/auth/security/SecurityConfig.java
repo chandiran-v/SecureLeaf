@@ -51,6 +51,9 @@ public class SecurityConfig {
                         .requestMatchers("/graphql", "/graphiql/**").permitAll()
                         // REST auth endpoints (reserved for file upload etc.)
                         .requestMatchers("/api/auth/**").permitAll()
+                        // Free-preview page images — public, no buyer identity required.
+                        // Access control (LIVE status + page-range) lives in PreviewService.
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/products/*/preview/*").permitAll()
                         // Actuator health & info
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                         // Everything else requires authentication
