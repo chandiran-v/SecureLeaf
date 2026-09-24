@@ -18,7 +18,7 @@ The robot never merges. It also never starts new work while old work is still op
 3. If I opened a **`fix` Issue** (a problem found later), it fixes that before any new phase.
 4. Only then does it start the **next phase**.
 
-It wakes up every night, and also immediately when something relevant happens: I merge, I review, CI finishes, I open an Issue, or I unblock something.
+It wakes up twice a day (03:00 and 14:00 IST), and also immediately when something relevant happens: I merge, I review, CI finishes, I open an Issue, or I unblock something.
 
 **Before:** every phase needed me at the keyboard to start and steer a session.
 **After:** I write specs and review PRs. The sequencing, retries and bookkeeping are automatic, and the "finish before moving on" rule is enforced by the robot.
@@ -42,7 +42,7 @@ It wakes up every night, and also immediately when something relevant happens: I
 
 **The analogy:** An alarm clock that rings whether or not anyone is home.
 
-**How it works:** `30 20 * * *` means 20:30 UTC every day, which is 02:00 IST. **GitHub only runs schedules from the default branch's copy of the file.** That's why the default branch was switched to `feature/secure-leaf-mvp1`. It also means "Closes #N" in a PR now closes the Issue on merge, because closing keywords also only work for the default branch.
+**How it works:** we run twice a day. `30 21 * * *` means 21:30 UTC, which is 03:00 IST the *next* calendar day, because IST is UTC+5:30 and the conversion crosses midnight. `30 8 * * *` means 08:30 UTC, which is 14:00 IST. **GitHub only runs schedules from the default branch's copy of the file.** That's why the default branch was switched to `feature/secure-leaf-mvp1`. It also means "Closes #N" in a PR now closes the Issue on merge, because closing keywords also only work for the default branch.
 
 **In our code:** `.github/workflows/phase-scheduler.yml:20-21`
 
@@ -72,7 +72,7 @@ It wakes up every night, and also immediately when something relevant happens: I
 
 ### 3.4 Event-driven with a cron safety net
 
-**What it is:** `phase-kick.yml` listens for PR merged, PR reviewed, `/revise` comments, Issue opened or unblocked, and CI / Claude review finished. It then *asks* the scheduler to run (`gh workflow run`). The nightly cron catches anything the kicks missed.
+**What it is:** `phase-kick.yml` listens for PR merged, PR reviewed, `/revise` comments, Issue opened or unblocked, and CI / Claude review finished. It then *asks* the scheduler to run (`gh workflow run`). The twice-daily cron (03:00 and 14:00 IST) catches anything the kicks missed.
 
 **The gotcha:** Events caused by `GITHUB_TOKEN` don't trigger other workflows; this is GitHub's loop protection. **`workflow_dispatch` is one of the few exceptions**, which is why the kick dispatches instead of, say, posting a comment.
 
@@ -177,7 +177,7 @@ It wakes up every night, and also immediately when something relevant happens: I
 
 ### Beginner
 **Q: What's a cron expression, and what timezone does GitHub use?**
-A: Five fields: minute, hour, day of month, month, day of week. `30 20 * * *` is 20:30 every day. GitHub Actions runs it in UTC, so 02:00 IST becomes 20:30 UTC.
+A: Five fields: minute, hour, day of month, month, day of week. `30 8 * * *` is 08:30 every day. GitHub Actions runs it in UTC, so 14:00 IST becomes 08:30 UTC. Watch out for the date too: 03:00 IST is 21:30 UTC on the *previous* day.
 
 **Q: Why not let the bot merge its own PRs when CI is green?**
 A: Green CI proves it didn't break the tests; it doesn't prove the design is right. Each phase builds on the last, so a bad merge spreads. The merge is the human quality gate.

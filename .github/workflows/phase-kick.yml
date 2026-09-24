@@ -1,6 +1,6 @@
 name: Phase Scheduler Kick
 
-# Makes the scheduler react right away instead of waiting for the nightly cron. It starts
+# Makes the scheduler react right away instead of waiting for the next scheduled run. It starts
 # Phase Scheduler when something happens that could change what the scheduler should do next:
 #   - a scheduler PR (branch auto/*) is merged           -> start the next item
 #   - you review a scheduler PR, or comment "/revise"    -> run a revision pass

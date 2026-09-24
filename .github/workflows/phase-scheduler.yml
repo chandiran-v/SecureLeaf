@@ -12,13 +12,14 @@ name: Phase Scheduler
 # Nothing is ever merged automatically. A phase is only "done" when YOU merge its PR. Open
 # `fix` Issues and unaddressed PR feedback always come before the next phase.
 #
-# Triggers: nightly cron (safety net), "Run workflow" by hand, and phase-kick.yml, which
+# Triggers: cron twice a day (safety net), "Run workflow" by hand, and phase-kick.yml, which
 # dispatches this workflow when a PR is merged/reviewed, CI finishes, or an Issue changes.
 # Scheduled and dispatched runs use the DEFAULT branch's copy of this file.
 
 on:
   schedule:
-    - cron: "30 20 * * *" # 02:00 IST
+    - cron: "30 21 * * *" # 03:00 IST (GitHub cron is always UTC; IST = UTC+5:30)
+    - cron: "30 8 * * *"  # 14:00 IST
   workflow_dispatch:
     inputs:
       issue_number:
