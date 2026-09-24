@@ -10,6 +10,8 @@ import CreatorDashboardPage from './pages/creator/CreatorDashboardPage';
 import UploadProductPage from './pages/creator/UploadProductPage';
 import MarketplacePage from './pages/marketplace/MarketplacePage';
 import ProductDetailPage from './pages/marketplace/ProductDetailPage';
+import CheckoutPage from './pages/buyer/CheckoutPage';
+import LibraryPage from './pages/buyer/LibraryPage';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 
@@ -49,6 +51,24 @@ function App() {
             element={
               <ProtectedRoute requiredRole="CREATOR">
                 <UploadProductPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Buyer routes (Phase 4) */}
+          <Route
+            path="/checkout/:orderId"
+            element={
+              <ProtectedRoute>
+                <CheckoutPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/library"
+            element={
+              <ProtectedRoute>
+                <LibraryPage />
               </ProtectedRoute>
             }
           />

@@ -2,6 +2,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@apollo/client';
 import AppLayout from '../../components/layout/AppLayout';
 import PreviewPane from '../../components/marketplace/PreviewPane';
+import BuyPanel from '../../components/marketplace/BuyPanel';
 import { PRODUCT_DETAIL } from '../../graphql/queries/marketplace.queries';
 import { formatPrice } from '../../lib/formatPrice';
 import type { Product } from '../../types';
@@ -73,13 +74,7 @@ export default function ProductDetailPage() {
               </div>
             )}
 
-            <button
-              disabled
-              title="Coming in Phase 4"
-              className="w-full py-3 rounded-lg bg-gray-200 text-gray-400 font-semibold text-sm cursor-not-allowed"
-            >
-              Buy — Coming in Phase 4
-            </button>
+            <BuyPanel product={product} />
           </div>
         </div>
       </div>

@@ -20,6 +20,7 @@ export const PRODUCT_DETAIL = gql`
   query ProductDetail($id: ID!) {
     product(id: $id) {
       ...ProductFields
+      ownedByMe
     }
   }
 `;

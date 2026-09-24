@@ -5,6 +5,9 @@
 # ── Scalars ──────────────────────────────────────────────────────────────────
 scalar DateTime
 scalar BigDecimal
+# 64-bit integer. GraphQL's built-in Int is signed 32-bit (max 2,147,483,647 paise = ₹2.14 crore),
+# too small for aggregated money like a creator's lifetime earnings.
+scalar Long
 
 # ── Enums ─────────────────────────────────────────────────────────────────────
 
@@ -61,6 +64,9 @@ type Product {
     freePreviewPages: Int!
     pageCount: Int
     createdAt: DateTime!
+    # True when the current user holds an ACTIVE entitlement. Always false for anonymous visitors.
+    # Resolved in one batched query per request (@BatchMapping), never once per product.
+    ownedByMe: Boolean!
 }
 
 # Public-safe projection of a product's creator — never exposes email.
@@ -97,8 +103,28 @@ type Entitlement {
     status: EntitlementStatus!
 }
 
+# MVP orders contain exactly one product.
+type Order {
+    id: ID!
+    status: OrderStatus!
+    totalAmountPaise: Int!
+    product: Product!
+    gatewayOrderId: String   # Razorpay "order_XXXX"; null for free products
+    failureReason: String    # latest declined attempt, if any
+    createdAt: DateTime!
+}
+
+# PAY-10. Snapshotted at purchase time, so a future commission change never rewrites history.
+type CreatorEarnings {
+    salesCount: Long!
+    grossSalesPaise: Long!
+    platformFeePaise: Long!
+    netEarningsPaise: Long!
+}
+
 type Notification {
     id: ID!
+    type: String!
     title: String!
     body: String
     isRead: Boolean!
@@ -142,6 +168,14 @@ input CreateProductInput {
     freePreviewPages: Int!
 }
 
+# Exactly the three values Razorpay's checkout.js passes to its success handler, plus our order id.
+input VerifyPaymentInput {
+    orderId: ID!
+    gatewayOrderId: String!      # razorpay_order_id
+    gatewayPaymentId: String!    # razorpay_payment_id
+    gatewaySignature: String!    # razorpay_signature = HMAC_SHA256(order_id|payment_id, key_secret)
+}
+
 input SubmitReviewInput {
     productId: ID!
     rating: Int!
@@ -160,11 +194,13 @@ type Query {
     categories: [Category!]!
 
     # Buyer
+    order(id: ID!): Order
     myLibrary: [Entitlement!]!
     myNotifications: [Notification!]!
 
     # Creator
     myProducts: [Product!]!
+    creatorEarnings: CreatorEarnings!
 
     # Reviews
     productReviews(productId: ID!, page: Int = 0, size: Int = 10): [Review!]!
@@ -190,9 +226,10 @@ type Mutation {
     unpublishProduct(id: ID!): Product!
     deleteProduct(id: ID!): Boolean!
 
-    # Commerce
-    initiateOrder(productId: ID!): InitiateOrderPayload!
-    confirmMockPayment(orderId: ID!): Entitlement!
+    # Commerce — idempotencyKey: a client-generated UUID per purchase attempt (Stripe pattern);
+    # repeating the call with the same key returns the same order instead of creating another.
+    initiateOrder(productId: ID!, idempotencyKey: String!): InitiateOrderPayload!
+    verifyPayment(input: VerifyPaymentInput!): Order!
 
     # Reviews
     submitReview(input: SubmitReviewInput!): Review!
@@ -214,7 +251,11 @@ type AuthPayload {
     user: User!
 }
 
+# Everything the browser needs to open the gateway's checkout. For free products the order is
+# already COMPLETED and gatewayOrderId/gatewayKeyId are null.
 type InitiateOrderPayload {
-    orderId: ID!
-    clientSecret: String   # For real payment gateway (Stripe/Razorpay); null for mock
+    order: Order!
+    gatewayOrderId: String
+    gatewayKeyId: String     # public key id (Razorpay "key"); never a secret
+    currency: String!
 }

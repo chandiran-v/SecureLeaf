@@ -63,10 +63,35 @@
 
 ---
 
+## Phase 4 — Commerce · [full note](../phase-04-commerce.md)
+
+| Concept | The one-line answer |
+|---|---|
+| Order vs payment vs entitlement | Intent / money movement / access grant — separate so a failed payment never touches access and a free product needs no payment |
+| Double-click → one order | 3 layers: client idempotency key (UUID per page visit) → reuse open PENDING order → `FOR UPDATE` on the buyer row makes check-then-act atomic |
+| Browser + webhook race | Both lock the order row; the second sees COMPLETED and no-ops. One `applyCapture` path |
+| Lock *first*, then read | Loading then locking returns Hibernate's cached, stale object — check state only on the locked row |
+| Webhook = source of truth | The browser can close/time out; the webhook is server-to-server and retried until 2xx |
+| At-least-once → effectively-once | Dedup by `provider_event_id` (UNIQUE) + idempotent transitions; return 2xx on duplicates |
+| HMAC, not SHA-256 | A plain hash proves integrity; only a keyed hash proves origin. Sign the **raw bytes**; compare with `MessageDigest.isEqual` |
+| State machine | `canTransitionTo` on the enum; status has no setter, only `transitionTo`; decline ≠ failed order |
+| Append-only audit | Every transition writes `payment_events`; a DB trigger rejects UPDATE/DELETE |
+| `total_sales + 1` in SQL | Avoids lost updates *and* `@Version` conflicts that would roll back a paid purchase |
+| Money | Paise integers; fee in basis points, round half-up; earnings = price − fee; snapshot the split per order item |
+| DB backstop | `UNIQUE (buyer_id, product_id) WHERE status='ACTIVE'` — holds even if Java is wrong |
+| AFTER_COMMIT + @Async | Never email about a purchase that rolled back; slow SMTP never blocks checkout |
+| Timeout ≠ failure | Money may be taken — tell the buyer not to pay again, poll, let the webhook decide |
+| Mock can't reach prod | Prod provider = `razorpay`; no implementation → app refuses to start (fail fast) |
+
+**Weakest point to volunteer:** no reconciliation job — a webhook lost beyond the provider's retry window leaves a paid order PENDING. Fix: a scheduled sweep that asks the gateway about stale PENDING orders and feeds captures through the same idempotent path. Also: emails can be lost on a crash between commit and send (fix: Transactional Outbox).
+
+---
+
 ## Cross-cutting themes to weave into any answer
 
 1. **Threat-model each decision.** Every security choice here has a "what attack does this stop" answer. Say it.
 2. **Name what you gave up.** Every choice has a cost; stating it is what separates a senior answer from a memorized one.
 3. **Defense in depth.** Validate in the DTO, enforce in the service, constrain in the database.
-4. **Design for concurrency.** The pessimistic lock, `SKIP LOCKED` and the grace window all exist because two things happen at once in production.
+4. **Design for concurrency.** The pessimistic lock, `SKIP LOCKED`, the grace window and Phase 4's order-row lock all exist because two things happen at once in production.
 5. **Fail closed.** Errors deny access; they never grant it.
+6. **Every message arrives twice, eventually.** Double-clicks, retries, webhook redelivery — make the second one harmless (idempotency) instead of hoping it won't come.

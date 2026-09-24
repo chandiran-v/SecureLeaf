@@ -54,6 +54,12 @@ public class SecurityConfig {
                         // Free-preview page images — public, no buyer identity required.
                         // Access control (LIVE status + page-range) lives in PreviewService.
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/products/*/preview/*").permitAll()
+                        // Payment webhooks — the caller is Razorpay's server, which has no JWT.
+                        // Authenticity is the HMAC signature, checked in RazorpayWebhookController.
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/webhooks/**").permitAll()
+                        // Mock gateway ("Razorpay's servers" stand-in). The controller only exists
+                        // when payment.gateway.provider=mock; CommerceConfig blocks that in prod.
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/mock-gateway/**").permitAll()
                         // Actuator health & info
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                         // Everything else requires authentication

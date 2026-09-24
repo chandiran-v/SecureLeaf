@@ -30,4 +30,14 @@ public class OrderItem {
     @Column(name = "price_paise", nullable = false)
     private Long pricePaise;
 
+    /**
+     * Commission split, snapshotted at purchase time (D7). A DB CHECK guarantees
+     * platformFeePaise + creatorEarningsPaise == pricePaise.
+     */
+    @Column(name = "platform_fee_paise", nullable = false)
+    private Long platformFeePaise = 0L;
+
+    @Column(name = "creator_earnings_paise", nullable = false)
+    private Long creatorEarningsPaise = 0L;
+
 }

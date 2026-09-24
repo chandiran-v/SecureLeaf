@@ -34,3 +34,25 @@
 | **Presigned URL** | A time-limited, signed URL granting temporary access to one storage object without separate auth | [Phase 3](../phase-03-marketplace.md) |
 | **Strategy pattern** | An interface with interchangeable implementations, chosen at runtime — the caller only depends on the interface | [Phase 3](../phase-03-marketplace.md) |
 | **Field resolver (GraphQL)** | A method bound to one field, run only when a client's query selects that field | [Phase 3](../phase-03-marketplace.md) |
+| **Idempotency key** | Client-generated unique ID sent with a request so the server can recognise a retry and return the original result | [Phase 4](../phase-04-commerce.md) |
+| **Check-then-act race** | Two concurrent requests both check a condition before either acts on it — both "win" | [Phase 4](../phase-04-commerce.md) |
+| **Optimistic lock** | `@Version` column: everyone proceeds; the second writer fails at commit and must retry | [Phase 4](../phase-04-commerce.md) |
+| **Lost update** | Two read-modify-writes where the second silently overwrites the first | [Phase 4](../phase-04-commerce.md) |
+| **State machine** | A fixed set of states plus the allowed transitions between them; anything else is rejected | [Phase 4](../phase-04-commerce.md) |
+| **Append-only log** | A table that only ever receives INSERTs — a tamper-evident history | [Phase 4](../phase-04-commerce.md) |
+| **Webhook** | An HTTP request a provider sends to *your* server when something happens | [Phase 4](../phase-04-commerce.md) |
+| **At-least-once delivery** | Messages are retried until acknowledged, so duplicates are guaranteed to happen eventually | [Phase 4](../phase-04-commerce.md) |
+| **Effectively-once** | At-least-once delivery + idempotent processing — the practical substitute for exactly-once | [Phase 4](../phase-04-commerce.md) |
+| **HMAC** | Hash computed with a secret key — proves a message is unaltered *and* who sent it | [Phase 4](../phase-04-commerce.md) |
+| **Timing attack** | Inferring a secret from how long a comparison takes; stopped by constant-time comparison | [Phase 4](../phase-04-commerce.md) |
+| **Basis point (bps)** | 0.01% — rates as integers (10% = 1000 bps) so money maths never uses floating point | [Phase 4](../phase-04-commerce.md) |
+| **Partial unique index** | A UNIQUE index over only the rows matching a WHERE clause (e.g. only ACTIVE entitlements) | [Phase 4](../phase-04-commerce.md) |
+| **Transactional Outbox** | Write outgoing messages in the business transaction; a poller sends them — no lost messages on crash | [Phase 4](../phase-04-commerce.md) |
+| **AFTER_COMMIT listener** | `@TransactionalEventListener` that runs only if the transaction commits — for irreversible side effects | [Phase 4](../phase-04-commerce.md) |
+| **Propagation MANDATORY** | A `@Transactional` method that must join an existing transaction, or throw | [Phase 4](../phase-04-commerce.md) |
+| **Self-invocation trap** | Calling a `@Transactional` method on `this` skips Spring's proxy, so the annotation is ignored | [Phase 4](../phase-04-commerce.md) |
+| **Bulkhead** | Separate thread pools/resources per workload so one can't starve another | [Phase 4](../phase-04-commerce.md) |
+| **DataLoader / `@BatchMapping`** | Resolve one GraphQL field for many objects in a single batched call — the N+1 fix for field resolvers | [Phase 4](../phase-04-commerce.md) |
+| **GraphQL null bubbling** | An error in a non-null field nulls its nearest nullable parent (often the whole `data`) | [Phase 4](../phase-04-commerce.md) |
+| **Reconciliation job** | Periodic sweep comparing your records with the provider's to repair drift (e.g. lost webhooks) | [Phase 4](../phase-04-commerce.md) |
+| **Singleton container** | One Testcontainers database per JVM (static start), matching Spring's cached test context | [Phase 4](../phase-04-commerce.md) |

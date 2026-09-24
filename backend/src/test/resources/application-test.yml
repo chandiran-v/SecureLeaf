@@ -8,3 +8,13 @@ spring:
         # N+1 assertion in MarketplaceQueryIT can read Statistics.getPrepareStatementCount()
         # directly instead of scraping stdout.
         session.events.log.LOG_QUERIES_SLOW_THRESHOLD_MILLIS: 999999999
+
+
+# Phase 4 — tests post signed webhooks themselves, deterministically, instead of relying on
+# the mock gateway's timed background deliveries. No SMTP server in tests.
+payment:
+  mock:
+    webhooks-enabled: false
+notifications:
+  email:
+    enabled: false

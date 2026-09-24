@@ -56,4 +56,28 @@ public class AsyncConfig {
         executor.initialize();
         return executor;
     }
+
+    /**
+     * Separate, small pool for notification side effects (Redis publish, email) — Phase 4, D9.
+     *
+     * Why not reuse contentProcessingExecutor? Bulkheading: a slow SMTP server must never
+     * occupy the threads that convert PDFs, and a burst of uploads must never delay purchase
+     * receipts. Each workload gets its own pool, so one can't starve the other.
+     *
+     * CallerRunsPolicy: if the queue is full, the submitting thread runs the task itself —
+     * slower, but a notification is never silently dropped.
+     */
+    @Bean("notificationExecutor")
+    public ThreadPoolTaskExecutor notificationExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(2);
+        executor.setMaxPoolSize(4);
+        executor.setQueueCapacity(500);
+        executor.setThreadNamePrefix("notify-");
+        executor.setRejectedExecutionHandler(new java.util.concurrent.ThreadPoolExecutor.CallerRunsPolicy());
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(10);
+        executor.initialize();
+        return executor;
+    }
 }

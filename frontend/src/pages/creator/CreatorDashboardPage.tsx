@@ -1,15 +1,22 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@apollo/client';
 import AppLayout from '../../components/layout/AppLayout';
 import StatusBadge from '../../components/ui/StatusBadge';
 import { useCreatorProducts } from '../../hooks/useCreatorProducts';
-import type { Product, ProductStatus } from '../../types';
+import { CREATOR_EARNINGS } from '../../graphql/queries/commerce.queries';
+import type { CreatorEarnings, Product } from '../../types';
 
 // ── Price formatter ───────────────────────────────────────────────────────────
 
 function formatPrice(pricePaise: number): string {
   if (pricePaise === 0) return 'Free';
   return '₹' + (pricePaise / 100).toLocaleString('en-IN', { minimumFractionDigits: 0 });
+}
+
+/** Like formatPrice, but ₹0 is "₹0" (an amount), not "Free" (a price). */
+function formatRupees(paise: number): string {
+  return '₹' + (paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 });
 }
 
 // ── Empty state ───────────────────────────────────────────────────────────────
@@ -140,7 +147,13 @@ export default function CreatorDashboardPage() {
     return () => clearInterval(interval);
   }, [hasProcessing, refetchProducts]);
 
-  const totalRevenue = products.reduce((sum, p) => sum + p.totalSales * p.pricePaise, 0);
+  // PAY-10 — earnings come from the server, summed from the fee split snapshotted on each
+  // order item (D7). The old client-side `totalSales × pricePaise` was wrong the moment a
+  // creator changed a price: it re-priced every past sale at today's price.
+  const { data: earningsData } = useQuery<{ creatorEarnings: CreatorEarnings }>(CREATOR_EARNINGS, {
+    fetchPolicy: 'cache-and-network',
+  });
+  const earnings = earningsData?.creatorEarnings;
 
   return (
     <AppLayout>
@@ -169,15 +182,28 @@ export default function CreatorDashboardPage() {
 
         {/* ── Stats bar ── */}
         {products.length > 0 && (
-          <div className="grid grid-cols-3 gap-4 mb-8">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             {[
-              { label: 'Total Products', value: products.length },
-              { label: 'Total Sales', value: products.reduce((s, p) => s + p.totalSales, 0) },
-              { label: 'Gross Revenue', value: formatPrice(totalRevenue) },
+              { label: 'Total Products', value: products.length, hint: null },
+              { label: 'Total Sales', value: earnings?.salesCount ?? '—', hint: null },
+              { label: 'Gross Sales', value: earnings ? formatRupees(earnings.grossSalesPaise) : '—', hint: null },
+              {
+                label: 'Your Earnings',
+                value: earnings ? formatRupees(earnings.netEarningsPaise) : '—',
+                hint: earnings ? `after ${formatRupees(earnings.platformFeePaise)} platform fee (10%)` : null,
+              },
             ].map((stat) => (
-              <div key={stat.label} className="bg-white rounded-xl border border-gray-200 px-5 py-4">
+              <div
+                key={stat.label}
+                className={`rounded-xl border px-5 py-4 ${
+                  stat.label === 'Your Earnings'
+                    ? 'bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200'
+                    : 'bg-white border-gray-200'
+                }`}
+              >
                 <p className="text-xs text-gray-500 mb-1">{stat.label}</p>
                 <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+                {stat.hint && <p className="text-[11px] text-emerald-700/80 mt-1">{stat.hint}</p>}
               </div>
             ))}
           </div>

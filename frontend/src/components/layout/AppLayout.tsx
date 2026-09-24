@@ -1,6 +1,7 @@
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useAuthStore } from '../../store/authStore';
+import NotificationBell from './NotificationBell';
 
 /**
  * Application shell layout — header/nav with role-aware links.
@@ -50,6 +51,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               Marketplace
             </Link>
             {isAuthenticated && (
+              <Link
+                to="/library"
+                className="px-3 py-2 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-100 hover:text-gray-900 transition-colors"
+              >
+                My Library
+              </Link>
+            )}
+            {isAuthenticated && (
               isCreator ? (
                 <Link
                   to="/creator"
@@ -72,6 +81,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-3">
             {isAuthenticated ? (
               <>
+                <NotificationBell />
                 <span className="text-sm text-gray-500 hidden sm:block">
                   {user?.displayName}
                 </span>

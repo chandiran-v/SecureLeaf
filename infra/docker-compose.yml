@@ -8,6 +8,7 @@ version: "3.9"
 #   redis      — Session locks, signed URL tokens, Pub/Sub (Redis 7)
 #   minio      — S3-compatible object store for raw PDFs + image tiles
 #   minio-init — One-shot sidecar that creates MinIO buckets on first run
+#   mailpit    — Dev SMTP catcher for purchase emails (UI on :8025)
 #   pgadmin    — Visual PostgreSQL admin UI (optional, comment out to save RAM)
 #
 # Usage:
@@ -159,6 +160,25 @@ services:
         echo '==> All buckets created and set to private. Done.'
       "
     restart: "no"                           # do not restart; this is a one-shot init job
+
+  # ---------------------------------------------------------------------------
+  # Mailpit — dev SMTP catcher (Phase 4: purchase / sale emails, PAY-08)
+  # The backend sends to localhost:1025; nothing leaves your machine.
+  # Read the caught emails at: http://localhost:8025
+  # ---------------------------------------------------------------------------
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: secureleaf-mailpit
+    restart: unless-stopped
+    networks:
+      - secureleaf-net
+    ports:
+      - "1025:1025"                         # SMTP — spring.mail.port in application.yml
+      - "8025:8025"                         # Web UI
+    deploy:
+      resources:
+        limits:
+          memory: 64m
 
   # ---------------------------------------------------------------------------
   # pgAdmin 4 (optional — comment out to save ~300MB RAM)

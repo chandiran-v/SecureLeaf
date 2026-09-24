@@ -72,6 +72,30 @@ google:
   oauth2:
     client-id: ${GOOGLE_CLIENT_ID:}   # Set via env var; leave empty to disable Google sign-in
 
+# ── Commerce (Phase 4) ────────────────────────────────────────────────────────
+commerce:
+  platform-fee-bps: 1000         # 10% platform commission, in basis points (PAY-10, D7)
+  currency: INR
+
+# ── Payment gateway (Razorpay-shaped, D1) ─────────────────────────────────────
+payment:
+  gateway:
+    provider: ${PAYMENT_GATEWAY:mock}   # mock | razorpay (not implemented yet — prod refuses to start)
+    key-id: ${RAZORPAY_KEY_ID:rzp_test_mock_key}
+    key-secret: ${RAZORPAY_KEY_SECRET:mock_key_secret_change_me}
+    webhook-secret: ${RAZORPAY_WEBHOOK_SECRET:mock_webhook_secret_change_me}
+  mock:
+    webhooks-enabled: true            # mock gateway POSTs signed webhooks back to us
+    duplicate-webhooks: true          # send every webhook twice — proves dedup (at-least-once delivery)
+    webhook-delay-ms: 800
+    timeout-webhook-delay-ms: 4000    # TIMEOUT scenario: browser gets 504, webhook arrives later (D13)
+
+# ── Notifications (PAY-08) ────────────────────────────────────────────────────
+notifications:
+  email:
+    enabled: ${NOTIFICATION_EMAIL_ENABLED:true}   # dev: caught by Mailpit at http://localhost:8025
+    from: no-reply@secureleaf.local
+
 # ── Signed URL TTL ────────────────────────────────────────────────────────────
 drm:
   signed-url-ttl-seconds: 30

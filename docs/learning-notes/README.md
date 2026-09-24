@@ -14,6 +14,8 @@ They serve a dual purpose:
    - Covers: BOLA, Magic Bytes, Async Pipeline, PostgreSQL `FOR UPDATE SKIP LOCKED`.
 3. **[Phase 03 — Marketplace (with watermarked free preview)](phase-03-marketplace.md)**
    - Covers: Full-text search (`tsvector`/GIN), the N+1 query problem, two-step ID paging, DTO projection + field resolvers, the Strategy pattern.
+4. **[Phase 04 — Commerce (orders → payments → entitlements)](phase-04-commerce.md)**
+   - Covers: Idempotency keys, race conditions + pessimistic locking, state machines, append-only audit logs, webhooks + HMAC, Razorpay-shaped gateway, after-commit side effects. **~50 graded interview Q&As.**
 
 ## Process
 When a new phase is complete, duplicate `TEMPLATE.md`, name it appropriately, and fill it out before closing the ticket.
@@ -39,7 +41,7 @@ When a new phase is complete, duplicate `TEMPLATE.md`, name it appropriately, an
 | 1 | [phase-01-auth.md](phase-01-auth.md) | ✅ Done | JWT, refresh token rotation, BCrypt, Spring Security filter chain, OAuth2, RBAC |
 | 2 | [phase-02-upload-pipeline.md](phase-02-upload-pipeline.md) | ✅ Done | Async processing, job queues, `SKIP LOCKED`, object storage, thread pools, object-level authz |
 | 3 | [phase-03-marketplace.md](phase-03-marketplace.md) | ✅ Done | Full-text search, two-step ID paging, N+1 queries, DTO projection, field resolvers, Strategy pattern |
-| 4 | Commerce | ⏳ Not started | Idempotency, state machines, audit logs, transactional integrity |
+| 4 | [phase-04-commerce.md](phase-04-commerce.md) | ✅ Done | Idempotency keys, check-then-act races, `FOR UPDATE`, state machines, append-only audit log, webhooks/HMAC, at-least-once delivery, AFTER_COMMIT events, `@BatchMapping` |
 | 5 | Secure Viewer | ⏳ Not started | DRM, signed URLs, Strategy pattern, distributed locks, image processing |
 | 6 | Library + polish | ⏳ Not started | Pub/Sub, notifications, caching |
 
