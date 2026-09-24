@@ -1,0 +1,237 @@
+name: Phase Scheduler
+
+# Builds the project one work item at a time, unattended. Every run does exactly ONE thing:
+#
+#   pick      (.github/scheduler/pick.sh)    decide: revise the open PR / fix an open Issue /
+#                                            start the next phase / nothing
+#   implement (.github/scheduler/prepare.sh) Claude does the work on branch auto/issue-<N>.
+#             This job has NO GitHub write token. Its commits leave as a git bundle artifact.
+#   publish   (.github/scheduler/publish.sh) a fresh runner with the write token pushes the
+#             bundle and opens/updates the PR, or parks the Issue as blocked with Claude's questions.
+#
+# Nothing is ever merged automatically. A phase is only "done" when YOU merge its PR. Open
+# `fix` Issues and unaddressed PR feedback always come before the next phase.
+#
+# Triggers: nightly cron (safety net), "Run workflow" by hand, and phase-kick.yml, which
+# dispatches this workflow when a PR is merged/reviewed, CI finishes, or an Issue changes.
+# Scheduled and dispatched runs use the DEFAULT branch's copy of this file.
+
+on:
+  schedule:
+    - cron: "30 20 * * *" # 02:00 IST
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: "Work on this Issue now (blank = let the scheduler pick)"
+        required: false
+        default: ""
+      dry_run:
+        description: "Only report what would run"
+        type: boolean
+        default: false
+
+# One work item at a time: phases build on each other.
+concurrency:
+  group: phase-scheduler
+  cancel-in-progress: false
+
+env:
+  # Switch both to mvp2 / feature/secure-leaf-mvp2 when MVP1 is released.
+  TARGET_BRANCH: feature/secure-leaf-mvp1
+  MILESTONE_LABEL: mvp1
+  MAX_REVISIONS: "3"
+  RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+jobs:
+  pick:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+      checks: read
+      statuses: read
+      actions: read
+    outputs:
+      mode: ${{ steps.pick.outputs.mode }}
+      issue: ${{ steps.pick.outputs.issue }}
+      pr: ${{ steps.pick.outputs.pr }}
+      branch: ${{ steps.pick.outputs.branch }}
+      title: ${{ steps.pick.outputs.title }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scheduler
+      - id: pick
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
+          INPUT_ISSUE: ${{ inputs.issue_number }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: bash .github/scheduler/pick.sh
+
+  implement:
+    needs: pick
+    if: needs.pick.outputs.mode != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    permissions:
+      contents: read # read-only on purpose: Claude runs in this job
+      issues: read
+      pull-requests: read
+      actions: read
+      id-token: write # required by claude-code-action
+    outputs:
+      base_sha: ${{ steps.prepare.outputs.base_sha }}
+    env:
+      MODE: ${{ needs.pick.outputs.mode }}
+      ISSUE: ${{ needs.pick.outputs.issue }}
+      PR: ${{ needs.pick.outputs.pr }}
+      BRANCH: ${{ needs.pick.outputs.branch }}
+      GH_REPO: ${{ github.repository }}
+      OWNER: ${{ github.repository_owner }}
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+    steps:
+      - name: Checkout (target branch for new work, PR branch for a revision)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MODE == 'revise' && env.BRANCH || env.TARGET_BRANCH }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Fetch scheduler scripts from this workflow's commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: .scheduler-src
+          sparse-checkout: .github/scheduler
+          persist-credentials: false
+      - run: mv .scheduler-src/.github/scheduler "$RUNNER_TEMP/scheduler" && rm -rf .scheduler-src
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: temurin
+          cache: maven
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Prepare branch and task
+        id: prepare
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash "$RUNNER_TEMP/scheduler/prepare.sh"
+
+      - name: Claude does the work
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Runs dispatched by phase-kick.yml are started by github-actions[bot].
+          allowed_bots: "github-actions[bot]"
+          prompt: |
+            You are working on SecureLeaf, unattended, inside GitHub Actions. Nobody can answer
+            questions during this run.
+
+            1. Read `CLAUDE.md` and `AI_RULES.md` first. They apply in full.
+            2. Read `.phase-run/TASK.md`. It says exactly what this run must do (mode: ${{ env.MODE }})
+               and what "done" means. The Issue is in `.phase-run/brief.md`.
+            3. Do that task and nothing else. Commit your work on the current branch
+               (`${{ env.BRANCH }}`). Do not push, open PRs or switch branches.
+            4. Write the result file TASK.md asks for (PR_BODY.md / REVISION.md), or
+               `.phase-run/BLOCKED.md` if you cannot finish without the owner.
+          claude_args: |
+            --max-turns 300
+            --allowedTools "Bash,Read,Write,Edit,MultiEdit,Glob,Grep,TodoWrite"
+
+      - name: Package the result (git bundle + result files)
+        if: always() && steps.prepare.outcome == 'success'
+        run: |
+          out="$RUNNER_TEMP/out"; mkdir -p "$out"
+          current=$(git rev-parse --abbrev-ref HEAD)
+          if [ "$current" != "$BRANCH" ]; then
+            echo "::error::Claude left the repo on '$current', expected '$BRANCH'"; exit 1
+          fi
+          git add -A
+          git diff --cached --quiet || git commit -q -m "chore: remaining changes from scheduler run (#$ISSUE)"
+          base=${{ steps.prepare.outputs.base_sha }}
+          commits=$(git rev-list --count "$base..HEAD")
+          echo "$commits" > "$out/commits"
+          [ "$commits" -eq 0 ] || git bundle create "$out/work.bundle" "^$base" "refs/heads/$BRANCH"
+          for f in PR_BODY BLOCKED REVISION; do
+            [ ! -f ".phase-run/$f.md" ] || cp ".phase-run/$f.md" "$out/"
+          done
+          echo "Commits: $commits" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.prepare.outcome == 'success'
+        with:
+          name: phase-output
+          path: ${{ runner.temp }}/out
+          retention-days: 7
+
+  publish:
+    needs: [pick, implement]
+    if: always() && needs.pick.outputs.mode != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    env:
+      MODE: ${{ needs.pick.outputs.mode }}
+      ISSUE: ${{ needs.pick.outputs.issue }}
+      PR: ${{ needs.pick.outputs.pr }}
+      BRANCH: ${{ needs.pick.outputs.branch }}
+      TITLE: ${{ needs.pick.outputs.title }}
+      BASE_SHA: ${{ needs.implement.outputs.base_sha }}
+      IMPLEMENT_RESULT: ${{ needs.implement.result }}
+      GH_REPO: ${{ github.repository }}
+      # Comments/labels use GITHUB_TOKEN, so they show up as github-actions[bot], never as you.
+      # Otherwise the scheduler would mistake its own comments for your feedback.
+      GH_TOKEN: ${{ github.token }}
+      # The push and PR creation use a PAT (secret PHASE_BOT_TOKEN) when present, so they
+      # trigger CI and the Claude review. Events caused by GITHUB_TOKEN don't trigger other
+      # workflows (GitHub's loop protection).
+      PR_TOKEN: ${{ secrets.PHASE_BOT_TOKEN || github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 0
+          token: ${{ secrets.PHASE_BOT_TOKEN || github.token }}
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: .scheduler-src
+          sparse-checkout: .github/scheduler
+          persist-credentials: false
+      - run: mv .scheduler-src/.github/scheduler "$RUNNER_TEMP/scheduler" && rm -rf .scheduler-src
+
+      - uses: actions/download-artifact@v4
+        continue-on-error: true # missing when the implement job died early
+        with:
+          name: phase-output
+          path: ${{ runner.temp }}/out
+
+      - name: Push and open / update the PR
+        env:
+          OUT_DIR: ${{ runner.temp }}/out
+        run: bash "$RUNNER_TEMP/scheduler/publish.sh"
+
+      - name: Park the item if publishing failed
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue edit "$ISSUE" --add-label "phase:blocked"
+          gh issue comment "$ISSUE" --body "❌ Publishing the result failed: $RUN_URL. Remove \`phase:blocked\` to retry."

@@ -17,6 +17,11 @@ They serve a dual purpose:
 4. **[Phase 04 — Commerce (orders → payments → entitlements)](phase-04-commerce.md)**
    - Covers: Idempotency keys, race conditions + pessimistic locking, state machines, append-only audit logs, webhooks + HMAC, Razorpay-shaped gateway, after-commit side effects. **~50 graded interview Q&As.**
 
+**Tooling / DevOps**
+
+- **[Ops 01 — Phase Scheduler](ops-01-phase-scheduler.md)**
+   - Covers: Cron + event-driven workflows, the default-branch rule, WIP-limited state machine over labels, reconciliation, privilege separation (AI job never holds the write token), `GITHUB_TOKEN` vs PAT, prompt injection, bounded retries.
+
 ## Process
 When a new phase is complete, duplicate `TEMPLATE.md`, name it appropriately, and fill it out before closing the ticket.
 
@@ -42,8 +47,11 @@ When a new phase is complete, duplicate `TEMPLATE.md`, name it appropriately, an
 | 2 | [phase-02-upload-pipeline.md](phase-02-upload-pipeline.md) | ✅ Done | Async processing, job queues, `SKIP LOCKED`, object storage, thread pools, object-level authz |
 | 3 | [phase-03-marketplace.md](phase-03-marketplace.md) | ✅ Done | Full-text search, two-step ID paging, N+1 queries, DTO projection, field resolvers, Strategy pattern |
 | 4 | [phase-04-commerce.md](phase-04-commerce.md) | ✅ Done | Idempotency keys, check-then-act races, `FOR UPDATE`, state machines, append-only audit log, webhooks/HMAC, at-least-once delivery, AFTER_COMMIT events, `@BatchMapping` |
-| 5 | Secure Viewer | ⏳ Not started | DRM, signed URLs, Strategy pattern, distributed locks, image processing |
-| 6 | Library + polish | ⏳ Not started | Pub/Sub, notifications, caching |
+| 5 | Secure Viewer ([05A](../phases/phase-05a-secure-viewer-backend.md) / [05B](../phases/phase-05b-secure-viewer-frontend.md)) | ⏳ Queued | DRM threat model, HMAC-signed single-use URLs, leases/heartbeats, canvas rendering, browser-DRM limits |
+| 6 | [Library, dashboard, live notifications](../phases/phase-06-library-dashboard-notifications.md) | ⏳ Queued | SSE vs WebSocket, stream tickets, Pub/Sub fan-out, `@BatchMapping` aggregates |
+| 7–9 | [Reviews + reset](../phases/phase-07-reviews-password-reset.md) · [Admin](../phases/phase-08-admin-panel.md) · [Hardening](../phases/phase-09-hardening-release.md) | ⏳ Queued | See `docs/phases/README.md` |
+| 10–17 | MVP2 — [roadmap](../phases/README.md) | ⏳ Queued | Observability, rate limiting, bulkheads, caching, libvips, versioning, capacity |
+| Ops 1 | [ops-01-phase-scheduler.md](ops-01-phase-scheduler.md) | ✅ Done | Cron + event-driven CI, WIP limit of one, reconciliation, privilege separation, `GITHUB_TOKEN` vs PAT, prompt injection, bounded retries |
 
 ---
 

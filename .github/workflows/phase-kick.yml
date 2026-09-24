@@ -1,0 +1,46 @@
+name: Phase Scheduler Kick
+
+# Makes the scheduler react right away instead of waiting for the nightly cron. It starts
+# Phase Scheduler when something happens that could change what the scheduler should do next:
+#   - a scheduler PR (branch auto/*) is merged           -> start the next item
+#   - you review a scheduler PR, or comment "/revise"    -> run a revision pass
+#   - CI or the Claude review finishes on an auto/* branch -> revise if something failed
+#   - you open an Issue, or remove the phase:blocked label -> pick it up
+# The scheduler itself decides what (if anything) to do. This job only asks it to look.
+#
+# workflow_dispatch is one of the few events GITHUB_TOKEN is allowed to trigger.
+
+on:
+  pull_request:
+    types: [closed]
+  pull_request_review:
+    types: [submitted]
+  issue_comment:
+    types: [created]
+  issues:
+    types: [opened, reopened, unlabeled]
+  workflow_run:
+    workflows: ["Backend CI", "Frontend CI", "Claude Code Review"]
+    types: [completed]
+
+permissions:
+  actions: write
+
+jobs:
+  kick:
+    if: >-
+      (github.event_name == 'pull_request' && github.event.pull_request.merged &&
+        startsWith(github.event.pull_request.head.ref, 'auto/')) ||
+      (github.event_name == 'pull_request_review' && github.event.review.user.login == github.repository_owner &&
+        startsWith(github.event.pull_request.head.ref, 'auto/')) ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request &&
+        github.event.comment.user.login == github.repository_owner && contains(github.event.comment.body, '/revise')) ||
+      (github.event_name == 'issues' && github.event.issue.user.login == github.repository_owner &&
+        (github.event.action != 'unlabeled' || github.event.label.name == 'phase:blocked')) ||
+      (github.event_name == 'workflow_run' && startsWith(github.event.workflow_run.head_branch, 'auto/'))
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh workflow run phase-scheduler.yml --ref "${{ github.event.repository.default_branch }}"

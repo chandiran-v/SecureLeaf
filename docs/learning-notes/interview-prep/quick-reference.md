@@ -87,6 +87,19 @@
 
 ---
 
+## Ops 1 — Phase Scheduler (CI automation) · [full note](../ops-01-phase-scheduler.md)
+
+- **What:** GitHub Actions works through spec'd phase Issues **one at a time**. Each run does one move, in priority order: blocked → stop; open PR → revise (on my feedback, failing CI, or review findings) or wait for merge; open `fix` Issue → fix; otherwise → next phase. Nothing is ever auto-merged.
+- **Cron runs only from the default branch.** `Closes #N` also only works there.
+- **Privilege separation:** Claude runs in a read-only job; its commits leave as a **git bundle**; a separate runner with the write token verifies and pushes.
+- **Reconciliation, not events:** every run repairs label/PR drift. A cron safety net sits behind the event-driven kicks.
+- **`GITHUB_TOKEN` events don't trigger workflows** (except `workflow_dispatch`). Know which identity causes each event: robot comments posted with *my* PAT would look like *my* feedback.
+- **Bounded automation:** 3 revision passes per round of my feedback, 1 for bot findings, then a human decides.
+
+**Weakest point to volunteer:** unrestricted `Bash` for Claude (inside a read-only job). I'd tighten it to an allowlist once real usage is known.
+
+---
+
 ## Cross-cutting themes to weave into any answer
 
 1. **Threat-model each decision.** Every security choice here has a "what attack does this stop" answer. Say it.

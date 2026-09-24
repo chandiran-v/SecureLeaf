@@ -56,3 +56,14 @@
 | **GraphQL null bubbling** | An error in a non-null field nulls its nearest nullable parent (often the whole `data`) | [Phase 4](../phase-04-commerce.md) |
 | **Reconciliation job** | Periodic sweep comparing your records with the provider's to repair drift (e.g. lost webhooks) | [Phase 4](../phase-04-commerce.md) |
 | **Singleton container** | One Testcontainers database per JVM (static start), matching Spring's cached test context | [Phase 4](../phase-04-commerce.md) |
+| **Cron expression** | Five-field schedule (min hour day month weekday); always UTC in GitHub Actions | [Ops 1](../ops-01-phase-scheduler.md) |
+| **Default branch** | The branch GitHub treats as the repo: scheduled workflows run from it; `Closes #N` only works on merges into it | [Ops 1](../ops-01-phase-scheduler.md) |
+| **`GITHUB_TOKEN`** | Per-run token GitHub creates for a workflow; events it causes do not trigger other workflows | [Ops 1](../ops-01-phase-scheduler.md) |
+| **PAT (Personal Access Token)** | A token that acts as you — unlike `GITHUB_TOKEN`, its pushes/PRs do trigger workflows | [Ops 1](../ops-01-phase-scheduler.md) |
+| **Concurrency group** | GitHub Actions key that makes runs sharing it wait for each other instead of overlapping | [Ops 1](../ops-01-phase-scheduler.md) |
+| **Human-in-the-loop** | Automation that pauses for human approval at key points (here: the PR merge) | [Ops 1](../ops-01-phase-scheduler.md) |
+| **Reconciliation loop** | Repeatedly compare actual vs desired state and fix the difference — tolerant of missed events | [Ops 1](../ops-01-phase-scheduler.md) |
+| **Prompt injection** | Untrusted text (e.g. a stranger's Issue) steering an AI into actions its operator didn't intend | [Ops 1](../ops-01-phase-scheduler.md) |
+| **Privilege separation** | Split work so the part handling untrusted input never holds the powerful credential | [Ops 1](../ops-01-phase-scheduler.md) |
+| **Git bundle** | A single file containing commits — moves them between machines without a shared remote | [Ops 1](../ops-01-phase-scheduler.md) |
+| **WIP limit** | Kanban rule capping how many items are in progress at once (the scheduler's is one) | [Ops 1](../ops-01-phase-scheduler.md) |

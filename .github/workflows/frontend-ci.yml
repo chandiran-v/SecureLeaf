@@ -7,7 +7,7 @@ on:
       - 'frontend/**'
       - '.github/workflows/frontend-ci.yml'
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, "feature/**"]
     paths:
       - 'frontend/**'
 
