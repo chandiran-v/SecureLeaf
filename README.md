@@ -10,7 +10,7 @@ Think: *Gumroad for selling + Kindle DRM for viewing*.
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | React 18, TypeScript, Apollo Client, Vite |
+| Frontend | React 18, TypeScript, Tailwind CSS v3, Apollo Client, Vite |
 | API | GraphQL (Spring for GraphQL) + REST |
 | Backend | Java 21, Spring Boot 3, Spring Security 6 |
 | Auth | JWT (access + refresh rotation), Google OAuth2 |
@@ -94,7 +94,7 @@ cd infra
 docker compose up -d
 ```
 
-This starts: PostgreSQL, Redis, MinIO, and Mailpit (dev mail catcher).
+This starts: PostgreSQL, Redis, MinIO, and Mailpit (dev mail catcher — UI at http://localhost:8025).
 
 ### 2. Run the backend
 
@@ -126,6 +126,36 @@ All design documents live in [`docs/`](docs/):
 - [`high_level_requirements.md`](docs/high_level_requirements.md) — Functional & non-functional requirements
 - [`requirements.md`](docs/requirements.md) — Detailed requirements
 - [`db_schema.md`](docs/db_schema.md) — Complete PostgreSQL schema
+
+---
+
+## Marketplace & Free Preview (Phase 3)
+
+Public, unauthenticated browsing at `/marketplace`: full-text search (PostgreSQL `tsvector`/GIN),
+filter by category/price/free, sort, and paginate through every `LIVE` product. Each product's
+detail page (`/product/:id`) shows a watermarked free preview of its first `freePreviewPages` pages
+— rendered onto an HTML5 canvas, not an `<img>` — streamed through a backend endpoint that
+watermarks on the way out so a clean page tile never reaches the browser. See
+[`docs/learning-notes/phase-03-marketplace.md`](docs/learning-notes/phase-03-marketplace.md) for the
+full design write-up.
+
+---
+
+## Commerce: Buying (Phase 4)
+
+Logged-in buyers can buy a product (`Buy` → `/checkout/:orderId`) through a **mock payment gateway
+shaped exactly like Razorpay**: order → checkout → HMAC-signed `razorpay_signature` → signed
+`X-Razorpay-Signature` webhook. The checkout page lets you simulate **success, a declined card, or a
+gateway timeout** (money taken, browser told nothing — the webhook still completes the order). Every
+purchase is idempotent (client idempotency key + row locks), every payment state change is written to
+an append-only audit log, and the buyer gets an **entitlement** — the access grant the Phase 5 viewer
+will check. Also: **My Library** (`/library`), a creator **earnings card** (10% platform fee,
+snapshotted per sale), and purchase **notifications** (in-app bell, Redis Pub/Sub, email via Mailpit
+at <http://localhost:8025>).
+
+Swapping in real Razorpay = one `PaymentGateway` implementation + three environment variables
+(`RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`) + loading `checkout.js`. See
+[`docs/learning-notes/phase-04-commerce.md`](docs/learning-notes/phase-04-commerce.md) §10.
 
 ---
 

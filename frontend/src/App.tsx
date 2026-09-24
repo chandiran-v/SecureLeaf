@@ -1,35 +1,84 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { ApolloProvider } from '@apollo/client';
+import { GoogleOAuthProvider } from '@react-oauth/google';
+import client from './graphql/apolloClient';
+import LoginPage from './pages/auth/LoginPage';
+import RegisterPage from './pages/auth/RegisterPage';
+import ProtectedRoute from './components/layout/ProtectedRoute';
+import BecomeCreatorPage from './pages/creator/BecomeCreatorPage';
+import CreatorDashboardPage from './pages/creator/CreatorDashboardPage';
+import UploadProductPage from './pages/creator/UploadProductPage';
+import MarketplacePage from './pages/marketplace/MarketplacePage';
+import ProductDetailPage from './pages/marketplace/ProductDetailPage';
+import CheckoutPage from './pages/buyer/CheckoutPage';
+import LibraryPage from './pages/buyer/LibraryPage';
+
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <div>
-        <a href="https://vitejs.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <ApolloProvider client={client}>
+      <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+        <Routes>
+          {/* Public routes */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+
+          {/* Public marketplace — browsing and free preview need no auth (Phase 3) */}
+          <Route path="/" element={<MarketplacePage />} />
+          <Route path="/marketplace" element={<MarketplacePage />} />
+          <Route path="/product/:id" element={<ProductDetailPage />} />
+
+          {/* Protected routes — require valid JWT */}
+          <Route
+            path="/become-creator"
+            element={
+              <ProtectedRoute>
+                <BecomeCreatorPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/creator"
+            element={
+              <ProtectedRoute requiredRole="CREATOR">
+                <CreatorDashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/creator/upload"
+            element={
+              <ProtectedRoute requiredRole="CREATOR">
+                <UploadProductPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Buyer routes (Phase 4) */}
+          <Route
+            path="/checkout/:orderId"
+            element={
+              <ProtectedRoute>
+                <CheckoutPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/library"
+            element={
+              <ProtectedRoute>
+                <LibraryPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </GoogleOAuthProvider>
+    </ApolloProvider>
+  );
 }
 
-export default App
+export default App;

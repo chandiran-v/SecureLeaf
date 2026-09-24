@@ -24,6 +24,7 @@
         <minio.version>8.5.10</minio.version>
         <jjwt.version>0.12.6</jjwt.version>
         <testcontainers.version>1.19.8</testcontainers.version>
+        <lombok.version>1.18.36</lombok.version>
     </properties>
 
     <dependencies>
@@ -63,6 +64,13 @@
             <artifactId>jjwt-jackson</artifactId>
             <version>${jjwt.version}</version>
             <scope>runtime</scope>
+        </dependency>
+
+        <!-- ── GraphQL Extended Scalars (DateTime, BigDecimal) ────────── -->
+        <dependency>
+            <groupId>com.graphql-java</groupId>
+            <artifactId>graphql-java-extended-scalars</artifactId>
+            <version>22.0</version>
         </dependency>
 
         <!-- ── Database ──────────────────────────────────────────────── -->
@@ -151,9 +159,23 @@
             <artifactId>spring-graphql-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- HttpGraphQlTester is built on WebTestClient, which lives in spring-webflux.
+             Test scope only: the app itself stays a servlet (Spring MVC) application. Without
+             a reactive HTTP library on the classpath, WebTestClient uses the JDK HttpClient. -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-webflux</artifactId>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>postgresql</artifactId>
+            <version>${testcontainers.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
             <version>${testcontainers.version}</version>
             <scope>test</scope>
         </dependency>

@@ -22,12 +22,12 @@ WORKDIR /app
 RUN addgroup --system secureleaf && adduser --system --ingroup secureleaf secureleaf
 USER secureleaf
 
-COPY --from=builder /app/target/*.jar app.jar
+COPY --from=builder --chown=secureleaf:secureleaf /app/target/*.jar app.jar
 
 EXPOSE 8080
 
 ENTRYPOINT ["java", \
   "-XX:+UseContainerSupport", \
   "-XX:MaxRAMPercentage=75.0", \
-  "-Dspring.profiles.active=${SPRING_PROFILES_ACTIVE:dev}", \
+  "-XX:+ExitOnOutOfMemoryError", \
   "-jar", "app.jar"]

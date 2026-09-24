@@ -1,4 +1,4 @@
-﻿/**
+/**
  * SecureLeaf — {@code creator} module.
  *
  * Creator dashboard, analytics, payout requests.

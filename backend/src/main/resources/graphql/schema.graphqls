@@ -5,7 +5,9 @@
 # ── Scalars ──────────────────────────────────────────────────────────────────
 scalar DateTime
 scalar BigDecimal
-scalar UUID
+# 64-bit integer. GraphQL's built-in Int is signed 32-bit (max 2,147,483,647 paise = ₹2.14 crore),
+# too small for aggregated money like a creator's lifetime earnings.
+scalar Long
 
 # ── Enums ─────────────────────────────────────────────────────────────────────
 
@@ -15,7 +17,15 @@ enum UserRole {
     ADMIN
 }
 
+enum EntitlementStatus {
+    ACTIVE
+    REVOKED
+    EXPIRED
+}
+
+
 enum ProductStatus {
+    DRAFT
     PROCESSING
     LIVE
     UNPUBLISHED
@@ -32,7 +42,7 @@ enum OrderStatus {
 # ── Types ─────────────────────────────────────────────────────────────────────
 
 type User {
-    id: UUID!
+    id: ID!
     email: String!
     displayName: String!
     roles: [UserRole!]!
@@ -40,23 +50,33 @@ type User {
 }
 
 type Product {
-    id: UUID!
+    id: ID!
     title: String!
     description: String!
-    price: BigDecimal!
+    pricePaise: Int!
     status: ProductStatus!
-    creator: User!
+    creator: CreatorSummary!
     category: Category!
     tags: [String!]!
     thumbnailUrl: String
     averageRating: Float
     totalSales: Int!
     freePreviewPages: Int!
+    pageCount: Int
     createdAt: DateTime!
+    # True when the current user holds an ACTIVE entitlement. Always false for anonymous visitors.
+    # Resolved in one batched query per request (@BatchMapping), never once per product.
+    ownedByMe: Boolean!
+}
+
+# Public-safe projection of a product's creator — never exposes email.
+type CreatorSummary {
+    id: ID!
+    displayName: String!
 }
 
 type Category {
-    id: UUID!
+    id: ID!
     name: String!
     slug: String!
 }
@@ -69,24 +89,44 @@ type ProductPage {
 }
 
 type Review {
-    id: UUID!
+    id: ID!
     buyer: User!
     rating: Int!
-    comment: String
+    reviewText: String
     createdAt: DateTime!
 }
 
 type Entitlement {
-    id: UUID!
+    id: ID!
     product: Product!
     purchasedAt: DateTime!
-    isActive: Boolean!
+    status: EntitlementStatus!
+}
+
+# MVP orders contain exactly one product.
+type Order {
+    id: ID!
+    status: OrderStatus!
+    totalAmountPaise: Int!
+    product: Product!
+    gatewayOrderId: String   # Razorpay "order_XXXX"; null for free products
+    failureReason: String    # latest declined attempt, if any
+    createdAt: DateTime!
+}
+
+# PAY-10. Snapshotted at purchase time, so a future commission change never rewrites history.
+type CreatorEarnings {
+    salesCount: Long!
+    grossSalesPaise: Long!
+    platformFeePaise: Long!
+    netEarningsPaise: Long!
 }
 
 type Notification {
-    id: UUID!
+    id: ID!
+    type: String!
     title: String!
-    message: String!
+    body: String
     isRead: Boolean!
     createdAt: DateTime!
 }
@@ -104,10 +144,16 @@ input LoginInput {
     password: String!
 }
 
+input BecomeCreatorInput {
+    bio: String
+    payoutEmail: String
+    payoutUpi: String
+}
+
 input ProductFilterInput {
     categorySlug: String
-    minPrice: BigDecimal
-    maxPrice: BigDecimal
+    minPricePaise: Int
+    maxPricePaise: Int
     isFree: Boolean
     searchQuery: String
     sortBy: String   # newest | popular | rating | price_asc | price_desc
@@ -116,34 +162,48 @@ input ProductFilterInput {
 input CreateProductInput {
     title: String!
     description: String!
-    price: BigDecimal!
-    categoryId: UUID!
+    pricePaise: Int!
+    categoryId: ID!
     tags: [String!]!
     freePreviewPages: Int!
 }
 
+# Exactly the three values Razorpay's checkout.js passes to its success handler, plus our order id.
+input VerifyPaymentInput {
+    orderId: ID!
+    gatewayOrderId: String!      # razorpay_order_id
+    gatewayPaymentId: String!    # razorpay_payment_id
+    gatewaySignature: String!    # razorpay_signature = HMAC_SHA256(order_id|payment_id, key_secret)
+}
+
 input SubmitReviewInput {
-    productId: UUID!
+    productId: ID!
     rating: Int!
-    comment: String
+    reviewText: String
 }
 
 # ── Queries ───────────────────────────────────────────────────────────────────
 
 type Query {
+    # Auth
+    me: User
+
     # Marketplace
     products(filter: ProductFilterInput, page: Int = 0, size: Int = 20): ProductPage!
-    product(id: UUID!): Product
+    product(id: ID!): Product
+    categories: [Category!]!
 
     # Buyer
+    order(id: ID!): Order
     myLibrary: [Entitlement!]!
     myNotifications: [Notification!]!
 
     # Creator
     myProducts: [Product!]!
+    creatorEarnings: CreatorEarnings!
 
     # Reviews
-    productReviews(productId: UUID!, page: Int = 0, size: Int = 10): [Review!]!
+    productReviews(productId: ID!, page: Int = 0, size: Int = 10): [Review!]!
 
     # Admin
     allUsers(page: Int = 0, size: Int = 50): [User!]!
@@ -156,28 +216,31 @@ type Mutation {
     # Auth
     register(input: RegisterInput!): User!
     login(input: LoginInput!): AuthPayload!
+    googleLogin(idToken: String!): AuthPayload!
     refreshToken(token: String!): AuthPayload!
-    logout: Boolean!
+    logout(refreshToken: String!): Boolean!
+    becomeCreator(input: BecomeCreatorInput!): User!
 
     # Products (Creator)
     createProduct(input: CreateProductInput!): Product!
-    unpublishProduct(id: UUID!): Product!
-    deleteProduct(id: UUID!): Boolean!
+    unpublishProduct(id: ID!): Product!
+    deleteProduct(id: ID!): Boolean!
 
-    # Commerce
-    initiateOrder(productId: UUID!): InitiateOrderPayload!
-    confirmMockPayment(orderId: UUID!): Entitlement!
+    # Commerce — idempotencyKey: a client-generated UUID per purchase attempt (Stripe pattern);
+    # repeating the call with the same key returns the same order instead of creating another.
+    initiateOrder(productId: ID!, idempotencyKey: String!): InitiateOrderPayload!
+    verifyPayment(input: VerifyPaymentInput!): Order!
 
     # Reviews
     submitReview(input: SubmitReviewInput!): Review!
 
     # Notifications
-    markNotificationRead(id: UUID!): Boolean!
+    markNotificationRead(id: ID!): Boolean!
 
     # Admin
-    suspendUser(userId: UUID!): User!
-    approveProduct(productId: UUID!): Product!
-    takeDownProduct(productId: UUID!): Product!
+    suspendUser(userId: ID!): User!
+    approveProduct(productId: ID!): Product!
+    takeDownProduct(productId: ID!): Product!
 }
 
 # ── Payload Types ─────────────────────────────────────────────────────────────
@@ -188,7 +251,11 @@ type AuthPayload {
     user: User!
 }
 
+# Everything the browser needs to open the gateway's checkout. For free products the order is
+# already COMPLETED and gatewayOrderId/gatewayKeyId are null.
 type InitiateOrderPayload {
-    orderId: UUID!
-    clientSecret: String   # For real payment gateway (Stripe/Razorpay); null for mock
+    order: Order!
+    gatewayOrderId: String
+    gatewayKeyId: String     # public key id (Razorpay "key"); never a secret
+    currency: String!
 }

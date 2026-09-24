@@ -24,7 +24,7 @@ Think: *Gumroad for selling + Kindle DRM for viewing* — built as an independen
 
 | Layer | Technology |
 |-------|-----------|
-| **Frontend** | React 18 + TypeScript + Apollo Client |
+| **Frontend** | React 18 + TypeScript + Tailwind CSS v3 + Apollo Client |
 | **API Layer** | GraphQL (Spring for GraphQL) — primary data API + REST for file uploads & signed tile URLs |
 | **Backend** | Java 21, Spring Boot 3 |
 | **Auth & Security** | Spring Security 6 + JWT (access + refresh token rotation) + Google OAuth2 |

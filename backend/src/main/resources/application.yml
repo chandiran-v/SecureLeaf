@@ -2,11 +2,11 @@ spring:
   application:
     name: secureleaf-backend
 
-  # ── Database ─────────────────────────────────────────────────────────────
+
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:secureleaf}
-    username: ${DB_USER:secureleaf}
-    password: ${DB_PASSWORD:secureleaf}
+    username: ${DB_USER:secureleaf_user}
+    password: ${DB_PASSWORD:secureleaf_pass}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -22,14 +22,13 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
-    baseline-on-migrate: true
 
   # ── Redis ─────────────────────────────────────────────────────────────────
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}
+      password: ${REDIS_PASSWORD:secureleaf_redis_pass}
 
   # ── GraphQL ───────────────────────────────────────────────────────────────
   graphql:
@@ -55,8 +54,8 @@ spring:
 # ── MinIO (S3-compatible storage) ────────────────────────────────────────────
 minio:
   endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
-  access-key: ${MINIO_ACCESS_KEY:minioadmin}
-  secret-key: ${MINIO_SECRET_KEY:minioadmin}
+  access-key: ${MINIO_ACCESS_KEY:secureleaf_minio_user}
+  secret-key: ${MINIO_SECRET_KEY:secureleaf_minio_pass}
   bucket:
     raw-uploads: secureleaf-raw
     tiles: secureleaf-tiles
@@ -67,6 +66,35 @@ jwt:
   secret: ${JWT_SECRET:CHANGE_ME_IN_PRODUCTION_USE_256BIT_SECRET_KEY}
   access-token-expiry-ms: 900000       # 15 minutes
   refresh-token-expiry-ms: 604800000   # 7 days
+
+# ── Google OAuth2 ─────────────────────────────────────────────────────────────
+google:
+  oauth2:
+    client-id: ${GOOGLE_CLIENT_ID:}   # Set via env var; leave empty to disable Google sign-in
+
+# ── Commerce (Phase 4) ────────────────────────────────────────────────────────
+commerce:
+  platform-fee-bps: 1000         # 10% platform commission, in basis points (PAY-10, D7)
+  currency: INR
+
+# ── Payment gateway (Razorpay-shaped, D1) ─────────────────────────────────────
+payment:
+  gateway:
+    provider: ${PAYMENT_GATEWAY:mock}   # mock | razorpay (not implemented yet — prod refuses to start)
+    key-id: ${RAZORPAY_KEY_ID:rzp_test_mock_key}
+    key-secret: ${RAZORPAY_KEY_SECRET:mock_key_secret_change_me}
+    webhook-secret: ${RAZORPAY_WEBHOOK_SECRET:mock_webhook_secret_change_me}
+  mock:
+    webhooks-enabled: true            # mock gateway POSTs signed webhooks back to us
+    duplicate-webhooks: true          # send every webhook twice — proves dedup (at-least-once delivery)
+    webhook-delay-ms: 800
+    timeout-webhook-delay-ms: 4000    # TIMEOUT scenario: browser gets 504, webhook arrives later (D13)
+
+# ── Notifications (PAY-08) ────────────────────────────────────────────────────
+notifications:
+  email:
+    enabled: ${NOTIFICATION_EMAIL_ENABLED:true}   # dev: caught by Mailpit at http://localhost:8025
+    from: no-reply@secureleaf.local
 
 # ── Signed URL TTL ────────────────────────────────────────────────────────────
 drm:
@@ -95,3 +123,8 @@ management:
   endpoint:
     health:
       show-details: when-authorized
+
+server:
+  error:
+    include-stacktrace: never
+    include-message: always

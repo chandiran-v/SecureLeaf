@@ -1,0 +1,11 @@
+spring:
+  graphql:
+    graphiql:
+      enabled: false
+
+
+# Phase 4 (D12): production must name a real gateway. There is no RazorpayGateway yet, so
+# CommerceConfig refuses to start — deliberately. Never set this to "mock" in production.
+payment:
+  gateway:
+    provider: ${PAYMENT_GATEWAY:razorpay}
