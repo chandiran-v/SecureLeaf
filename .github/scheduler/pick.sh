@@ -68,6 +68,11 @@ reconcile() {
     esac
   done
 
+  # Issues closed by "Closes #N" on merge keep their in-progress label; tidy it.
+  for n in $(gh issue list --state closed --label "$IN_PROGRESS_LABEL" --json number -q '.[].number'); do
+    gh issue edit "$n" --remove-label "$IN_PROGRESS_LABEL" --remove-label "$BLOCKED_LABEL" >/dev/null
+  done
+
   # The reverse drift: an open scheduler PR whose Issue lost its in-progress label (e.g. a
   # failed publish that was re-run by hand). Restore it, or the scheduler would start that
   # Issue again and overwrite the PR's branch.
