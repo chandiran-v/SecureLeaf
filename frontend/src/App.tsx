@@ -12,6 +12,7 @@ import MarketplacePage from './pages/marketplace/MarketplacePage';
 import ProductDetailPage from './pages/marketplace/ProductDetailPage';
 import CheckoutPage from './pages/buyer/CheckoutPage';
 import LibraryPage from './pages/buyer/LibraryPage';
+import ReaderPage from './pages/viewer/ReaderPage';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 
@@ -69,6 +70,16 @@ function App() {
             element={
               <ProtectedRoute>
                 <LibraryPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Secure DRM reader (Phase 05B) — any logged-in user; the server checks entitlement */}
+          <Route
+            path="/read/:productId"
+            element={
+              <ProtectedRoute>
+                <ReaderPage />
               </ProtectedRoute>
             }
           />

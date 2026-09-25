@@ -19,7 +19,7 @@ function renderLibrary(myLibrary: unknown[]) {
 }
 
 describe('LibraryPage', () => {
-  it('lists owned products with a (disabled until Phase 5) Read button', async () => {
+  it('lists owned products with a Read link into the secure reader', async () => {
     renderLibrary([
       {
         __typename: 'Entitlement',
@@ -40,7 +40,7 @@ describe('LibraryPage', () => {
 
     expect(await screen.findByText('Paid Guide')).toBeInTheDocument();
     expect(screen.getByText(/by Casey/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /read/i })).toBeDisabled();
+    expect(screen.getByRole('link', { name: /read/i })).toHaveAttribute('href', '/read/7');
   });
 
   it('shows an empty state with a way back to the marketplace', async () => {

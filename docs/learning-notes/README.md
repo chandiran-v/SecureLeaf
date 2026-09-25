@@ -16,8 +16,9 @@ They serve a dual purpose:
    - Covers: Full-text search (`tsvector`/GIN), the N+1 query problem, two-step ID paging, DTO projection + field resolvers, the Strategy pattern.
 4. **[Phase 04 — Commerce (orders → payments → entitlements)](phase-04-commerce.md)**
    - Covers: Idempotency keys, race conditions + pessimistic locking, state machines, append-only audit logs, webhooks + HMAC, Razorpay-shaped gateway, after-commit side effects. **~50 graded interview Q&As.**
-5. **[Phase 05A — Secure viewer (backend)](phase-05-secure-viewer.md)**
-   - Covers: the DRM threat model, HMAC-signed single-use tile URLs vs. presigned storage URLs, `SET NX` vs `SET...GET` in Redis, leases + heartbeats, constant-time comparison, append-only audit logs, defense in depth.
+5. **[Phase 05 — Secure viewer (backend + frontend)](phase-05-secure-viewer.md)**
+   - **05A (backend):** the DRM threat model, HMAC-signed single-use tile URLs vs. presigned storage URLs, `SET NX` vs `SET...GET` in Redis, leases + heartbeats, constant-time comparison, append-only audit logs, defense in depth.
+   - **05B (frontend):** canvas rendering vs. `<img>`, `createImageBitmap` + memory hygiene, `keepalive` fetch vs. `sendBeacon`, custom hooks as units of behaviour, Apollo vs. Zustand, and an honest table of what each piracy-friction control stops and how it's bypassed.
 
 **Tooling / DevOps**
 
@@ -49,7 +50,7 @@ When a new phase is complete, duplicate `TEMPLATE.md`, name it appropriately, an
 | 2 | [phase-02-upload-pipeline.md](phase-02-upload-pipeline.md) | ✅ Done | Async processing, job queues, `SKIP LOCKED`, object storage, thread pools, object-level authz |
 | 3 | [phase-03-marketplace.md](phase-03-marketplace.md) | ✅ Done | Full-text search, two-step ID paging, N+1 queries, DTO projection, field resolvers, Strategy pattern |
 | 4 | [phase-04-commerce.md](phase-04-commerce.md) | ✅ Done | Idempotency keys, check-then-act races, `FOR UPDATE`, state machines, append-only audit log, webhooks/HMAC, at-least-once delivery, AFTER_COMMIT events, `@BatchMapping` |
-| 5 | Secure Viewer — [05A backend](phase-05-secure-viewer.md) ✅ done / [05B frontend](../phases/phase-05b-secure-viewer-frontend.md) ⏳ queued | 🔶 Partial | DRM threat model, HMAC-signed single-use URLs, leases/heartbeats, canvas rendering, browser-DRM limits |
+| 5 | Secure Viewer — [05A + 05B, one note](phase-05-secure-viewer.md) | ✅ Done | DRM threat model, HMAC-signed single-use URLs, leases/heartbeats, canvas rendering, `createImageBitmap`, `keepalive` vs `sendBeacon`, honest browser-DRM limits |
 | 6 | [Library, dashboard, live notifications](../phases/phase-06-library-dashboard-notifications.md) | ⏳ Queued | SSE vs WebSocket, stream tickets, Pub/Sub fan-out, `@BatchMapping` aggregates |
 | 7–9 | [Reviews + reset](../phases/phase-07-reviews-password-reset.md) · [Admin](../phases/phase-08-admin-panel.md) · [Hardening](../phases/phase-09-hardening-release.md) | ⏳ Queued | See `docs/phases/README.md` |
 | 10–17 | MVP2 — [roadmap](../phases/README.md) | ⏳ Queued | Observability, rate limiting, bulkheads, caching, libvips, versioning, capacity |

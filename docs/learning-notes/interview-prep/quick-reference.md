@@ -107,6 +107,27 @@
 
 ---
 
+## Phase 05B — Secure viewer (frontend) · [full note](../phase-05-secure-viewer.md)
+
+| Concept | The one-line answer |
+|---|---|
+| Canvas, never `<img>` | An `<img src>` is a fetchable resource ("Save image as…"); a `<canvas>` is just painted pixels with nothing to save |
+| The exact draw chain | `fetch(url, { headers: { Authorization } })` → `blob()` → `createImageBitmap()` → `ctx.drawImage()` → `bitmap.close()` |
+| Why `createImageBitmap`, not `new Image()` | `new Image()` needs a `src` — usually a `blob:` object URL, itself a live reference to the raw bytes; `createImageBitmap` never creates one |
+| `.close()` discipline | The *drawn* bitmap closes immediately; only *prefetched-but-undrawn* bitmaps are kept, capped at 3 and evicted-and-closed |
+| `keepalive` fetch vs. `sendBeacon` | `sendBeacon` can't carry headers at all; ending a session needs a JWT, so it's a normal `fetch(url, { keepalive: true, headers })` instead |
+| `pagehide` + unmount, not just one | `pagehide` catches a tab closing (no React cleanup runs); the `useEffect` cleanup catches an in-app navigation (no `pagehide` fires) |
+| Never cache a signed URL | URLs are single-use and expire in ~30s; only the *decoded bitmap* of a prefetched page is worth keeping around |
+| Derived, not stored, page clamping | `clampedPage = clampPage(currentPage, pageCount)` computed every render — a stored-then-reclamped value leaks one bad render (Gotcha) |
+| One hook per friction control | 5 independent hooks (context menu, focus-loss blur, DevTools heuristic, print/save block, PrintScreen blank), each unit-tested alone |
+| DevTools heuristic blurs, never ends the session | It's a guess (`outerWidth − innerWidth > 160px`) that both under- and over-detects — an action this reversible is all a guess should trigger |
+| Apollo vs. Zustand | Apollo owns anything the server has an opinion about (the session, a signed URL); Zustand owns what only exists in this tab (current page, blur flags) |
+| The honest DRM-control table | Every friction control's own note names what it stops *and* exactly how to beat it — see §3.13 |
+
+**Weakest point to volunteer:** a generic tile-fetch failure just shows "Couldn't load this page / Retry" with no detail surfaced in the UI (the backend's `X-Correlation-Id` isn't displayed anywhere yet); and there's no push/subscription for "you've been taken over" — the first laptop only finds out on its next heartbeat or next page turn.
+
+---
+
 ## Ops 1 — Phase Scheduler (CI automation) · [full note](../ops-01-phase-scheduler.md)
 
 - **What:** GitHub Actions works through spec'd phase Issues **one at a time**. Each run does one move, in priority order: blocked → stop; open PR → revise (on my feedback, failing CI, or review findings) or wait for merge; open `fix` Issue → fix; otherwise → next phase. Nothing is ever auto-merged.

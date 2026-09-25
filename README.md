@@ -148,8 +148,8 @@ shaped exactly like Razorpay**: order → checkout → HMAC-signed `razorpay_sig
 `X-Razorpay-Signature` webhook. The checkout page lets you simulate **success, a declined card, or a
 gateway timeout** (money taken, browser told nothing — the webhook still completes the order). Every
 purchase is idempotent (client idempotency key + row locks), every payment state change is written to
-an append-only audit log, and the buyer gets an **entitlement** — the access grant the Phase 5 viewer
-will check. Also: **My Library** (`/library`), a creator **earnings card** (10% platform fee,
+an append-only audit log, and the buyer gets an **entitlement** — the access grant the Phase 5 secure
+viewer checks on every single page turn. Also: **My Library** (`/library`), a creator **earnings card** (10% platform fee,
 snapshotted per sale), and purchase **notifications** (in-app bell, Redis Pub/Sub, email via Mailpit
 at <http://localhost:8025>).
 
@@ -159,12 +159,15 @@ Swapping in real Razorpay = one `PaymentGateway` implementation + three environm
 
 ---
 
-## Key Architecture: DRM Secure Viewer
+## Secure DRM Viewer (Phase 5)
 
-The star feature — content is **never** sent as a downloadable file:
+The star feature — content is **never** sent as a downloadable file. Logged-in buyers with an active
+entitlement open a book at `/read/:productId`:
 
 1. PDFs are converted server-side into **image tiles** (Apache PDFBox)
 2. Each tile is **watermarked server-side** with the buyer's identity (Java2D) — the browser never receives a clean tile
-3. Tiles are served via **signed URLs with 30-second TTL** from MinIO
-4. The browser renders tiles on an **HTML5 Canvas** with right-click, print, text-select, and drag all disabled
-5. **Single-session enforcement** via Redis `SET NX` — opening on a second device kills the first session
+3. Tiles are served through our own signing controller — **HMAC-signed, single-use URLs with a 30-second TTL** — never a presigned link straight to storage
+4. The browser fetches each page with its JWT, decodes it off-DOM (`createImageBitmap`), and paints it onto an **HTML5 Canvas** — never an `<img>`, with right-click, print, text-select, and drag all disabled, and the page blurred the instant the tab loses focus or DevTools looks open
+5. **Single-session enforcement** via a Redis `SET ... GET` (last-writer-wins) — opening on a second device evicts the first, which finds out via heartbeat or its next page turn
+
+See [`docs/learning-notes/phase-05-secure-viewer.md`](docs/learning-notes/phase-05-secure-viewer.md) for the full write-up, including an honest table of what every browser-side control stops and how each one is bypassed.
