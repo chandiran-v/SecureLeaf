@@ -171,3 +171,31 @@ entitlement open a book at `/read/:productId`:
 5. **Single-session enforcement** via a Redis `SET ... GET` (last-writer-wins) — opening on a second device evicts the first, which finds out via heartbeat or its next page turn
 
 See [`docs/learning-notes/phase-05-secure-viewer.md`](docs/learning-notes/phase-05-secure-viewer.md) for the full write-up, including an honest table of what every browser-side control stops and how each one is bypassed.
+
+---
+
+## Library, Creator Dashboard & Live Notifications (Phase 6)
+
+The buyer/creator loop, finished:
+
+- **My Library** (`/library`) now shows *every* entitlement a buyer has ever held — ACTIVE, REVOKED,
+  or EXPIRED — with a status badge and, for anything that isn't ACTIVE, a disabled "Read" button
+  explaining why. Client-side search by title.
+- **Creator dashboard**: per-product **sales count and net earnings** (one shared, aggregate query
+  regardless of how many products or which of those two fields you ask for), the current pipeline
+  **stage** for a PROCESSING upload, the **failure reason** for a FAILED one plus a one-click
+  **Retry**, and **Republish** for an UNPUBLISHED product. Unpublish/Delete both confirm first and
+  say outright that existing buyers keep their access.
+- **Real-time notifications via Server-Sent Events**, replacing the old 30-second poll: a one-time,
+  30-second Redis ticket authenticates the stream (`EventSource` can't send an `Authorization`
+  header), and Redis Pub/Sub fans a new notification out to whichever backend instance is holding
+  that user's open connection. Falls back to polling automatically after 3 failed reconnects.
+  "Mark all read" clears the badge in one call.
+- The pipeline itself now notifies the creator — `PROCESSING_COMPLETE` when a product goes LIVE,
+  `PROCESSING_FAILED` when it exhausts its retries — through the same after-commit notification
+  path purchases already used.
+
+See [`docs/learning-notes/phase-06-library-dashboard-notifications.md`](docs/learning-notes/phase-06-library-dashboard-notifications.md)
+for the full write-up: SSE vs. WebSocket vs. polling, why a ticket and not the JWT, the Pub/Sub
+fan-out's at-most-once caveat (and why that's fine here), and a named `DataLoader` shared across two
+GraphQL fields.

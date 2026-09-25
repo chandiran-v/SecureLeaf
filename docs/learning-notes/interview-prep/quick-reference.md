@@ -141,6 +141,25 @@
 
 ---
 
+## Phase 6 — Library, dashboard, live notifications · [full note](../phase-06-library-dashboard-notifications.md)
+
+| Concept | The one-line answer |
+|---|---|
+| SSE, not WebSocket | Delivery is server → client only; SSE is plain HTTP with browser-managed reconnect, no bidirectional channel needed |
+| One-time ticket, not the JWT | `EventSource` can't send headers; a 30s, single-use Redis `GETDEL` ticket shrinks a leak's blast radius near zero vs. a 15-minute JWT in a URL |
+| Fan-out across instances | Every instance subscribes to `notifications:user:*`; only the instance actually holding that user's open tab acts on a message |
+| At-most-once, and that's fine | Pub/Sub drops messages to offline subscribers; the DB row (written before publish) is the real source of truth, so a missed push just means "found out on the next query" |
+| Re-read before push | The SSE listener re-fetches the notification by id instead of trusting the Redis payload — one mapping, can't drift |
+| Shared named `DataLoader` | `salesCount`/`netEarningsPaise` pull the *same* named loader via `DataFetchingEnvironment`, so one aggregate query serves both fields, not one each |
+| Why not `@RequestScope` for that cache | graphql-java can resolve independent fields on different threads; a `ThreadLocal`-backed bean isn't safely shared across that, `DataLoaderRegistry` is |
+| Guarded transitions | `retryProcessing`/`republishProduct` check the exact starting status first; anything else is a typed `INVALID_STATE_TRANSITION`, never a silent no-op |
+| Retry reuses the poller | `retryProcessing` resets the job to QUEUED and lets the existing 5s `@Scheduled` poll pick it up — one code path for "a job is ready," not two |
+| Soft delete re-verified | `myLibrary` widened to every entitlement status, independent of the product's own status/`deleted_at` — proven end to end with a dedicated IT, not assumed |
+
+**Weakest point to volunteer:** `SseEmitterRegistry` has no per-user connection cap or total ceiling — nothing stops one user opening the stream hundreds of times. Fine for MVP load, first thing to add before real adversarial traffic.
+
+---
+
 ## Cross-cutting themes to weave into any answer
 
 1. **Threat-model each decision.** Every security choice here has a "what attack does this stop" answer. Say it.
