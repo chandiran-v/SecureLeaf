@@ -160,11 +160,19 @@ class PreviewControllerIT extends AbstractIntegrationTest {
         assertThat(returned).isNotEqualTo(CLEAN_PAGE_PNG);
     }
 
-    /** A minimal but valid 1x1 PNG, so ImageIO can decode it for watermarking. */
+    /**
+     * A minimal but valid PNG, so ImageIO can decode it for watermarking. 200x200, not 10x10:
+     * Java2DWatermarkRenderer draws its repeating label on a grid sized off the image dimensions
+     * (see its {@code stepX}/{@code stepY}), so on a canvas much smaller than one grid cell the
+     * single diagonal draw call can land entirely outside the visible pixels — the watermark
+     * silently no-ops and {@code returned}/{@code CLEAN_PAGE_PNG} come out byte-identical
+     * (observed as a flaky failure of this exact test). Large enough that at least one repeat
+     * always overlaps the canvas, regardless of font metrics.
+     */
     private static byte[] fakePng() {
         try {
             java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(
-                    10, 10, java.awt.image.BufferedImage.TYPE_INT_RGB);
+                    200, 200, java.awt.image.BufferedImage.TYPE_INT_RGB);
             java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
             javax.imageio.ImageIO.write(img, "png", out);
             return out.toByteArray();
