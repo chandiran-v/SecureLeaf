@@ -133,25 +133,102 @@ jobs:
         run: bash "$RUNNER_TEMP/scheduler/prepare.sh"
 
       - name: Claude does the work
+        id: claude
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           # Runs dispatched by phase-kick.yml are started by github-actions[bot].
           allowed_bots: "github-actions[bot]"
+          # Claude's final report goes to the run's Summary page. Inputs are trusted (owner-only Issues).
+          display_report: "true"
           prompt: |
-            You are working on SecureLeaf, unattended, inside GitHub Actions. Nobody can answer
-            questions during this run.
+            You are working on SecureLeaf, unattended, inside GitHub Actions.
+            NOBODY will read or answer anything you say until this run is over. Do not stop to
+            present a plan, ask for confirmation, or summarise progress: ending your turn ends the
+            run. This task is large (typically hundreds of tool calls over one to three hours);
+            keep working until it is finished.
 
             1. Read `CLAUDE.md` and `AI_RULES.md` first. They apply in full.
             2. Read `.phase-run/TASK.md`. It says exactly what this run must do (mode: ${{ env.MODE }})
                and what "done" means. The Issue is in `.phase-run/brief.md`.
             3. Do that task and nothing else. Commit your work on the current branch
-               (`${{ env.BRANCH }}`). Do not push, open PRs or switch branches.
-            4. Write the result file TASK.md asks for (PR_BODY.md / REVISION.md), or
-               `.phase-run/BLOCKED.md` if you cannot finish without the owner.
+               (`${{ env.BRANCH }}`) as you go. Do not push, open PRs or switch branches.
+            4. You are finished ONLY when the result file TASK.md asks for exists
+               (`.phase-run/PR_BODY.md`, or `.phase-run/REVISION.md` in revise mode), after the
+               verification commands pass. If you genuinely cannot finish without the owner, write
+               `.phase-run/BLOCKED.md` instead. Never end your turn with neither file written.
           claude_args: |
-            --max-turns 300
+            --max-turns 1000
             --allowedTools "Bash,Read,Write,Edit,MultiEdit,Glob,Grep,TodoWrite"
+
+      # Safety net: if Claude ended its turn before writing a result file, resume the SAME
+      # session (full context kept) and tell it to carry on. Up to two continuations.
+      - name: Check whether Claude finished
+        id: check1
+        if: steps.claude.outcome == 'success'
+        run: bash "$RUNNER_TEMP/scheduler/finished.sh"
+
+      - name: Claude continues (1)
+        id: claude2
+        continue-on-error: true # publish.sh decides from the result files
+        if: steps.check1.outputs.finished == 'false'
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          allowed_bots: "github-actions[bot]"
+          display_report: "true"
+          prompt: |
+            You ended your turn, but the task is not finished: neither the result file nor
+            `.phase-run/BLOCKED.md` exists. Nobody is going to reply or approve a plan. Continue
+            the task in `.phase-run/TASK.md` from where you are now, commit as you go, and only stop
+            once the result file exists (or BLOCKED.md, if you truly need the owner).
+          claude_args: |
+            --resume ${{ steps.claude.outputs.session_id }}
+            --max-turns 1000
+            --allowedTools "Bash,Read,Write,Edit,MultiEdit,Glob,Grep,TodoWrite"
+
+      - name: Check whether Claude finished (2)
+        id: check2
+        if: steps.claude2.outcome == 'success'
+        run: bash "$RUNNER_TEMP/scheduler/finished.sh"
+
+      - name: Claude continues (2)
+        id: claude3
+        continue-on-error: true # publish.sh decides from the result files
+        if: steps.check2.outputs.finished == 'false'
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          allowed_bots: "github-actions[bot]"
+          display_report: "true"
+          prompt: |
+            You have ended your turn twice without finishing. Nobody will reply. Finish the task in
+            `.phase-run/TASK.md` now and write the result file, or write `.phase-run/BLOCKED.md`
+            explaining exactly what stops you.
+          claude_args: |
+            --resume ${{ steps.claude2.outputs.session_id }}
+            --max-turns 1000
+            --allowedTools "Bash,Read,Write,Edit,MultiEdit,Glob,Grep,TodoWrite"
+
+      # Claude's full transcript, for diagnosing runs. The job holds no secrets beyond what the
+      # action masks, and the repository is already public.
+      - name: Save Claude transcripts
+        if: always() && steps.prepare.outcome == 'success'
+        run: |
+          mkdir -p "$RUNNER_TEMP/transcripts"
+          n=1
+          for f in "${{ steps.claude.outputs.execution_file }}" "${{ steps.claude2.outputs.execution_file }}" "${{ steps.claude3.outputs.execution_file }}"; do
+            [ -n "$f" ] && [ -f "$f" ] && cp "$f" "$RUNNER_TEMP/transcripts/session-$n.json"
+            n=$((n + 1))
+          done
+          true
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.prepare.outcome == 'success'
+        with:
+          name: claude-transcripts
+          path: ${{ runner.temp }}/transcripts
+          retention-days: 7
+          if-no-files-found: ignore
 
       - name: Package the result (git bundle + result files)
         if: always() && steps.prepare.outcome == 'success'

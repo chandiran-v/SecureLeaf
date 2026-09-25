@@ -60,6 +60,19 @@ Partial work is on branch \`$BRANCH\`."
 Answer here (or update the spec in \`docs/phases/\`)."
 fi
 
+# Unfinished work (no result file even after the continuation passes) is saved to the branch
+# for inspection, but never presented as a PR — a PR means "done, please review".
+result=PR_BODY.md; [ "$MODE" = revise ] && result=REVISION.md
+if [ ! -f "$OUT_DIR/$result" ]; then
+  if [ "$MODE" = revise ]; then push; else push --force; fi
+  msg="❌ **Claude stopped before finishing** (no \`$result\` after the automatic continuation passes)."
+  [ -z "$head" ] || msg="$msg
+
+Partial work ($commits commit(s)) is on branch \`$BRANCH\`."
+  park "$msg
+Claude's transcripts are attached to the run as the \`claude-transcripts\` artifact."
+fi
+
 case "$MODE" in
   phase|fix)
     [ "$commits" -gt 0 ] || park "❌ **Claude finished without making any changes.**"
