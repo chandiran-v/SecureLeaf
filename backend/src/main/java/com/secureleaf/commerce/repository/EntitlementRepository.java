@@ -9,10 +9,20 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 public interface EntitlementRepository extends JpaRepository<Entitlement, Long> {
 
     boolean existsByBuyerIdAndProductIdAndStatus(Long buyerId, Long productId, EntitlementStatus status);
+
+    /**
+     * The secure viewer's entry check (VIEW-01, VIEW-12): does this buyer hold an ACTIVE
+     * entitlement for this product? The partial unique index from V4 guarantees at most one row.
+     * Eagerly loads {@code documentVersion} — the viewer needs its {@code pageCount} immediately
+     * (D8: the *entitled* version's page count, not necessarily the product's latest one).
+     */
+    @EntityGraph(attributePaths = {"documentVersion", "product", "buyer"})
+    Optional<Entitlement> findByBuyerIdAndProductIdAndStatus(Long buyerId, Long productId, EntitlementStatus status);
 
     /**
      * My Library (PAY-09). No filter on product status or deleted_at: a buyer keeps

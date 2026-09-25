@@ -53,4 +53,8 @@ public class ViewerSession {
     @Column(name = "ended_at")
     private Instant endedAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "end_reason", length = 20)
+    private ViewerSessionEndReason endReason;
+
 }
