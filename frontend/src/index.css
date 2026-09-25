@@ -50,3 +50,11 @@
     transform: translateY(0);
   }
 }
+
+/* VIEW-07 — belt-and-braces for the secure reader: even if a print shortcut somehow reaches the
+   browser's print dialog, the printed output is a blank page, not the book. */
+@media print {
+  body {
+    display: none !important;
+  }
+}

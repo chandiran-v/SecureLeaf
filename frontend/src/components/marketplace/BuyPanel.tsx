@@ -11,7 +11,7 @@ const primary =
 
 /**
  * The product page's call to action. Five states, checked in this order:
- *   owned → "In your library"   ·   your own product → disabled
+ *   owned → "Read now" (Phase 05B secure viewer)   ·   your own product → disabled
  *   logged out → "Log in to buy" ·   free → "Get for free"   ·   paid → "Buy for ₹X"
  * The UI checks are for UX only — the server enforces every one of them again (D12).
  */
@@ -23,8 +23,8 @@ export default function BuyPanel({ product }: { product: Product }) {
 
   if (product.ownedByMe) {
     return (
-      <Link to="/library" className={`${primary} block text-center`}>
-        ✓ In your library
+      <Link to={`/read/${product.id}`} className={`${primary} block text-center`}>
+        Read now
       </Link>
     );
   }

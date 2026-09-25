@@ -86,11 +86,11 @@ describe('ProductDetailPage — buy panel states', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: /get for free/i })).toBeEnabled());
   });
 
-  it('links to the library instead of Buy when the product is already owned', async () => {
+  it('links to the secure reader instead of Buy when the product is already owned', async () => {
     logInAs('buyer1');
     renderDetail([detailMock({ ownedByMe: true })]);
 
-    await waitFor(() => expect(screen.getByRole('link', { name: /in your library/i })).toHaveAttribute('href', '/library'));
+    await waitFor(() => expect(screen.getByRole('link', { name: /read now/i })).toHaveAttribute('href', '/read/1'));
     expect(screen.queryByRole('button', { name: /buy/i })).not.toBeInTheDocument();
   });
 

@@ -66,13 +66,12 @@ export default function LibraryPage() {
                   <p className="text-xs text-gray-400 mt-2">
                     Purchased {new Date(item.purchasedAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}
                   </p>
-                  <button
-                    disabled
-                    title="The secure reader arrives in Phase 5"
-                    className="mt-2 text-xs py-1.5 rounded-lg bg-gray-100 text-gray-400 font-medium cursor-not-allowed"
+                  <Link
+                    to={`/read/${item.product.id}`}
+                    className="mt-2 text-center text-xs py-1.5 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 transition-colors"
                   >
-                    Read — coming in Phase 5
-                  </button>
+                    Read
+                  </Link>
                 </div>
               </li>
             ))}
