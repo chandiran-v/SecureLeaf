@@ -1,27 +1,39 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@apollo/client';
 import { MY_NOTIFICATIONS } from '../../graphql/queries/commerce.queries';
-import { MARK_NOTIFICATION_READ } from '../../graphql/mutations/commerce.mutations';
+import { MARK_ALL_NOTIFICATIONS_READ, MARK_NOTIFICATION_READ } from '../../graphql/mutations/commerce.mutations';
+import { useNotificationStream } from '../../hooks/useNotificationStream';
 import type { Notification } from '../../types';
 
-const POLL_INTERVAL_MS = 30_000;
+const FALLBACK_POLL_INTERVAL_MS = 60_000;
+const TOAST_DURATION_MS = 5_000;
 
 /**
- * Header bell with an unread badge (PAY-08).
+ * Header bell with an unread badge (PAY-08, NOTIF-04).
  *
- * Polling, for now: the backend already publishes every notification to Redis Pub/Sub, but
- * nothing bridges Redis to the browser yet — Phase 6 adds a Server-Sent-Events stream and
- * this component swaps pollInterval for a subscription. Polling every 30s is the honest,
- * simple baseline: at worst a notification shows up half a minute late.
+ * Real-time via SSE (Phase 6, D7/D8): {@link useNotificationStream} opens an EventSource and
+ * prepends every incoming notification straight into the `myNotifications` Apollo cache entry,
+ * so this component doesn't poll at all while the stream is healthy. Polling is only the
+ * fallback, after 3 failed reconnects — see the hook's javadoc-equivalent comment.
  */
 export default function NotificationBell() {
   const [open, setOpen] = useState(false);
+  const [toast, setToast] = useState<Notification | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const toastTimerRef = useRef<number>();
+
+  const { fallbackPolling } = useNotificationStream((notification) => {
+    setToast(notification);
+    window.clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = window.setTimeout(() => setToast(null), TOAST_DURATION_MS);
+  });
+
   const { data } = useQuery<{ myNotifications: Notification[] }>(MY_NOTIFICATIONS, {
-    pollInterval: POLL_INTERVAL_MS,
+    pollInterval: fallbackPolling ? FALLBACK_POLL_INTERVAL_MS : 0,
     fetchPolicy: 'cache-and-network',
   });
   const [markRead] = useMutation(MARK_NOTIFICATION_READ);
+  const [markAllRead] = useMutation(MARK_ALL_NOTIFICATIONS_READ);
 
   const notifications = data?.myNotifications ?? [];
   const unread = notifications.filter((n) => !n.isRead).length;
@@ -36,6 +48,8 @@ export default function NotificationBell() {
     return () => document.removeEventListener('mousedown', onClick);
   }, [open]);
 
+  useEffect(() => () => window.clearTimeout(toastTimerRef.current), []);
+
   const handleRead = (n: Notification) => {
     if (n.isRead) return;
     void markRead({
@@ -46,6 +60,21 @@ export default function NotificationBell() {
         cache.modify({
           id: cache.identify({ __typename: 'Notification', id: n.id }),
           fields: { isRead: () => true },
+        });
+      },
+    });
+  };
+
+  const handleMarkAllRead = () => {
+    if (unread === 0) return;
+    void markAllRead({
+      optimisticResponse: { markAllNotificationsRead: unread },
+      update: (cache) => {
+        notifications.forEach((n) => {
+          cache.modify({
+            id: cache.identify({ __typename: 'Notification', id: n.id }),
+            fields: { isRead: () => true },
+          });
         });
       },
     });
@@ -72,9 +101,18 @@ export default function NotificationBell() {
 
       {open && (
         <div className="absolute right-0 mt-2 w-80 bg-white/95 backdrop-blur rounded-xl border border-gray-200 shadow-xl overflow-hidden z-50">
-          <p className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-100">
-            Notifications
-          </p>
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Notifications</p>
+            {unread > 0 && (
+              <button
+                type="button"
+                onClick={handleMarkAllRead}
+                className="text-xs font-medium text-emerald-600 hover:text-emerald-700"
+              >
+                Mark all read
+              </button>
+            )}
+          </div>
           {notifications.length === 0 ? (
             <p className="px-4 py-8 text-sm text-gray-400 text-center">Nothing yet.</p>
           ) : (
@@ -101,6 +139,16 @@ export default function NotificationBell() {
               ))}
             </ul>
           )}
+        </div>
+      )}
+
+      {toast && (
+        <div
+          role="status"
+          className="fixed bottom-4 right-4 z-50 w-72 bg-white rounded-xl border border-gray-200 shadow-lg px-4 py-3"
+        >
+          <p className="text-sm font-medium text-gray-900">{toast.title}</p>
+          {toast.body && <p className="text-xs text-gray-500 mt-0.5">{toast.body}</p>}
         </div>
       )}
     </div>
