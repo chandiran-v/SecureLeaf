@@ -312,4 +312,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh issue edit "$ISSUE" --add-label "phase:blocked"
-          gh issue comment "$ISSUE" --body "❌ Publishing the result failed: $RUN_URL. Remove \`phase:blocked\` to retry."
+          gh issue comment "$ISSUE" --body "❌ **Publishing the result failed:** $RUN_URL
+
+          Claude's work is saved in that run. Fix the cause (see the publish log), then open the run and
+          click **Re-run failed jobs** to publish the same work without redoing it.
+          Removing \`phase:blocked\` instead starts this item again from scratch."

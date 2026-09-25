@@ -94,6 +94,8 @@ case "$MODE" in
     url=$(GH_TOKEN="$PR_TOKEN" gh pr create --base "$TARGET_BRANCH" --head "$BRANCH" --title "$prefix$TITLE" \
             --body-file "$RUNNER_TEMP/pr.md" --label "$label" --label "$MILESTONE_LABEL")
     gh issue comment "$ISSUE" --body "📬 PR ready for review: $url" >/dev/null
+    # Clears a block left by an earlier failed publish of this same work (re-run by hand).
+    gh issue edit "$ISSUE" --remove-label "$BLOCKED_LABEL" >/dev/null
     say "Opened $url"
     ;;
   revise)

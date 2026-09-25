@@ -55,11 +55,27 @@ reconcile() {
         gh issue edit "$n" --remove-label "$IN_PROGRESS_LABEL" >/dev/null
         block "$n" "PR #$pr was closed without merging. Removing the label will re-run the work from scratch." ;;
       *)
-        # No PR at all: the run that started it failed before publishing.
-        gh issue edit "$n" --remove-label "$IN_PROGRESS_LABEL" >/dev/null
-        [ "$(has_label "$n" "$BLOCKED_LABEL")" = true ] || block "$n" "It was marked in progress but no PR exists (a run probably failed)."
+        # No PR at all: the run that started it failed before publishing (every failure path
+        # parks the Issue as blocked). While it is blocked, leave it alone: the owner may still
+        # "Re-run failed jobs" to publish the saved work. Once the owner removes the block
+        # without a PR appearing, start the item again from scratch.
+        if [ "$(has_label "$n" "$BLOCKED_LABEL")" != true ]; then
+          gh issue edit "$n" --remove-label "$IN_PROGRESS_LABEL" >/dev/null
+          gh issue comment "$n" --body "🔄 Unblocked with no PR found, so this item will be redone from scratch." >/dev/null
+          say "Reset #$n (no PR) so it can be redone."
+        fi
         ;;
     esac
+  done
+
+  # The reverse drift: an open scheduler PR whose Issue lost its in-progress label (e.g. a
+  # failed publish that was re-run by hand). Restore it, or the scheduler would start that
+  # Issue again and overwrite the PR's branch.
+  for n in $(gh pr list --state open --json headRefName -q '.[].headRefName | select(startswith("auto/issue-")) | ltrimstr("auto/issue-")'); do
+    if [ "$(gh issue view "$n" --json state -q .state)" = OPEN ] && [ "$(has_label "$n" "$IN_PROGRESS_LABEL")" != true ]; then
+      gh issue edit "$n" --add-label "$IN_PROGRESS_LABEL" >/dev/null
+      say "Re-marked #$n in progress (its PR is open)."
+    fi
   done
 }
 
