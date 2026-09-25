@@ -196,6 +196,27 @@
                     </excludes>
                 </configuration>
             </plugin>
+            <!--
+              Every *IT.java in this project (PreviewControllerIT, CommerceIT, ViewerIT, ...) is
+              named for the Maven Failsafe Plugin's convention — but without Failsafe actually
+              bound to a phase, `mvn verify` only runs Surefire, whose default include pattern
+              (**/*Test.java) never matches *IT.java. Every integration test in the codebase was
+              silently never executing in CI. Binding integration-test + verify here is what
+              makes "cd backend && sh ./mvnw -B verify" (the definition of done for every phase)
+              actually run the acceptance-criteria tests it's supposed to gate on.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 

@@ -116,12 +116,33 @@ export interface CreatorEarnings {
   netEarningsPaise: number;
 }
 
-// ── DRM Viewer ────────────────────────────────────────────────────────────────
+// ── DRM Viewer (Phase 05A backend; wired into a page by Phase 05B) ─────────────
+// Session lifecycle is GraphQL (types below); tile bytes are REST — CLAUDE.md's
+// "GraphQL for data, REST for files" rule. See docs/phases/phase-05a-secure-viewer-backend.md.
+
+export type ViewerSessionStatus = 'ACTIVE' | 'SUPERSEDED' | 'EXPIRED';
 
 export interface ViewerSession {
+  sessionId: UUID;
+  // Returned ONCE, here, at startViewerSession — only its SHA-256 hash is ever stored
+  // server-side (same reasoning as a refresh token). Losing this means losing the session.
+  sessionToken: string;
   productId: UUID;
-  totalPages: number;
-  currentPage: number;
+  pageCount?: number | null;
+  heartbeatIntervalSeconds: number;
+  expiresAt: string; // ISO 8601 — current lease expiry
+}
+
+// The client's every-`heartbeatIntervalSeconds` lease renewal (viewerHeartbeat mutation).
+export interface ViewerHeartbeat {
+  status: ViewerSessionStatus;
+  expiresAt: string;
+}
+
+// A single-use, ~30s link to one watermarked tile: GET the `url` over REST, not GraphQL.
+export interface SignedPageUrl {
+  url: string;
+  expiresAt: string;
 }
 
 // ── Reviews ───────────────────────────────────────────────────────────────────

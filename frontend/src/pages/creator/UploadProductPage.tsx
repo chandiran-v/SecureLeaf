@@ -34,7 +34,7 @@ export default function UploadProductPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [pricePaise, setPricePaise] = useState(0);
-  const [categoryId, setCategoryId] = useState('1'); // default category ID
+  const categoryId = '1'; // default category ID — no UI to change it yet
   const [tags, setTags] = useState('');
   const [freePreviewPages, setFreePreviewPages] = useState(3);
 

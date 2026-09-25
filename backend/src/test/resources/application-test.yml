@@ -18,3 +18,11 @@ payment:
 notifications:
   email:
     enabled: false
+
+# Phase 5 — a 2s lease (vs. 45s in application.yml) lets ViewerIT prove EXPIRED behaviour with a
+# short sleep instead of a 45s+ test. Session/tile-signing logic under test is identical either
+# way; only the timer that would otherwise make the test slow changes.
+drm:
+  session:
+    heartbeat-interval-seconds: 1
+    lease-seconds: 2

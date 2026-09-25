@@ -18,11 +18,11 @@ describe('UploadProductPage', () => {
     vi.mocked(useAuth).mockReturnValue({
       user: { id: '1', displayName: 'Creator' },
       logout: vi.fn(),
-    } as any);
+    } as unknown as ReturnType<typeof useAuth>);
     vi.mocked(useCreatorProducts).mockReturnValue({
       createProduct: vi.fn().mockResolvedValue({ id: 'prod-123' }),
       createLoading: false,
-    } as any);
+    } as unknown as ReturnType<typeof useCreatorProducts>);
   });
 
   const renderComponent = () => {

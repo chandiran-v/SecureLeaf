@@ -58,7 +58,7 @@ export default function PreviewPane({ productId, freePreviewPages }: PreviewPane
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [productId, pageNumber]);
+  }, [productId, pageNumber, freePreviewPages]);
 
   if (freePreviewPages < 1) {
     return <p className="text-sm text-gray-400 italic">No free preview available for this product.</p>;

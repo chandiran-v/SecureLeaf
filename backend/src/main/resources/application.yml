@@ -96,9 +96,13 @@ notifications:
     enabled: ${NOTIFICATION_EMAIL_ENABLED:true}   # dev: caught by Mailpit at http://localhost:8025
     from: no-reply@secureleaf.local
 
-# ── Signed URL TTL ────────────────────────────────────────────────────────────
+# ── DRM / secure viewer (Phase 5) ─────────────────────────────────────────────
 drm:
+  signing-secret: ${DRM_SIGNING_SECRET:dev-only-change-me-32-bytes-minimum!!}   # HMAC key, TileUrlSigner (D5)
   signed-url-ttl-seconds: 30
+  session:
+    heartbeat-interval-seconds: 15   # D4 — client heartbeat cadence
+    lease-seconds: 45                # D4 — Redis TTL a heartbeat refreshes; 3x the interval
   watermark:
     renderer: java2d             # Strategy: java2d | libvips (future)
     opacity: 0.25

@@ -87,6 +87,26 @@
 
 ---
 
+## Phase 05A — Secure viewer (backend) · [full note](../phase-05-secure-viewer.md)
+
+| Concept | The one-line answer |
+|---|---|
+| The honest DRM pitch | Traceable deterrence, not prevention — screen recording always works; every leaked page is watermarked back to the buyer |
+| Why not a presigned MinIO URL | It points straight at the CLEAN tile; our signed URL points at our own controller, which watermarks on every hit |
+| `SET...GET` vs `SET NX` | Last-writer-wins for the one-active-session pointer (a new login must evict the old); first-writer-wins for single-use tile signatures |
+| Signature payload | `HMAC-SHA256(secret, "{sessionId}\|{pageNumber}\|{userId}\|{exp}")` — `userId` baked in, so "valid" and "yours" are one check |
+| Lease + heartbeat | Client pings every 15s; each ping atomically (Lua script) refreshes a 45s Redis TTL only if it's still that session's key |
+| Who writes `ended_at` | Exactly one place per reason: `startViewerSession`'s takeover writes SUPERSEDED; the 60s sweeper writes EXPIRED; heartbeat only *reports*, never writes |
+| D6 check order | JWT (401) → signature+owner (403) → single-use (403) → active session (409/410) → entitlement ACTIVE, re-read fresh (403) → page range (404) |
+| Why re-check entitlement per tile | A mid-session revoke must take effect on the next page turn, not at the next login |
+| Constant-time compare | Same reasoning as Phase 4's `RazorpaySignatures` — `MessageDigest.isEqual`, not `String.equals` |
+| Access log timing | Synchronous, in-transaction (unlike Phase 4's AFTER_COMMIT notifications) — no rollback risk here, and it's on the hot path either way |
+| Failsafe gap | `mvn verify` had never actually run any `*IT.java` in the whole project (no plugin bound); fixing it surfaced 3 unrelated pre-existing test bugs |
+
+**Weakest point to volunteer:** the active-session check depends on Redis with no defined fallback if it's briefly unreachable — a timeout surfaces as an error rather than a graceful degraded mode. Also: `viewer_access_logs` is append-only by convention, not enforced by a DB trigger the way `payment_events` is.
+
+---
+
 ## Ops 1 — Phase Scheduler (CI automation) · [full note](../ops-01-phase-scheduler.md)
 
 - **What:** GitHub Actions works through spec'd phase Issues **one at a time**. Each run does one move, in priority order: blocked → stop; open PR → revise (on my feedback, failing CI, or review findings) or wait for merge; open `fix` Issue → fix; otherwise → next phase. Nothing is ever auto-merged.
