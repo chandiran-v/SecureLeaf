@@ -26,9 +26,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.ByteArrayOutputStream;
+import java.time.Duration;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 /**
  * End-to-end integration test for the 5-stage document processing pipeline.
@@ -124,12 +126,17 @@ class ProcessingPipelineIT extends AbstractIntegrationTest {
         }
         storage.put("raw-bucket", "raw-key", pdfBytes, "application/pdf");
 
-        // 3. Run the pipeline (synchronously for the test)
-        pipeline.processAsync(job.getId());
+        // 3. Run the pipeline. processAsync is @Async (contentProcessingExecutor), so this call
+        // returns immediately — the assertions below must wait for the background thread, not
+        // assume it already finished (that race is what made this test flaky/failing once IT
+        // suites actually started running under Failsafe; see Phase 05A's PR).
+        Long jobId = job.getId();
+        pipeline.processAsync(jobId);
 
         // 4. Assert Job is COMPLETED
-        ProcessingJob finishedJob = jobRepository.findById(job.getId()).orElseThrow();
-        assertThat(finishedJob.getStatus()).isEqualTo(JobStatus.COMPLETED);
+        await().atMost(Duration.ofSeconds(10)).untilAsserted(() ->
+                assertThat(jobRepository.findById(jobId).orElseThrow().getStatus()).isEqualTo(JobStatus.COMPLETED));
+        ProcessingJob finishedJob = jobRepository.findById(jobId).orElseThrow();
         assertThat(finishedJob.getCurrentStage()).isEqualTo(JobStage.MARK_LIVE);
 
         // 5. Assert Product is LIVE and has thumbnail
