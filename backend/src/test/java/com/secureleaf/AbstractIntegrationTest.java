@@ -4,11 +4,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.utility.DockerImageName;
 
 /**
  * Base class for all integration tests.
@@ -40,12 +43,26 @@ public abstract class AbstractIntegrationTest {
             .withUsername("testuser")
             .withPassword("testpass");
 
+    /**
+     * D14 (Phase 5) — the secure viewer's active-session pointer and single-use tile signatures
+     * are real Redis operations (SET ... GET, a Lua compare-and-refresh, SET NX) that InMemory
+     * fakes can't faithfully reproduce, so the suite needs a real server. Same singleton-container
+     * reasoning as {@code postgres} above: started once in a static initializer, never stopped,
+     * so every test class shares one instance instead of racing to start/stop it per class.
+     */
+    static final GenericContainer<?> redis = new GenericContainer<>(DockerImageName.parse("redis:7-alpine"))
+            .withExposedPorts(6379);
+
     static {
         postgres.start();
+        redis.start();
     }
 
     @Autowired
     private JdbcTemplate baseJdbcTemplate;
+
+    @Autowired
+    private RedisConnectionFactory baseRedisConnectionFactory;
 
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
@@ -53,6 +70,12 @@ public abstract class AbstractIntegrationTest {
         registry.add("spring.datasource.username", postgres::getUsername);
         registry.add("spring.datasource.password", postgres::getPassword);
         // MinIO properties are irrelevant since InMemoryStorageService is @Primary
+        registry.add("spring.data.redis.host", redis::getHost);
+        registry.add("spring.data.redis.port", () -> redis.getMappedPort(6379));
+        // The container runs with no --requirepass; application.yml's default password would
+        // make the client send AUTH to a server that never asked for one (Redis then rejects
+        // the connection), so it must be overridden to empty for the test profile.
+        registry.add("spring.data.redis.password", () -> "");
     }
 
     /**
@@ -77,5 +100,17 @@ public abstract class AbstractIntegrationTest {
                     EXECUTE 'TRUNCATE ' || tables || ' RESTART IDENTITY CASCADE';
                 END $$;
                 """);
+    }
+
+    /**
+     * TRUNCATE ... RESTART IDENTITY means every test's user/product/session ids start back at 1
+     * — so a leftover Redis key like {@code viewer:active:1:1} (still live, up to 45s TTL) from
+     * one test would silently leak into the next test that happens to mint the same ids. Flushing
+     * the shared Redis container before every test closes that gap the same way truncation does
+     * for Postgres.
+     */
+    @BeforeEach
+    void flushRedis() {
+        baseRedisConnectionFactory.getConnection().serverCommands().flushAll();
     }
 }
