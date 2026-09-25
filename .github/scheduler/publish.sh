@@ -40,6 +40,24 @@ if [ "$commits" -gt 0 ]; then
   if git diff --name-only "$BASE_SHA" "$head" | grep -q '^\.github/'; then
     park "🛑 **Refused to publish:** the change modifies files under \`.github/\`, which automated runs must never touch."
   fi
+
+  # New work was cut from the target branch as it was when the run STARTED. If the target has
+  # moved since, rebase onto its current tip before pushing. Otherwise the new branch looks
+  # (to GitHub) like it reverts whatever changed meanwhile. If that includes a workflow file,
+  # GitHub rejects the push unless the token has the `workflow` scope, which it deliberately doesn't.
+  target_tip=$(git rev-parse "origin/$TARGET_BRANCH")
+  if [ "$MODE" != revise ] && [ "$target_tip" != "$BASE_SHA" ]; then
+    git config user.name  "github-actions[bot]"
+    git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+    git checkout -q --detach "$head"
+    if git rebase -q "$target_tip"; then
+      head=$(git rev-parse HEAD)
+      say "Rebased onto the current $TARGET_BRANCH (${target_tip:0:7})."
+    else
+      git rebase --abort
+      park "⚠️ **Claude's work conflicts with changes merged into \`$TARGET_BRANCH\` while it was running.** Remove the label to redo this item on the current code."
+    fi
+  fi
 fi
 
 push() { # push [--force]
