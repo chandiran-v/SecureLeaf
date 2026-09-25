@@ -58,3 +58,10 @@ export const MY_NOTIFICATIONS = gql`
     }
   }
 `;
+
+// Phase 6, D7 — a fresh, single-use ticket exchanged for one SSE connection.
+export const NOTIFICATION_STREAM_TICKET = gql`
+  query NotificationStreamTicket {
+    notificationStreamTicket
+  }
+`;
