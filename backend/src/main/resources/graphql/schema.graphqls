@@ -39,6 +39,14 @@ enum OrderStatus {
     REFUNDED
 }
 
+# D4 — what a viewerHeartbeat call finds: still leased by us, taken over by a newer session
+# (D3), or the lease lapsed.
+enum ViewerSessionStatus {
+    ACTIVE
+    SUPERSEDED
+    EXPIRED
+}
+
 # ── Types ─────────────────────────────────────────────────────────────────────
 
 type User {
@@ -122,6 +130,29 @@ type CreatorEarnings {
     netEarningsPaise: Long!
 }
 
+# D1 — session lifecycle over GraphQL, tile bytes over REST (CLAUDE.md: GraphQL for data, REST
+# for files). sessionToken is returned ONLY here, once — only its hash is stored (D2).
+type ViewerSession {
+    sessionId: ID!
+    sessionToken: String!
+    productId: ID!
+    pageCount: Int
+    heartbeatIntervalSeconds: Int!
+    expiresAt: DateTime!
+}
+
+type ViewerHeartbeat {
+    status: ViewerSessionStatus!
+    expiresAt: DateTime!
+}
+
+# D5 — a single-use, ~30-second link to one watermarked tile, fetched via GET (REST), never
+# through GraphQL itself (binary image bytes don't belong in a JSON response body).
+type SignedPageUrl {
+    url: String!
+    expiresAt: DateTime!
+}
+
 type Notification {
     id: ID!
     type: String!
@@ -198,6 +229,9 @@ type Query {
     myLibrary: [Entitlement!]!
     myNotifications: [Notification!]!
 
+    # Secure viewer (D1) — side-effect-free: signing a tile URL doesn't itself change any state.
+    viewerPageUrl(sessionToken: String!, pageNumber: Int!): SignedPageUrl!
+
     # Creator
     myProducts: [Product!]!
     creatorEarnings: CreatorEarnings!
@@ -230,6 +264,12 @@ type Mutation {
     # repeating the call with the same key returns the same order instead of creating another.
     initiateOrder(productId: ID!, idempotencyKey: String!): InitiateOrderPayload!
     verifyPayment(input: VerifyPaymentInput!): Order!
+
+    # Secure viewer (D1) — these three mutate viewer_sessions / the Redis lease, so they're
+    # mutations even though heartbeat/end return no domain object.
+    startViewerSession(productId: ID!, deviceFingerprint: String!): ViewerSession!
+    viewerHeartbeat(sessionToken: String!): ViewerHeartbeat!
+    endViewerSession(sessionToken: String!): Boolean!
 
     # Reviews
     submitReview(input: SubmitReviewInput!): Review!
