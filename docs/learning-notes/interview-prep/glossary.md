@@ -56,6 +56,17 @@
 | **GraphQL null bubbling** | An error in a non-null field nulls its nearest nullable parent (often the whole `data`) | [Phase 4](../phase-04-commerce.md) |
 | **Reconciliation job** | Periodic sweep comparing your records with the provider's to repair drift (e.g. lost webhooks) | [Phase 4](../phase-04-commerce.md) |
 | **Singleton container** | One Testcontainers database per JVM (static start), matching Spring's cached test context | [Phase 4](../phase-04-commerce.md) |
+| **DRM (traceable deterrence)** | Controls that raise the cost/traceability of copying content — not a claim of "impossible to copy" | [Phase 5](../phase-05-secure-viewer.md) |
+| **Presigned URL vs. application-signed URL** | A storage provider's direct link to an object, vs. a URL your own server verifies before doing anything | [Phase 5](../phase-05-secure-viewer.md) |
+| **Last-writer-wins** | The newest write replaces the current value (`SET ... GET`) — used where a new login should evict an old one | [Phase 5](../phase-05-secure-viewer.md) |
+| **First-writer-wins** | The first write claims the value (`SET NX`); later attempts are rejected — used for single-use tokens | [Phase 5](../phase-05-secure-viewer.md) |
+| **Lease** | "Valid until time T unless renewed" — detects an abandoned client without it ever saying goodbye | [Phase 5](../phase-05-secure-viewer.md) |
+| **Heartbeat** | A periodic "I'm still here" ping that renews a lease | [Phase 5](../phase-05-secure-viewer.md) |
+| **Atomic compare-and-refresh** | Checking a value and conditionally updating it in one indivisible operation (e.g. a Lua script) | [Phase 5](../phase-05-secure-viewer.md) |
+| **Watermark** | Identifying information burned into an image's pixels — not removable metadata | [Phase 5](../phase-05-secure-viewer.md) |
+| **Injectable Clock** | Passing `java.time.Clock` as a dependency instead of `Instant.now()`, so time-based logic is unit-testable | [Phase 5](../phase-05-secure-viewer.md) |
+| **Failsafe plugin** | Maven's integration-test runner, bound to `*IT.java` by convention — distinct from Surefire's `*Test.java` | [Phase 5](../phase-05-secure-viewer.md) |
+| **Sweeper** | A `@Scheduled` job that periodically cleans up state a live request path didn't get to | [Phase 5](../phase-05-secure-viewer.md) |
 | **Cron expression** | Five-field schedule (min hour day month weekday); always UTC in GitHub Actions | [Ops 1](../ops-01-phase-scheduler.md) |
 | **Default branch** | The branch GitHub treats as the repo: scheduled workflows run from it; `Closes #N` only works on merges into it | [Ops 1](../ops-01-phase-scheduler.md) |
 | **`GITHUB_TOKEN`** | Per-run token GitHub creates for a workflow; events it causes do not trigger other workflows | [Ops 1](../ops-01-phase-scheduler.md) |
