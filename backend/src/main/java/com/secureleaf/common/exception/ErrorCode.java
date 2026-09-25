@@ -41,7 +41,12 @@ public enum ErrorCode {
     VIEWER_SESSION_EXPIRED(ErrorType.FORBIDDEN),
     /** D6 steps 2-4: bad/expired/tampered/reused signature, or the URL's userId doesn't match
      *  the caller's JWT. Deliberately one error code for all of these — see TileUrlSigner. */
-    SIGNED_URL_INVALID(ErrorType.FORBIDDEN);
+    SIGNED_URL_INVALID(ErrorType.FORBIDDEN),
+
+    // ── Notifications (Phase 6, D7) ────────────────────────────────────────────
+    /** The SSE stream's ticket is missing, unknown, or already consumed (single-use). REST-only —
+     *  GlobalRestExceptionHandler's generic UNAUTHORIZED branch maps this to 401. */
+    SSE_TICKET_INVALID(ErrorType.UNAUTHORIZED);
 
     private final ErrorType errorType;
 
