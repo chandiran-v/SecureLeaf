@@ -30,12 +30,20 @@ public class GlobalRestExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<Map<String, String>> handleBusiness(BusinessException ex) {
-        HttpStatus status = switch (ex.getErrorCode().getErrorType()) {
-            case NOT_FOUND -> HttpStatus.NOT_FOUND;
-            case FORBIDDEN -> HttpStatus.FORBIDDEN;
-            case UNAUTHORIZED -> HttpStatus.UNAUTHORIZED;
-            default -> HttpStatus.BAD_REQUEST;
+        // VIEWER_SESSION_SUPERSEDED/EXPIRED (D6 step 5) need 409/410, which graphql-java's
+        // ErrorType has no equivalent for (it only has BAD_REQUEST/UNAUTHORIZED/FORBIDDEN/
+        // NOT_FOUND/INTERNAL_ERROR). These two codes are REST-only, so special-case them here
+        // rather than stretch ErrorType with values GraphQL would never use.
+        HttpStatus status = switch (ex.getErrorCode()) {
+            case VIEWER_SESSION_SUPERSEDED -> HttpStatus.CONFLICT;
+            case VIEWER_SESSION_EXPIRED -> HttpStatus.GONE;
+            default -> switch (ex.getErrorCode().getErrorType()) {
+                case NOT_FOUND -> HttpStatus.NOT_FOUND;
+                case FORBIDDEN -> HttpStatus.FORBIDDEN;
+                case UNAUTHORIZED -> HttpStatus.UNAUTHORIZED;
+                default -> HttpStatus.BAD_REQUEST;
+            };
         };
-        return ResponseEntity.status(status).body(Map.of("message", ex.getMessage()));
+        return ResponseEntity.status(status).body(Map.of("message", ex.getMessage(), "code", ex.getErrorCode().name()));
     }
 }

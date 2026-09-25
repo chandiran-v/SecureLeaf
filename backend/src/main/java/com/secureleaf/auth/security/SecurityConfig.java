@@ -3,6 +3,7 @@ package com.secureleaf.auth.security;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -10,6 +11,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -62,9 +64,21 @@ public class SecurityConfig {
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/mock-gateway/**").permitAll()
                         // Actuator health & info
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                        // D13 — the DRM tile endpoint is GET-only and always requires a JWT. The rest
+                        // of D6's checks (signature, session, entitlement, page range) live inside
+                        // SecureTileService, not here — this line only rules out anonymous access and
+                        // any verb other than GET, so a POST/DELETE to the same path 401/403s before
+                        // it ever reaches the controller.
+                        .requestMatchers(HttpMethod.GET, "/api/viewer/**").authenticated()
+                        .requestMatchers("/api/viewer/**").denyAll()
                         // Everything else requires authentication
                         .anyRequest().authenticated()
                 )
+                .exceptionHandling(handling -> handling
+                        // D6 step 1 / VIEW acceptance criterion 12: no JWT at all is 401 ("who are
+                        // you"), distinct from a valid JWT that fails an authorization check (403,
+                        // handled by BusinessException -> GlobalRestExceptionHandler below).
+                        .authenticationEntryPoint(new HttpStatusEntryPoint(org.springframework.http.HttpStatus.UNAUTHORIZED)))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 // Disable Spring's default OAuth2 login (we handle Google OAuth via GraphQL mutation)
                 .oauth2Login(oauth2 -> oauth2.disable())

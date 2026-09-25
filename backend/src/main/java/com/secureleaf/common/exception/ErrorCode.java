@@ -28,7 +28,20 @@ public enum ErrorCode {
     // as "JWT expired" and silently refreshes the token and retries the mutation.
     INVALID_PAYMENT_SIGNATURE(ErrorType.BAD_REQUEST),
     PAYMENT_AMOUNT_MISMATCH(ErrorType.BAD_REQUEST),
-    ORDER_NOT_PAYABLE(ErrorType.BAD_REQUEST);
+    ORDER_NOT_PAYABLE(ErrorType.BAD_REQUEST),
+
+    // ── Secure viewer (Phase 5, D12) ─────────────────────────────────────────
+    /** No ACTIVE entitlement for this buyer+product (startViewerSession, and the tile
+     *  endpoint's D6 step 6). REST maps FORBIDDEN -> 403; GraphQL surfaces it as FORBIDDEN. */
+    NOT_ENTITLED(ErrorType.FORBIDDEN),
+    /** D6 step 5: another device now holds the active session. REST-only; GlobalRestExceptionHandler
+     *  special-cases this to 409, since GraphQL's ErrorType has no CONFLICT equivalent. */
+    VIEWER_SESSION_SUPERSEDED(ErrorType.FORBIDDEN),
+    /** D6 step 5: the lease lapsed. REST-only; special-cased to 410 (see above). */
+    VIEWER_SESSION_EXPIRED(ErrorType.FORBIDDEN),
+    /** D6 steps 2-4: bad/expired/tampered/reused signature, or the URL's userId doesn't match
+     *  the caller's JWT. Deliberately one error code for all of these — see TileUrlSigner. */
+    SIGNED_URL_INVALID(ErrorType.FORBIDDEN);
 
     private final ErrorType errorType;
 
