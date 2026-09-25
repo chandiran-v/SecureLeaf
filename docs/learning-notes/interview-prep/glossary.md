@@ -67,6 +67,13 @@
 | **Injectable Clock** | Passing `java.time.Clock` as a dependency instead of `Instant.now()`, so time-based logic is unit-testable | [Phase 5](../phase-05-secure-viewer.md) |
 | **Failsafe plugin** | Maven's integration-test runner, bound to `*IT.java` by convention — distinct from Surefire's `*Test.java` | [Phase 5](../phase-05-secure-viewer.md) |
 | **Sweeper** | A `@Scheduled` job that periodically cleans up state a live request path didn't get to | [Phase 5](../phase-05-secure-viewer.md) |
+| **`ImageBitmap`** | A decoded, GPU-friendly, DOM-detached image handle from `createImageBitmap()` — must be `.close()`d manually | [Phase 5](../phase-05-secure-viewer.md) |
+| **Object URL (`blob:`)** | A live, page-lifetime reference to raw bytes from `URL.createObjectURL` — a "coat-check ticket" for a `Blob` | [Phase 5](../phase-05-secure-viewer.md) |
+| **`keepalive` fetch** | A `fetch()` option that lets a request outlive the page unloading it, while still supporting normal headers | [Phase 5](../phase-05-secure-viewer.md) |
+| **`sendBeacon`** | A browser API for a guaranteed-to-send exit ping — cannot carry custom headers, so no `Authorization` | [Phase 5](../phase-05-secure-viewer.md) |
+| **`pagehide`** | The event that fires when a tab closes, refreshes, or navigates away — reliable, unlike `beforeunload` | [Phase 5](../phase-05-secure-viewer.md) |
+| **DevTools-size heuristic** | Inferring DevTools is open from the `outerWidth`/`innerWidth` gap — a guess, not a detector | [Phase 5](../phase-05-secure-viewer.md) |
+| **Derived state** | A value computed fresh from other state every render, instead of stored and separately kept in sync | [Phase 5](../phase-05-secure-viewer.md) |
 | **Cron expression** | Five-field schedule (min hour day month weekday); always UTC in GitHub Actions | [Ops 1](../ops-01-phase-scheduler.md) |
 | **Default branch** | The branch GitHub treats as the repo: scheduled workflows run from it; `Closes #N` only works on merges into it | [Ops 1](../ops-01-phase-scheduler.md) |
 | **`GITHUB_TOKEN`** | Per-run token GitHub creates for a workflow; events it causes do not trigger other workflows | [Ops 1](../ops-01-phase-scheduler.md) |

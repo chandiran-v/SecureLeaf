@@ -1,10 +1,12 @@
-# Phase 05A — Secure viewer (backend)
+# Phase 05 — Secure viewer (backend + frontend)
 
-> **Status:** Done (backend only — Phase 05B builds the canvas UI on top of this)
-> **Built:** 2026-09-25
-> **Requirement IDs covered:** VIEW-01, VIEW-02, VIEW-03, VIEW-10, VIEW-12, VIEW-13 (`docs/requirements.md`)
-> **Design doc:** [`docs/phases/phase-05a-secure-viewer-backend.md`](../phases/phase-05a-secure-viewer-backend.md) — decisions D1–D14 are referenced throughout
-> **Commits:** see `git log` on `auto/issue-4` for this phase's range
+> **Status:** Done — 05A (backend) and 05B (frontend) are both complete
+> **Built:** 2026-09-25 (05A) · 2026-09-25 (05B)
+> **Requirement IDs covered:** VIEW-01..13 (`docs/requirements.md`) — 05A covers VIEW-01, 02, 03, 10, 12, 13; 05B covers VIEW-04..09, 11 (plus the UI side of 01/10/12)
+> **Design docs:** [`docs/phases/phase-05a-secure-viewer-backend.md`](../phases/phase-05a-secure-viewer-backend.md) (D1–D14) and [`docs/phases/phase-05b-secure-viewer-frontend.md`](../phases/phase-05b-secure-viewer-frontend.md) (D1–D10) — decisions are referenced by letter+number throughout, and 05B's D-numbers restart from D1 in its own doc, so a bare "D6" below means backend D6 unless the surrounding text says "05B's D6"
+> **Commits:** `auto/issue-4` (05A) and `auto/issue-5` (05B) — see `git log` on each branch
+
+> **Sections 1–10 below were written for 05A.** Rather than duplicate the whole note, 05B's material is added as new subsections inside each existing section (3.8 onward, a second "05B" block in §4/§6/§7/§8/§9, and an updated §10). Read 05A's part first — the frontend leans on almost every concept it introduces.
 
 ---
 
@@ -27,6 +29,18 @@ Four things had to exist together for that to be safe:
 
 **Before this phase:** a buyer with an ACTIVE entitlement had no way to actually view the pages they paid for.
 **After this phase:** they can open a session, page through the document, and every single tile they see is watermarked with their identity, individually signed, usable exactly once, and logged. Nothing in this phase draws the pages on screen yet — that's Phase 05B. This phase makes sure that whatever draws them can never get a clean page.
+
+### 1B. What 05B added
+
+05A built a vault with no door handle a buyer could actually turn. 05B is the door handle: the `/read/:productId` page a buyer lands on when they click "Read" in their Library. It does four things:
+
+1. **Draws pages on `<canvas>` only** — never an `<img>`, never a CSS background, never an object URL. Every page is fetched with the buyer's JWT, decoded off-screen, and painted directly into pixels.
+2. **Keeps the session alive** — a heartbeat every 15 seconds, and a "this book was opened somewhere else" takeover screen the moment a second device wins the slot.
+3. **Turns pages** — Prev/Next, arrow keys, a page indicator, and a one-page-ahead prefetch so turning feels instant instead of waiting on a network round trip every time.
+4. **Raises the cost of casual copying** in the browser itself — no right-click, no text selection, no drag-out, no Ctrl/Cmd+P or +S, a blur the instant the tab loses focus or DevTools looks open, and a best-effort blank on PrintScreen. Every one of these is named honestly in §3.13 below, including exactly how to defeat each one — because a control that claims more than it delivers is worse than no control at all.
+
+**Before 05B:** the Library's "Read" button was permanently disabled ("coming in Phase 5"), and `BuyPanel` told an owner they were "In your library" with nowhere further to go.
+**After 05B:** both link straight into a working, full-screen secure reader.
 
 ---
 
@@ -207,6 +221,154 @@ viewerAccessLogService.record(session, documentVersion, contentPage, request.pag
 
 ---
 
+### 3.8 Canvas rendering instead of `<img>` (05B, D2)
+
+**What it is:** the reader never creates an `<img>` element, a CSS `background-image`, or an `<img src="blob:...">` object URL for a page. Every page reaches the screen only as pixels already painted onto a `<canvas>` by JavaScript.
+
+**The analogy:** an `<img src>` is a labelled parcel sitting on the counter — right-click it, and the browser offers to hand you the parcel itself ("Save image as…", drag it to the desktop, `document.querySelector('img').src` from DevTools). A `<canvas>` is a wet-paint mural on the wall: you can look at it, but there's no parcel to hand over — the browser's own "save this" affordances have nothing to attach to, because as far as the DOM is concerned a canvas is just colored pixels, not a fetchable resource.
+
+**Why we needed it here:** Phase 3's free-preview `PreviewPane` already drew onto a canvas, but it got there via `new Image()` + `URL.createObjectURL(blob)` — an `<img>` element, just one that's never inserted into the DOM. That's fine for a few free pages nobody's paying for. 05B raises the bar for paid content: the spec (D2) is explicit that *nothing* in the pipeline may be an `<img>` or an object URL, full stop — see §3.9 for why object URLs specifically are worse than they look.
+
+**How it works — the exact chain, [`useSecureTile.ts:99-126`](../../frontend/src/hooks/viewer/useSecureTile.ts#L99):**
+1. `fetch(url, { cache: 'no-store', headers: accessToken ? { Authorization: ... } : {} })` — a normal authenticated fetch, not an `<img src>` (which can't carry an `Authorization` header at all — that alone would have forced a signed-URL-without-auth design, one more thing to get wrong).
+2. `response.blob()` → raw bytes, still nowhere near the DOM.
+3. `createImageBitmap(blob)` → decoded off-screen, in a form only `<canvas>` APIs understand (§3.9).
+4. `ctx.drawImage(bitmap, 0, 0, bitmap.width, bitmap.height)` in [`drawBitmapToCanvas`](../../frontend/src/hooks/viewer/useSecureTile.ts#L39-L48) → pixels land directly in the canvas's backing buffer.
+
+**In our code:** [`ViewerCanvas.tsx:22-29`](../../frontend/src/components/viewer/ViewerCanvas.tsx#L22) — the component that owns the one `<canvas>` element in the whole page; nothing else in `ReaderPage` ever touches an `<img>`.
+
+**What breaks without it:** with an `<img src="blob:...">`, right-click → "Save image as…" gets you the exact, still-watermarked-but-otherwise-complete page, no DevTools required. 05A's entire signed-URL/single-use/watermark machinery would still be technically correct and still be trivially defeated by the browser's own built-in "save this picture" feature.
+
+---
+
+### 3.9 `createImageBitmap` and closing what you decode
+
+**What it is:** `createImageBitmap()` is a browser API that decodes image bytes (PNG, JPEG, a `Blob`) into a GPU-friendly, DOM-detached `ImageBitmap` — fast to draw, and unlike an `<img>`, it never needs a URL (blob or otherwise) to exist at all. `.close()` releases the decoded bitmap's memory immediately, instead of waiting for garbage collection to eventually notice nothing references it anymore.
+
+**The analogy:** a `blob:` object URL is a coat-check ticket — as long as it exists, someone holding the ticket number can walk up and claim the coat (the raw bytes), and forgetting to hand back the ticket (`URL.revokeObjectURL`) means the coat sits there taking up space, and *reachable*, indefinitely. `createImageBitmap` skips the coat-check entirely: you get a chef already wearing the coat backstage, with no ticket in existence for a stranger at the front desk to ever grab.
+
+**Why we needed it here:** an object URL, even one nothing currently displays, is a live, guessable-format (`blob:https://.../uuid`) reference to the raw bytes for as long as the page lives and nobody calls `revokeObjectURL`. `createImageBitmap` never creates that reference in the first place — there's no URL scheme in existence that resolves to "the current contents of this specific decoded bitmap." Combined with §3.8's "never an `<img>`," this closes the object-URL loophole PreviewPane's Phase 3 approach still had.
+
+**How it works — the memory-hygiene rule this hook follows, [`useSecureTile.ts:9,51-58`](../../frontend/src/hooks/viewer/useSecureTile.ts#L9):** a decoded `ImageBitmap` is native memory the JS garbage collector does **not** reliably reclaim promptly — it has to be told. So the rule is: the *currently displayed* page's bitmap is drawn and `.close()`d in the same tick (D2's flow: fetch → decode → draw → close — nothing needs it after the pixels are on screen). The *only* bitmaps allowed to live longer are prefetched-but-not-yet-shown pages, capped at `MAX_CACHED_BITMAPS = 3` with the oldest closed on eviction:
+```ts
+function evictOldest(cache: Map<number, ImageBitmap>, maxSize: number): void {
+  while (cache.size > maxSize) {
+    const oldestKey = cache.keys().next().value;
+    if (oldestKey === undefined) break;
+    cache.get(oldestKey)?.close();
+    cache.delete(oldestKey);
+  }
+}
+```
+[`useSecureTile.ts:51-58`](../../frontend/src/hooks/viewer/useSecureTile.ts#L51)
+
+**What breaks without it:** two different failure modes, not one. Forgetting `.close()` on the *drawn* bitmap leaks native decode memory on every single page turn — a long reading session slowly eats more and more RAM for pages already off-screen. Forgetting the cache *cap* on prefetched bitmaps turns "fast page turns" into "leak memory faster, because now you're holding several undrawn decoded pages at once instead of one."
+
+---
+
+### 3.10 `fetch(..., { keepalive: true })` vs. `navigator.sendBeacon` (05B, D3)
+
+**What it is:** two different browser APIs for "send one last request as the page is closing, and don't let the browser cancel it just because the document is going away." They look interchangeable in every tutorial that doesn't need auth.
+
+**The analogy:** `sendBeacon` is dropping a postcard in a mailbox on your way out the door — guaranteed to be sent, but a postcard has no security envelope, so it can't carry a sealed letter (a header) inside it. `fetch(..., { keepalive: true })` is handing that same envelope to a courier who's already leaving anyway — it still goes out reliably even though you're gone, but unlike the postcard it can carry an addressed, sealed envelope: an `Authorization` header.
+
+**Why we needed it here:** ending a viewer session (`endViewerSession`) must be attributed to a specific buyer — the backend requires a valid JWT on every GraphQL mutation, no exceptions for "the tab is closing." `navigator.sendBeacon(url, body)` cannot attach custom headers *at all* — it exists specifically for simple, unauthenticated analytics pings, which is exactly the tutorial use case it's usually shown for and exactly the use case that doesn't apply here.
+
+**How it works:** [`useViewerSession.ts:35-46`](../../frontend/src/hooks/viewer/useViewerSession.ts#L35)
+```ts
+function endSessionBestEffort(sessionToken: string): void {
+  const accessToken = useAuthStore.getState().accessToken;
+  void fetch(GRAPHQL_URL, {
+    method: 'POST',
+    keepalive: true,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
+    body: JSON.stringify({ query: END_VIEWER_SESSION_QUERY, variables: { sessionToken } }),
+  }).catch(() => undefined);
+}
+```
+This fires from a `pagehide` listener (fires on tab close, refresh, and back/forward navigation — unlike `beforeunload`, which is unreliable and increasingly restricted) *and* from the hook's own React unmount cleanup, so an in-app navigation away from `/read/:id` ends the session exactly the same way a hard tab close does — see [`useViewerSession.ts:134-143`](../../frontend/src/hooks/viewer/useViewerSession.ts#L134).
+
+**What breaks without it:** using `sendBeacon` here would mean either sending the request with no `Authorization` header (the backend rejects it, 401, and the session silently never ends — leaving a "phantom" active session other devices have to wait out the 45-second lease to override) or inventing some other way to authenticate a beacon (a token in the URL query string, which then shows up in server access logs — trading one problem for a worse one).
+
+---
+
+### 3.11 Custom hooks as units of behaviour (05B, D7)
+
+**What it is:** each piracy-friction control — block right-click, blur on focus loss, the DevTools heuristic, block print/save shortcuts, the PrintScreen blank — is its own tiny hook (`useBlockContextMenu`, `useBlurOnFocusLoss`, `useDevToolsHeuristic`, `useBlockPrintAndSaveShortcuts`, `usePrintScreenBlank`), each in its own file, each independently unit-tested, instead of one big `useViewerFriction()` grab-bag or inline `useEffect` blocks scattered through `ReaderPage`.
+
+**The analogy:** five separate smoke detectors, one per room, each testable by holding a lighter under it — versus one central alarm box wired to sensors nobody can trigger without setting the actual kitchen on fire. Testing the five separate ones tells you precisely which room's detector is broken; testing the one big box only tells you "the house's fire safety is fine" until the day it very much isn't, in a way you can't localize.
+
+**Why we needed it here:** every one of these controls has exactly one job, is genuinely independent of the others (turning off the DevTools heuristic shouldn't risk breaking the print-blocking shortcut), and — critically for a phase whose own spec says "be honest that these are all bypassable" (§3.13) — each needs a test that pins down *exactly* what it does and doesn't catch, in isolation, so that honesty is enforced by the test suite rather than by prose alone.
+
+**How it works:** a hook in this file is judged by one question — "does it manage its own subscription lifecycle (attach a listener on mount, detach on unmount) and expose the smallest useful surface?" Compare two of them:
+```ts
+// useBlockContextMenu.ts — no side effects, no lifecycle, just a stable event handler:
+export function useBlockContextMenu() {
+  return useCallback((event: { preventDefault: () => void }) => {
+    event.preventDefault();
+  }, []);
+}
+```
+```ts
+// useDevToolsHeuristic.ts — owns a resize listener AND a poll interval, cleans both up:
+useEffect(() => {
+  const check = () => setDevToolsBlurred(devToolsLikelyOpen());
+
+  check();
+  window.addEventListener('resize', check);
+  const intervalId = window.setInterval(check, POLL_INTERVAL_MS);
+
+  return () => {
+    window.removeEventListener('resize', check);
+    window.clearInterval(intervalId);
+  };
+}, [setDevToolsBlurred]);
+```
+[`useBlockContextMenu.ts:9-13`](../../frontend/src/hooks/viewer/useBlockContextMenu.ts#L9), [`useDevToolsHeuristic.ts:23-34`](../../frontend/src/hooks/viewer/useDevToolsHeuristic.ts#L23)
+
+**What breaks without it:** one monolithic effect block in `ReaderPage` mixing five unrelated concerns is exactly the shape of code where a merge conflict or a "quick fix" to one control silently breaks another, and where a test failure just says "something in the viewer is wrong" instead of naming which control regressed.
+
+---
+
+### 3.12 Apollo for remote state, Zustand for local state (05B, D8)
+
+**What it is:** two different state-management tools, deliberately not interchangeable here. Apollo Client's cache holds data that *comes from the server* (the viewer session, a signed tile URL). Zustand's `useViewerStore` holds state that only ever exists *in this browser tab* and that the server has no concept of (which page is currently on screen, whether the canvas is blurred right now).
+
+**The analogy:** Apollo's cache is a synced ledger with the bank — it can be wrong for a moment if the network is slow, but it's ultimately reconciling against a source of truth outside your control. Zustand's store is more like the position of your own cursor on a page — there's no "server" to ask, because the fact only exists locally, right now, in this tab.
+
+**Why we needed it here:** `currentPage`, `focusBlurred`, and `devToolsBlurred` are never something a GraphQL query would return — no endpoint on earth can tell you "is *this specific browser tab* currently blurred because its window lost focus." Forcing that into Apollo's cache (e.g., a fake client-only field) would mean fighting the tool's actual job — normalizing and refetching *server* data — to store something that was never server data to begin with.
+
+**How it works:** [`viewerStore.ts:10-32`](../../frontend/src/stores/viewerStore.ts#L10) is a plain Zustand store with no middleware — deliberately not `persist`-wrapped (unlike `authStore`, which *should* survive a refresh): a reader landing back on `/read/:id` after a refresh should re-derive its page from the URL's `?page=`, not from whatever was left over in a previous tab's local storage. Meanwhile `useViewerSession` and `useSecureTile` talk to Apollo exclusively — `useMutation`, `useApolloClient().query` — and never touch the Zustand store themselves; `ReaderPage` is the one place that reads from both and wires them together.
+
+**What breaks without it:** blending the two — say, keeping `currentPage` in Apollo's cache via a client-only field, or keeping the *signed URL* in Zustand so it "survives longer" — either fights Apollo's refetch/normalization model for data it was never meant to hold, or defeats D5's single-use design by caching a URL that's only supposed to be used once and then thrown away.
+
+---
+
+### 3.13 The honest limits of browser DRM — what each control stops, and how it's beaten
+
+**What it is:** the phase 05B spec is explicit that these controls "raise the effort for casual copying, and every one of them can be bypassed." This section is that promise kept: naming, for each control, exactly what stops and exactly how someone gets past it anyway.
+
+**The analogy:** a bicycle lock. It stops someone from riding off on your bike by hand. It does not stop bolt cutters, and no bike-lock manufacturer honestly claims otherwise. The value of the lock is that it stops the *casual* theft — the person walking past who'd take an unlocked bike but won't fetch bolt cutters for a locked one.
+
+**Why it matters (again):** §3.1 made this argument for the backend's watermark/signing story. The same honesty applies with even more force to browser-side controls, because every single one of them runs entirely inside an environment (the user's own browser) that the user fully controls. Overclaiming here is the fastest way to sound junior to anyone who has ever opened DevTools.
+
+| Control | Requirement | Stops | Trivially beaten by |
+|---|---|---|---|
+| Canvas-only rendering | VIEW-01 | Right-click "Save image as…", drag-to-desktop, reading `<img src>` from the DOM | Screenshotting the rendered canvas; a browser extension that hooks `CanvasRenderingContext2D.drawImage` |
+| Block context menu | VIEW-04 | The right-click menu itself (so no "Save image as…" entry ever appears) | Any other way to save a screenshot; the browser's own built-in screenshot shortcut, which no page-level JS can intercept |
+| `select-none` / `draggable={false}` | VIEW-05, VIEW-06 | Selecting/copying text (there is none — it's an image) that doesn't exist; dragging the canvas out as a file | Nothing to select in the first place, so mostly stops confused clicking, not a real removal method — this row is more "there was never anything to protect" than "protection" |
+| `@media print` + Ctrl/Cmd+P/S block | VIEW-07 | The print dialog rendering the page; the browser's native "Save Page As" shortcut | Any external screenshot tool never touches the keyboard shortcut at all; a browser that ignores the print stylesheet |
+| Blur on focus loss | VIEW-09 | A page left visible and readable in a *background* window — an easy, lazy screenshot target | Screenshotting the *foreground*, focused window (the control's entire premise is "you're not looking at it right now") |
+| DevTools-size heuristic | VIEW-08 | Casual DevTools use while the reader tab is focused (Elements panel poking at the canvas) | Undocked DevTools (a separate OS window — doesn't change `outerWidth`/`innerHeight` at all); some legitimate zoom levels also false-positive, which is exactly why it blurs instead of ending the session (§3.11's neighbor decision, and the code comment in [`useDevToolsHeuristic.ts`](../../frontend/src/hooks/viewer/useDevToolsHeuristic.ts)) |
+| PrintScreen blank | VIEW-07 | The Windows "whole screen to clipboard" PrintScreen key, for the ~400ms window after it's pressed | The Snipping Tool, Cmd+Shift+4 on Mac, any phone camera, any third-party capture software — none of these are keyboard events this page can see at all |
+
+**What breaks without naming this table plainly:** a design review — or a real interview — that hears "we block screenshots" instead of "we make a specific, named list of easy actions slightly harder, and we know exactly which ones we didn't touch" reads as either naive or dishonest. The backend's watermark (§3.1, §3.2) is the actual protection; everything in this table is friction on top of it, not a replacement for it.
+
+---
+
 ## 4. Best practices applied
 
 | Practice | What we did | Why it matters | Where |
@@ -222,6 +384,13 @@ viewerAccessLogService.record(session, documentVersion, contentPage, request.pag
 | Reuse, don't reinvent | `WatermarkRenderer`, `StorageService`, `hashToken`, `MessageDigest.isEqual` all reused unchanged from Phases 1/3/4 | Less new code to get wrong; one Strategy interface serves two phases | `SecureTileService.java` constructor |
 | Never log on failure | Access-log write happens only after every D6 check passes | Failed attempts (wrong signature, expired lease, revoked access) don't pollute "who actually read this" | `SecureTileService.java:116-118` |
 | GraphQL for data, REST for bytes | Session lifecycle is GraphQL; tile bytes are a REST `GET` | Matches CLAUDE.md's rule and keeps binary image responses out of the GraphQL layer | `ViewerResolver.java`, `SecureTileController.java` |
+| **05B —** never let a page reach the DOM as `<img>` | `fetch` → `blob()` → `createImageBitmap()` → `drawImage()` | Removes "Save image as…" as a one-click affordance the browser offers for free | `useSecureTile.ts:99-126` |
+| **05B —** close every `ImageBitmap` you're done with | Drawn bitmaps close immediately; the prefetch cache is capped at 3 and evicts-and-closes | Decoded bitmaps are native memory the GC doesn't reliably reclaim promptly | `useSecureTile.ts:39-58` |
+| **05B —** `keepalive` fetch, not `sendBeacon`, for the one authenticated "goodbye" call | `fetch(url, { keepalive: true, headers: { Authorization } })` on `pagehide` + unmount | `sendBeacon` cannot carry custom headers; every viewer mutation requires a JWT | `useViewerSession.ts:35-46` |
+| **05B —** never cache a signed URL, only a decoded bitmap | The tile-URL cache doesn't exist; only undrawn `ImageBitmap`s are kept, keyed by page | Signed URLs are single-use and expire in ~30s — caching one just means it's dead when you need it | `useSecureTile.ts:60-67` |
+| **05B —** derive the fetched page number, never store an unclamped one | `clampedPage = clampPage(currentPage, pageCount)` computed every render, fed to every consumer | A stale `?page=` from a shorter edition (or one typed by hand) must never reach the tile fetcher, even for one render — see Gotcha #8 | `ReaderPage.tsx:47-51` |
+| **05B —** an honest heuristic degrades gracefully, it doesn't escalate | DevTools-size heuristic blurs the page; it never ends the session | False positives are expected (§3.13) — a wrong guess should be *reversible*, not punitive | `useDevToolsHeuristic.ts` |
+| **05B —** one small hook per independent behaviour | 5 friction hooks, each unit-tested alone | A regression in one shows up as one failing test, not "something in the viewer broke" | `hooks/viewer/*.ts` |
 
 ---
 
@@ -244,14 +413,31 @@ viewerAccessLogService.record(session, documentVersion, contentPage, request.pag
 | `common/exception/GlobalRestExceptionHandler.java` | Special-cases the two viewer codes to 409/410 |
 | `auth/security/SecurityConfig.java` | `/api/viewer/**` GET-only, authenticated, real 401 on no JWT |
 | `resources/graphql/schema.graphqls` | `ViewerSession`, `ViewerHeartbeat`, `SignedPageUrl`, `ViewerSessionStatus` |
-| `frontend/src/types/index.ts`, `graphql/{mutations,queries}/viewer.*.ts` | TypeScript types + documents for Phase 05B (not wired to a page yet) |
+| `frontend/src/types/index.ts`, `graphql/{mutations,queries}/viewer.*.ts` | TypeScript types + documents (05A) — wired up by 05B below |
+| **05B —** `frontend/src/pages/viewer/ReaderPage.tsx` | `/read/:productId` — orchestrates the session, the tile fetch, page nav, and every friction hook |
+| **05B —** `frontend/src/hooks/viewer/useViewerSession.ts` | start/heartbeat/restart/end — the client half of D3/D4 |
+| **05B —** `frontend/src/hooks/viewer/useSecureTile.ts` | Fetch → decode → draw → close, plus the 1-page-ahead prefetch cache |
+| **05B —** `frontend/src/hooks/viewer/use{BlockContextMenu,BlurOnFocusLoss,DevToolsHeuristic,BlockPrintAndSaveShortcuts,PrintScreenBlank}.ts` | The five independent friction controls (D7) |
+| **05B —** `frontend/src/stores/viewerStore.ts` | Zustand: `currentPage`, `focusBlurred`, `devToolsBlurred` (D8) |
+| **05B —** `frontend/src/components/viewer/{ViewerCanvas,ViewerToolbar,SessionEndedPanel,NotEntitledPanel,ReaderSkeleton}.tsx` | The canvas + blur overlay, Prev/Next toolbar, and the three non-happy-path screens |
+| **05B —** `frontend/src/lib/deviceFingerprint.ts` | A persisted per-browser id sent with `startViewerSession` |
+| **05B —** `frontend/src/pages/buyer/LibraryPage.tsx`, `components/marketplace/BuyPanel.tsx` | "Read" / "Read now" now link to `/read/:id` instead of being disabled (D9) |
 
-**Request trace — a buyer opens a book and turns one page:**
+**Request trace — a buyer opens a book and turns one page (backend, 05A):**
 1. `ViewerResolver.startViewerSession(productId, deviceFingerprint)` →
 2. `ViewerSessionService.startViewerSession`: entitlement lookup (else `NOT_ENTITLED`) → generate + hash a 256-bit session token → save the row → `SET viewer:active:{userId}:{productId} {sessionId} EX 45 GET` → if a previous session comes back, mark it `SUPERSEDED` → return `{sessionId, sessionToken, pageCount, ...}` (the raw token, once) →
 3. The client stores the token, starts heartbeating every 15s, and calls `viewerPageUrl(sessionToken, 1)` →
 4. `ViewerResolver.viewerPageUrl` → `ViewerSessionService.signPageUrl`: look up the session by token hash, check it belongs to the caller, `TileUrlSigner.sign(sessionId, 1, userId)` → `{url, expiresAt}` →
 5. The client `GET`s that URL with its normal JWT → `SecureTileController.getTile` → `SecureTileService.getTile`: verify signature (2+4) → single-use (3) → active session (5) → entitlement ACTIVE (6) → page in range (7) → fetch clean tile → watermark it → **one** `viewer_access_logs` row → `image/png`, `Cache-Control: no-store, private`.
+
+**Request trace — the same page turn, from the browser's side (frontend, 05B):**
+1. A buyer clicks "Read" in `LibraryPage` → `<Link to="/read/7">` → `ReaderPage` mounts inside `ProtectedRoute` →
+2. `useViewerSession('7')` fires `startViewerSession` on mount → stores `{ sessionId, sessionToken, pageCount, heartbeatIntervalSeconds }` → `status` flips `'starting'` → `'active'` → an interval starts calling `viewerHeartbeat` every `heartbeatIntervalSeconds` →
+3. `useSecureTile({ session, pageNumber: 1, ... })` fires: `apolloClient.query(VIEWER_PAGE_URL)` → gets back the signed `url` → `fetch(url, { headers: { Authorization }, cache: 'no-store' })` → `blob()` → `createImageBitmap()` →
+4. `ctx.drawImage(bitmap, 0, 0, ...)` onto the one `<canvas>` in `ViewerCanvas` → `bitmap.close()` → the buyer sees page 1 →
+5. In the background, the *same* hook prefetches page 2 the same way, but stops after step 3 — the decoded bitmap sits in a `Map` cache instead of being drawn, until the buyer actually turns the page →
+6. The buyer clicks "Next" (or presses →) → `ReaderPage.goToPage(2)` → `?page=2` in the URL, `currentPage` in the Zustand store both update → `useSecureTile` re-runs, finds page 2 already decoded in its cache, draws it immediately (no network round trip — this is the whole point of the prefetch), and closes it →
+7. On `pagehide` or unmounting (closing the tab, or navigating back to the library), `fetch('/graphql', { keepalive: true, headers: { Authorization }, body: '{ endViewerSession(...) }' })` fires — the session is over on the server, not just in this tab.
 
 ---
 
@@ -286,6 +472,24 @@ viewerAccessLogService.record(session, documentVersion, contentPage, request.pag
 - **Why we chose this:** `WatermarkRenderer` already exists from Phase 3 and this phase's D7 explicitly says reuse it unchanged, just with a different (buyer-identifying) label. A single, well-placed diagonal label is easy for a screenshot to accidentally crop out; a tiled pattern is much harder to crop away and is the more common real-world choice (see the PDF-fixture-size bug in §8 — the watermark's own grid math is size-dependent).
 - **What we gave up:** a determined leaker could, in principle, screenshot a region that avoids the single label, or crop it afterward.
 - **When we would revisit:** flagged in the phase spec as a named follow-up — this is the first thing I'd build next for this feature specifically.
+
+### Decision (05B): re-fetch a page after it's viewed instead of keeping it around
+- **Alternatives considered:** an LRU cache that also keeps *already-drawn* pages' bitmaps around, so paging back doesn't cost a network round trip either.
+- **Why we chose this:** D5 says signed URLs are single-use and 30-second-lived, so there is nothing to gain from caching the *URL*. Once a bitmap has been drawn, its pixels are already on screen — keeping the decoded bitmap alive after that buys nothing except memory pressure, since re-fetching decodes it fresh in well under the time it takes a person to notice. Only *not-yet-viewed* pages (the one-ahead prefetch) are worth keeping decoded but undrawn.
+- **What we gave up:** paging backwards costs one extra network round trip + decode instead of being instant, unlike paging forwards into an already-prefetched page. Measured against a real PDF, that's imperceptible; it would matter more for a "flip back and forth rapidly" reading pattern this phase doesn't optimize for.
+- **When we would revisit:** if user analytics showed frequent, fast back-and-forth paging (comparing two pages), a small keep-last-N-drawn-bitmaps cache would be a cheap addition to the existing `Map`-based structure.
+
+### Decision (05B): the DevTools heuristic blurs; it never ends the session
+- **Alternatives considered:** treating a detected-DevTools state the same as VIEW-10's takeover — ending the session outright, forcing a restart.
+- **Why we chose this:** §3.13 names this heuristic's real failure mode — it both under-detects (undocked DevTools) and over-detects (some zoom levels). An action with real consequences (ending a paid reading session) built on top of a heuristic that's *known* to sometimes be wrong is a worse trade than a control that's easy to reverse. Blurring is annoying but recoverable the instant the heuristic clears; ending a session is not something a false positive should ever be allowed to do.
+- **What we gave up:** a determined user with DevTools genuinely open just sees a blurred page and closes DevTools, then keeps reading — this control adds friction, not enforcement, exactly as advertised.
+- **When we would revisit:** never for this heuristic specifically; a *real* DevTools detector (there isn't a reliable cross-browser one) might change the calculus, but heuristic-based punishment is the wrong pattern regardless of which heuristic.
+
+### Decision (05B): five small hooks, not one `useViewerFriction()`
+- **Alternatives considered:** a single hook bundling all D7 controls, called once from `ReaderPage` with one big returned object.
+- **Why we chose this:** see §3.11 — independent behaviors, independent tests, independent failure blast radius. The spec explicitly calls for this shape ("each in its own small hook... so it can be tested").
+- **What we gave up:** slightly more import boilerplate at the call site (five `use...()` calls in `ReaderPage` instead of one) — a small, one-time cost paid once per page that uses them.
+- **When we would revisit:** if a sixth, seventh friction control started sharing meaningful state with an existing one (not the case today — every hook's internal state is genuinely private), a shared hook might start pulling its weight.
 
 ---
 
@@ -360,6 +564,41 @@ A: When I ran `mvn verify` the way the project's own definition of done requires
 
 ---
 
+### 05B — Beginner
+
+**Q: Why does the viewer use `<canvas>` instead of just an `<img>` pointed at the tile URL?**
+A: An `<img src>` is a real, fetchable resource the browser knows how to hand back to the user — right-click → "Save image as…", drag it to the desktop, even just reading `.src` out of DevTools. A `<canvas>` is just painted pixels; there's no URL, no file, nothing for those browser features to attach to. It's not unbreakable — you can still screenshot a canvas — but it removes every one-click way to save the page as a file.
+
+**Q: What does `createImageBitmap` actually do, and why not just use `new Image()`?**
+A: `createImageBitmap` decodes image bytes straight into a GPU-friendly bitmap without ever creating a DOM element or a URL. `new Image()` needs an `src` — usually a `blob:` object URL — which is itself a live, if obscure, reference to the raw bytes for as long as it exists. Skipping that entirely means there's no URL of any kind pointing at a clean page, even one nothing currently displays.
+
+**Q: The spec says these browser controls "can all be bypassed." So what's the point?**
+A: They raise the effort for casual copying — the person who'd right-click and save an image but won't go find a screen-capture tool for one book page. The actual protection is server-side: the watermark. These controls are friction on top of that, not a replacement for it, and pretending otherwise is the kind of overclaim that doesn't survive five minutes of a real interview.
+
+### 05B — Intermediate
+
+**Q: Walk me through what happens when a buyer clicks "Next" and the page is already prefetched.**
+A: `goToPage` clamps the target page number and writes it to both the URL's `?page=` and the Zustand store. `useSecureTile`'s effect re-runs because `pageNumber` changed, checks its cache `Map` first, finds the bitmap already sitting there from the prefetch that ran after the previous page drew, and draws it immediately — no network call, no `viewerPageUrl` query, no `fetch`. Then it kicks off prefetching *the next* page after that, the same way. The only time a page turn costs a round trip is the very first page, or paging backward into a page that's already been drawn and closed.
+
+**Q: Why can't you just use `navigator.sendBeacon` to end the session when the tab closes?**
+A: `sendBeacon` can't attach custom headers, and ending a session is a GraphQL mutation that requires a JWT in the `Authorization` header like every other authenticated request — there's no anonymous way to do it. `fetch(url, { keepalive: true, headers: {...} })` gives the same "still sends even though the page is going away" guarantee sendBeacon is known for, but as a normal fetch it can carry whatever headers the request actually needs.
+
+**Q: Why is `currentPage` clamped freshly on every render instead of just once when the session starts?**
+A: Because `pageCount` isn't known until the session resolves, but the store's `currentPage` can already hold a value from the URL before that — including an out-of-range one, like `?page=99` on a 3-page book. If I clamped it with a `useEffect` that runs *after* `pageCount` arrives, there's a render in between where the raw, unclamped number is what gets handed to the tile fetcher — which would try to fetch page 99. Computing `clampedPage = clampPage(currentPage, pageCount)` directly in the render body, and feeding that everywhere instead of the raw store value, means there's no render where an out-of-range page can leak through — see the bug I hit doing this the other way, below.
+
+### 05B — Advanced / follow-up probes
+
+**Q: You cap the prefetch cache at 3 bitmaps. What's the actual failure mode if you didn't?**
+A: Every `ImageBitmap` you don't `.close()` holds onto decoded, GPU-adjacent memory that the JS garbage collector won't necessarily reclaim promptly just because nothing references it — it's more like a manually-managed resource than a plain JS object. If a buyer mashes "Next" faster than pages can be drawn, an uncapped cache would just keep accumulating undrawn, un-closed bitmaps for every page the prefetch ever got ahead on, one per page-number key, forever. Capping it at 3 and closing whatever gets evicted bounds the worst case to "a handful of decoded pages," regardless of how fast someone pages through the book.
+
+**Q: The DevTools heuristic can false-positive on legitimate zoom levels. Why is "blur, don't end the session" the right response to a heuristic you don't fully trust?**
+A: Because the two possible mistakes have very different costs. If the heuristic wrongly thinks DevTools is open and blurs the page, the buyer sees a moment of blur and it clears itself the instant the dimensions look normal again — mildly annoying, fully recoverable, no data lost. If it wrongly ended the session instead, a buyer who just has an unusual zoom level gets kicked out of a book they're paying to read, based on a check the code's own comment admits is a guess. An action's reversibility should scale with how much you trust the signal that triggers it, and "blur" is the most reversible action available.
+
+**Q: Why does the "end viewer session" fetch fire from both `pagehide` and the hook's unmount cleanup, instead of just one of them?**
+A: They cover different exits. `pagehide` fires when the whole tab goes away — closed, refreshed, or navigated to a different site — none of which give React a chance to run its normal unmount cleanup, because the JS execution context itself is being torn down. The `useEffect` cleanup function fires for an *in-app* navigation — clicking "Exit" to go back to `/product/:id` while the SPA stays alive — which never triggers `pagehide` at all, since the tab and its `window` object never actually unload. Relying on only one would leave the other kind of exit never ending the session, silently holding the "active" slot until the 45-second lease lapses on its own.
+
+---
+
 ## 8. Gotchas and bugs we hit
 
 | # | Symptom | Root cause | Fix | Lesson |
@@ -371,6 +610,9 @@ A: When I ran `mvn verify` the way the project's own definition of done requires
 | 5 | (surfaced by fixing #4) The same test then threw `BadSqlGrammar` on its `EXPLAIN ANALYZE` query | `jdbcTemplate.queryForList(sql, Map.of())` — the query has zero `?` placeholders, so passing one bind argument is a parameter-count mismatch, not "no parameters" | Removed the extra argument; `queryForList(sql)` | An empty collection passed as a vararg isn't "nothing" — it's still one argument |
 | 6 | (surfaced by fixing #5) The test's final assertion — "the plan uses `idx_products_fts`" — failed even with correct SQL | Every seeded row in the test matches *both* the status filter and the search term, so the FTS predicate has ~0% selectivity; Postgres correctly prefers the `(status, created_at)` index, which also satisfies `ORDER BY`/`LIMIT` for free, over the GIN index | Narrowed the assertion to what the test's own comment already promised — no seq scan — rather than one specific index name | A cost-based planner's choice depends on the data you actually seeded, not on which index you hoped it would pick |
 | 7 | `ProcessingPipelineIT.processAsync_success` (Phase 2, surfaced by fixing #3) asserted `COMPLETED` immediately after calling the pipeline and got `PROCESSING` | `processAsync` is `@Async`; the call returns immediately and the real work happens on a background thread the test didn't wait for | Wrapped the assertion in `Awaitility.await().untilAsserted(...)`, the same pattern already used in `NotificationIT` | Calling an `@Async` method and asserting its result on the next line is a race, not a test |
+| 8 | (05B) The pagination test loading `?page=99` on a 3-page book briefly requested `viewerPageUrl(sessionToken, 99)` — a mock-configuration error surfaced it, but the same thing would have hit the real backend | `ReaderPage` clamped `currentPage` in a `useEffect` keyed on `pageCount`, which only becomes known *after* the session starts. Between the render where the session activates and the render where that effect runs, `useSecureTile` briefly saw the raw, unclamped page number | Replaced the two-effect clamp with a single derived value — `const clampedPage = clampPage(currentPage, pageCount)` computed in the render body — and fed *that* to the toolbar, the tile fetcher, and page-navigation math, so there is no render where an out-of-range number exists | A value that's "eventually correct once an effect runs" is wrong for exactly as many renders as the effect takes to fire — if something downstream fetches on every render, derive it synchronously instead |
+| 9 | (05B) Every heartbeat tick and every prefetch query printed a `MockedProvider` deprecation warning to the test output, even though the tests all passed | I'd used `MockedResponse`'s `newData` callback to let one mock answer a repeated query (heartbeat fires every few ms in one test). `newData` is deprecated in this Apollo Client version and unconditionally logs a warning on every use, regardless of whether the mock array itself was configured correctly | Switched to `result: () => ({...})` — a plain function, which Apollo Client also supports for a dynamic response, with `maxUsageCount: Infinity` so the same mock keeps matching — with no deprecation warning | A deprecation warning firing in a passing test suite is still worth chasing down; "the tests are green" and "the tests are clean" are different bars, and the second one is what stops real bugs from hiding in a wall of expected-looking noise |
+| 10 | (05B) `MockedProvider`'s default `maxUsageCount` is 1 — a query mocked once and legitimately fetched twice (e.g. paging forward then back to a page whose prefetched bitmap was already drawn-and-closed) failed its *second* fetch with "No more mocked responses," not because of a code bug but because the test's own mock array only anticipated one call | Traced by reading `mockLink.js` directly rather than guessing from the warning text, which doesn't mention `maxUsageCount` at all | Set `maxUsageCount: Number.POSITIVE_INFINITY` on any `MockedResponse` a test expects to satisfy more than once | A test double's default limits (a mock's use-once default, here) are part of the contract you're testing against just as much as the code under test — when a test fails in a way the application code can't explain, check the test infrastructure's own defaults next |
 
 ---
 
@@ -394,6 +636,14 @@ A: When I ran `mvn verify` the way the project's own definition of done requires
 | Injectable Clock | Passing `java.time.Clock` as a dependency instead of calling `Instant.now()`, so time-based logic is testable with a fixed clock |
 | Failsafe plugin | Maven's integration-test runner, bound to `*IT.java` by convention — distinct from Surefire, which runs `*Test.java` |
 | Sweeper | A `@Scheduled` job that periodically cleans up state a live request path didn't get a chance to |
+| `ImageBitmap` | A decoded, GPU-friendly, DOM-detached image handle from `createImageBitmap()` — must be `.close()`d manually |
+| Object URL (`blob:`) | A live, page-lifetime reference to raw bytes created by `URL.createObjectURL` — a "coat-check ticket" for a `Blob` |
+| `keepalive` fetch | A `fetch()` option that lets the request outlive the page unloading it, while still supporting normal headers |
+| `sendBeacon` | A browser API for a guaranteed-to-send exit ping — cannot carry custom headers, so no `Authorization` |
+| `pagehide` | The event that fires when a tab closes, refreshes, or navigates away — unlike `beforeunload`, reliable and not deprecated |
+| DevTools-size heuristic | Inferring DevTools is open from the gap between `outerWidth`/`Height` and `innerWidth`/`Height` — a guess, not a detector |
+| Custom hook (as a unit of behaviour) | A small, independently-testable `use...()` function owning one self-contained piece of lifecycle/state |
+| Derived state | A value computed fresh from other state on every render, instead of stored and separately kept in sync |
 
 ---
 
@@ -405,6 +655,9 @@ A: When I ran `mvn verify` the way the project's own definition of done requires
 - **Nothing in the tile-serving path can return clean bytes.** Every code path either throws before touching storage, or watermarks before returning — there's no branch that skips the watermark step.
 - **The entitlement check is re-read fresh on every tile**, not cached from session start, so a revoke takes effect within one page turn, not "at the next login".
 - **Fixing the project's own test-verification gap (Failsafe never bound) was in scope, not a detour** — it's the exact command this phase's definition of done runs, and it was silently not checking anything before this phase.
+- **(05B) Not one line of page content ever becomes an `<img>`, an object URL, or a cached signed URL** — every one of D2/D5's constraints has a test asserting the *absence* of the thing it forbids (no `<img>` in the DOM, a fetch fired fresh per navigation), not just the presence of the thing it requires.
+- **(05B) Every friction control is independently testable and independently honest about its own limit** — §3.13's table isn't just prose, it's backed by five separate hook tests, each pinned to exactly what that one control does and doesn't catch.
+- **(05B) A real correctness bug (Gotcha #8, the transient unclamped-page fetch) was caught and fixed by writing the test for a boundary case (`?page=99`) that the acceptance criteria didn't explicitly ask for**, but that the D6 page-navigation spec implied ("clamped to both ends").
 
 **Weakest points, and what I'd fix first**
 1. **Redis is a single point of failure for the active-session check**, with no defined fallback if it's briefly unreachable — as written, a Redis timeout surfaces as an error on every heartbeat and tile fetch rather than a graceful degraded mode. **Fix first:** an explicit fallback that treats a Redis timeout as "assume active, but flag for reconciliation against Postgres", so a brief Redis blip doesn't interrupt every open reading session in the system.
@@ -412,5 +665,9 @@ A: When I ran `mvn verify` the way the project's own definition of done requires
 3. **No repeated/tiled watermark pattern** — a single diagonal label is easier to crop around than a tiled grid. Named as an explicit follow-up in the phase spec, and the first thing I'd build next for this feature specifically.
 4. **Creators can't preview their own product in the secure viewer without buying it.** Listed as a follow-up in the spec; today a creator would need a separate entitlement (or the Phase 3 free preview) to see their own paid pages rendered.
 5. **No rate limiting on the tile endpoint** — deferred to Phase 11 per the spec, same honest gap Phase 3's free-preview endpoint already has for the same reason (documented there, not re-solved here).
+6. **(05B) A generic tile-fetch failure (not 403/409/410) shows a bare "Couldn't load this page / Retry" — it doesn't distinguish a dropped network connection from a genuinely broken document version.** Fine for MVP; the first improvement here would be surfacing *why* in dev tooling (a correlation ID is already returned by the backend, `X-Correlation-Id` — the frontend doesn't display it anywhere yet).
+7. **(05B) The "one active session" takeover UX has no warning before it happens** — a buyer's first laptop only finds out it's been superseded on its next heartbeat (up to ~15s later) or its next page-turn attempt (409). A `viewerSessionTakenOver` subscription/push would make that instantaneous, at the cost of a new transport (WebSocket/SSE) this phase deliberately didn't introduce.
 
 **Turning Failsafe back on, as a general lesson.** The three bugs it surfaced (§8, #4–#7) were all in test *code*, not application code, and all three were completely invisible until the harness that was supposed to run them actually ran them for the first time. That's worth remembering for any codebase, not just this one: a green CI badge is only informative about what CI is actually configured to run.
+
+**The same lesson, once more, on the frontend (05B).** Gotcha #8 (the `?page=99` fetch) was never in the acceptance criteria as written — it surfaced because writing a *boundary-case test* (not just the happy path) is what forces you to actually trace what value flows into `useSecureTile` on the render *between* the session activating and the reclamp effect running. A test suite that only covers what the spec explicitly lists will pass while still shipping this exact bug.
