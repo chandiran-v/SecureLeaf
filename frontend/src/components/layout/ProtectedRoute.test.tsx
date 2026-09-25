@@ -34,7 +34,7 @@ describe('ProtectedRoute', () => {
     vi.mocked(useAuthStore).mockReturnValue({
       isAuthenticated: false,
       user: null,
-    } as any);
+    } as ReturnType<typeof useAuthStore>);
 
     render(<TestApp />);
     expect(screen.getByTestId('login-page')).toBeInTheDocument();
@@ -45,7 +45,7 @@ describe('ProtectedRoute', () => {
     vi.mocked(useAuthStore).mockReturnValue({
       isAuthenticated: true,
       user: { id: '1', roles: ['BUYER'] },
-    } as any);
+    } as ReturnType<typeof useAuthStore>);
 
     render(<TestApp />);
     expect(screen.getByTestId('protected-content')).toBeInTheDocument();
@@ -55,7 +55,7 @@ describe('ProtectedRoute', () => {
     vi.mocked(useAuthStore).mockReturnValue({
       isAuthenticated: true,
       user: { id: '1', roles: ['BUYER'] }, // missing CREATOR
-    } as any);
+    } as ReturnType<typeof useAuthStore>);
 
     render(<TestApp requiredRole="CREATOR" />);
     expect(screen.getByTestId('become-creator-page')).toBeInTheDocument();
@@ -66,7 +66,7 @@ describe('ProtectedRoute', () => {
     vi.mocked(useAuthStore).mockReturnValue({
       isAuthenticated: true,
       user: { id: '1', roles: ['BUYER', 'CREATOR'] },
-    } as any);
+    } as ReturnType<typeof useAuthStore>);
 
     render(<TestApp requiredRole="CREATOR" />);
     expect(screen.getByTestId('protected-content')).toBeInTheDocument();

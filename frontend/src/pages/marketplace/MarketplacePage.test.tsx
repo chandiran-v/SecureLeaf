@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { MockedProvider } from '@apollo/client/testing';
+import type { ApolloError } from '@apollo/client';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import MarketplacePage from './MarketplacePage';
 import { useProductSearch } from '../../hooks/useProductSearch';
@@ -95,7 +96,7 @@ describe('MarketplacePage', () => {
   it('shows the error state and retries on click', async () => {
     const refetch = vi.fn();
     vi.mocked(useProductSearch).mockReturnValue(
-      baseHookReturn({ error: new Error('boom') as any, refetch })
+      baseHookReturn({ error: new Error('boom') as unknown as ApolloError, refetch })
     );
     renderPage();
     expect(screen.getByRole('alert')).toBeInTheDocument();
