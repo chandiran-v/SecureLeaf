@@ -22,10 +22,16 @@ public class EntitlementService {
 
     private final EntitlementRepository entitlementRepository;
 
-    /** PAY-09 — the buyer's library, newest purchase first. */
+    /**
+     * PAY-09 / Phase 6 D1 — the buyer's whole library, newest purchase first: ACTIVE, REVOKED and
+     * EXPIRED entitlements all included, so a revoked purchase still shows up (with that status)
+     * instead of disappearing. What a REVOKED/EXPIRED row can no longer do is open the viewer —
+     * that's enforced by ViewerSessionService.startViewerSession's ACTIVE-only lookup, not by
+     * hiding the row here.
+     */
     @Transactional(readOnly = true)
     public List<EntitlementDto> myLibrary(Long buyerId) {
-        return entitlementRepository.findByBuyerIdAndStatusOrderByGrantedAtDesc(buyerId, EntitlementStatus.ACTIVE)
+        return entitlementRepository.findByBuyerIdOrderByGrantedAtDesc(buyerId)
                 .stream()
                 .map(CommerceMapper::toEntitlementDto)
                 .toList();
