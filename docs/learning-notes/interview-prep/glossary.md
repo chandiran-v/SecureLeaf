@@ -93,3 +93,13 @@
 | **`DataLoader`** | A per-request batching/caching layer that folds individual `.load(key)` calls into one batch function | [Phase 6](../phase-06-library-dashboard-notifications.md) |
 | **Named `DataLoader`** | A `DataLoader` registered under an explicit name so multiple resolver methods can share one batch/cache | [Phase 6](../phase-06-library-dashboard-notifications.md) |
 | **Guarded state transition** | A mutation that checks the current state is a legal starting point before changing it | [Phase 6](../phase-06-library-dashboard-notifications.md) |
+| **Denormalized aggregate** | A derivable value (e.g. `AVG(rating)`) stored again on another table for read speed | [Phase 7](../phase-07-reviews-password-reset.md) |
+| **Lost-update anomaly** | Two concurrent read-modify-writes where the second silently overwrites the first | [Phase 7](../phase-07-reviews-password-reset.md) |
+| **Upsert** | Insert-if-absent, update-if-present, as one operation | [Phase 7](../phase-07-reviews-password-reset.md) |
+| **Data minimisation** | Returning only the fields a feature actually needs, not whatever the type happens to carry | [Phase 7](../phase-07-reviews-password-reset.md) |
+| **User enumeration** (see also Phase 1) | Learning which accounts exist from how responses differ, without an explicit yes/no | [Phase 7](../phase-07-reviews-password-reset.md) |
+| **Single-use token** | A credential deleted/invalidated the instant it's successfully used once | [Phase 7](../phase-07-reviews-password-reset.md) |
+| **Session revocation** | Invalidating already-issued credentials so they stop working immediately | [Phase 7](../phase-07-reviews-password-reset.md) |
+| **`INCR`/`EXPIRE` rate limiting** | Redis's atomic counter-with-a-deadline pattern for capping how often something may happen | [Phase 7](../phase-07-reviews-password-reset.md) |
+| **ARIA `radiogroup`/`radio`** | Accessibility roles making a custom multi-option picker behave like native radio buttons | [Phase 7](../phase-07-reviews-password-reset.md) |
+| **Roving tabindex** | Only one item in a custom widget is Tab-reachable; arrow keys move focus among the rest | [Phase 7](../phase-07-reviews-password-reset.md) |
