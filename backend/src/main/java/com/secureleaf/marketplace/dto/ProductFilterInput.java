@@ -13,5 +13,6 @@ public record ProductFilterInput(
         Integer maxPricePaise,
         Boolean isFree,
         String searchQuery,
-        String sortBy
+        String sortBy,
+        Double minRating
 ) {}

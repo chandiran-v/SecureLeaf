@@ -43,7 +43,8 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final GoogleOAuthService googleOAuthService;
 
-    private static String normalizeEmail(String email) {
+    /** Package-visible so {@link PasswordResetService} (same package) can reuse it. */
+    static String normalizeEmail(String email) {
         return email == null ? null : email.toLowerCase().trim();
     }
 
