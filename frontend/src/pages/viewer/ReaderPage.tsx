@@ -7,6 +7,7 @@ import { useBlurOnFocusLoss } from '../../hooks/viewer/useBlurOnFocusLoss';
 import { useDevToolsHeuristic } from '../../hooks/viewer/useDevToolsHeuristic';
 import { useBlockPrintAndSaveShortcuts } from '../../hooks/viewer/useBlockPrintAndSaveShortcuts';
 import { usePrintScreenBlank } from '../../hooks/viewer/usePrintScreenBlank';
+import { useZoomShortcuts } from '../../hooks/viewer/useZoomShortcuts';
 import { useViewerStore } from '../../stores/viewerStore';
 import ReaderSkeleton from '../../components/viewer/ReaderSkeleton';
 import NotEntitledPanel from '../../components/viewer/NotEntitledPanel';
@@ -21,8 +22,8 @@ function clampPage(page: number, pageCount: number | null): number {
 
 /**
  * D1 — `/read/:productId`, full-screen, no AppLayout chrome. Orchestrates the session lifecycle
- * (useViewerSession), one page's bytes (useSecureTile), page navigation (D6), and every piracy-
- * friction control (D7). See docs/phases/phase-05b-secure-viewer-frontend.md for the decisions
+ * (useViewerSession), one page's bytes (useSecureTile), page navigation (D6), zoom
+ * (useZoomShortcuts + ViewerCanvas), and every piracy-friction control (D7). See docs/phases/phase-05b-secure-viewer-frontend.md for the decisions
  * referenced by number throughout this file and its hooks/components.
  */
 export default function ReaderPage() {
@@ -72,6 +73,7 @@ export default function ReaderPage() {
   useBlurOnFocusLoss();
   useDevToolsHeuristic();
   useBlockPrintAndSaveShortcuts();
+  useZoomShortcuts();
   const printScreenBlanked = usePrintScreenBlank();
 
   const {

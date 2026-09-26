@@ -104,7 +104,7 @@ beforeEach(() => {
     refreshToken: 'r',
     user: { id: 'u1', email: 'u1@x.com', displayName: 'U1', roles: ['BUYER'], createdAt: '' },
   });
-  useViewerStore.setState({ currentPage: 1, focusBlurred: false, devToolsBlurred: false });
+  useViewerStore.setState({ currentPage: 1, zoom: 1, focusBlurred: false, devToolsBlurred: false });
 
   vi.stubGlobal(
     'createImageBitmap',
@@ -273,6 +273,55 @@ describe('ReaderPage', () => {
     fireEvent.keyDown(window, { key: 'ArrowLeft' });
     expect(await screen.findByText('Page 1 / 3')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /previous page/i })).toBeDisabled();
+  });
+
+  // Zoom (added after 05B — see the "Zoom" addendum in docs/learning-notes/phase-05-secure-viewer.md)
+  it('zooms with the toolbar buttons and keyboard, and "Fit" returns to 100%', async () => {
+    renderReader([startSessionMock({ pageCount: 1 }), pageUrlMockRepeatable('tok-1', 1)]);
+    expect(await screen.findByText('Page 1 / 1')).toBeInTheDocument();
+    const level = screen.getByTestId('zoom-level');
+    expect(level).toHaveTextContent('100%');
+    expect(screen.getByRole('button', { name: /fit page/i })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole('button', { name: /zoom in/i }));
+    expect(level).toHaveTextContent('125%');
+    fireEvent.keyDown(window, { key: '+' });
+    expect(level).toHaveTextContent('150%');
+    fireEvent.keyDown(window, { key: '-' });
+    fireEvent.click(screen.getByRole('button', { name: /zoom out/i }));
+    fireEvent.click(screen.getByRole('button', { name: /zoom out/i }));
+    expect(level).toHaveTextContent('75%');
+
+    fireEvent.click(screen.getByRole('button', { name: /fit page/i }));
+    expect(level).toHaveTextContent('100%');
+    fireEvent.keyDown(window, { key: '=' });
+    fireEvent.keyDown(window, { key: '0' });
+    expect(level).toHaveTextContent('100%');
+  });
+
+  it('keeps Ctrl/Cmd +/- from zooming the whole browser tab while reading', async () => {
+    renderReader([startSessionMock({ pageCount: 1 }), pageUrlMockRepeatable('tok-1', 1)]);
+    expect(await screen.findByText('Page 1 / 1')).toBeInTheDocument();
+
+    const notCancelled = fireEvent.keyDown(window, { key: '=', ctrlKey: true });
+
+    expect(notCancelled).toBe(false);
+    expect(screen.getByTestId('zoom-level')).toHaveTextContent('125%');
+  });
+
+  it('keeps the zoom level when turning pages', async () => {
+    renderReader([
+      startSessionMock({ pageCount: 2 }),
+      pageUrlMockRepeatable('tok-1', 1),
+      pageUrlMockRepeatable('tok-1', 2),
+    ]);
+    expect(await screen.findByText('Page 1 / 2')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /zoom in/i }));
+
+    fireEvent.click(screen.getByRole('button', { name: /next page/i }));
+
+    expect(await screen.findByText('Page 2 / 2')).toBeInTheDocument();
+    expect(screen.getByTestId('zoom-level')).toHaveTextContent('125%');
   });
 
   // Criterion 6 — ?page= on load
