@@ -31,6 +31,8 @@ export function useProductSearch() {
   const minPrice = searchParams.get('minPrice');
   const maxPrice = searchParams.get('maxPrice');
   const free = searchParams.get('free') === 'true';
+  const minRatingParam = searchParams.get('minRating');
+  const minRating = minRatingParam ? Number(minRatingParam) : undefined;
 
   const filter: ProductFilterInput = useMemo(
     () => ({
@@ -40,8 +42,9 @@ export function useProductSearch() {
       minPricePaise: minPrice ? Number(minPrice) : undefined,
       maxPricePaise: maxPrice ? Number(maxPrice) : undefined,
       isFree: free || undefined,
+      minRating,
     }),
-    [debouncedSearchQuery, category, sort, minPrice, maxPrice, free]
+    [debouncedSearchQuery, category, sort, minPrice, maxPrice, free, minRating]
   );
 
   const { data, loading, error, refetch } = useQuery<{
@@ -75,6 +78,7 @@ export function useProductSearch() {
     minPrice,
     maxPrice,
     free,
+    minRating,
     products: data?.products.content ?? [],
     totalElements: data?.products.totalElements ?? 0,
     totalPages: data?.products.totalPages ?? 0,
@@ -86,6 +90,7 @@ export function useProductSearch() {
     setCategory: (slug: string | undefined) => updateParams({ category: slug }),
     setSort: (sortBy: ProductSortBy | undefined) => updateParams({ sort: sortBy }),
     setFree: (isFree: boolean) => updateParams({ free: isFree ? 'true' : undefined }),
+    setMinRating: (rating: number | undefined) => updateParams({ minRating: rating ? String(rating) : undefined }),
     setPage: (nextPage: number) => updateParams({ page: String(nextPage) }, false),
   };
 }

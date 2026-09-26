@@ -15,6 +15,7 @@ export default function MarketplacePage() {
     category,
     sort,
     free,
+    minRating,
     products,
     totalElements,
     pageNumber,
@@ -26,6 +27,7 @@ export default function MarketplacePage() {
     setCategory,
     setSort,
     setFree,
+    setMinRating,
     setPage,
   } = useProductSearch();
 
@@ -50,6 +52,8 @@ export default function MarketplacePage() {
             onSortChange={setSort}
             free={free}
             onFreeChange={setFree}
+            minRating={minRating}
+            onMinRatingChange={setMinRating}
           />
         </div>
 

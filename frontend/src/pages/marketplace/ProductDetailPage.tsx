@@ -3,8 +3,12 @@ import { useQuery } from '@apollo/client';
 import AppLayout from '../../components/layout/AppLayout';
 import PreviewPane from '../../components/marketplace/PreviewPane';
 import BuyPanel from '../../components/marketplace/BuyPanel';
+import RatingHistogram from '../../components/reviews/RatingHistogram';
+import ReviewList from '../../components/reviews/ReviewList';
+import ReviewForm from '../../components/reviews/ReviewForm';
 import { PRODUCT_DETAIL } from '../../graphql/queries/marketplace.queries';
 import { formatPrice } from '../../lib/formatPrice';
+import { useProductReviews } from '../../hooks/useProductReviews';
 import type { Product } from '../../types';
 
 export default function ProductDetailPage() {
@@ -13,6 +17,23 @@ export default function ProductDetailPage() {
     variables: { id },
     skip: !id,
   });
+
+  // Called unconditionally (before the loading/not-found early returns) — its own queries
+  // are individually `skip`-ped until productId/ownedByMe are known.
+  const {
+    reviews,
+    totalElements,
+    totalPages,
+    pageNumber,
+    setPage,
+    breakdown,
+    myReview,
+    submitReview,
+    submitLoading,
+    submitError,
+    deleteMyReview,
+    deleteLoading,
+  } = useProductReviews(id ?? '', data?.product?.ownedByMe ?? false);
 
   if (loading) {
     return (
@@ -75,6 +96,34 @@ export default function ProductDetailPage() {
             )}
 
             <BuyPanel product={product} />
+          </div>
+        </div>
+
+        <div className="mt-14 pt-10 border-t border-gray-100">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Ratings & reviews</h2>
+          <RatingHistogram averageRating={product.averageRating ?? null} reviewCount={totalElements} breakdown={breakdown} />
+
+          {product.ownedByMe && (
+            <div className="mt-6 pt-6 border-t border-gray-100">
+              <ReviewForm
+                myReview={myReview}
+                onSubmit={submitReview}
+                onDelete={deleteMyReview}
+                submitLoading={submitLoading}
+                deleteLoading={deleteLoading}
+                submitError={submitError}
+              />
+            </div>
+          )}
+
+          <div className="mt-8 pt-6 border-t border-gray-100">
+            <ReviewList
+              reviews={reviews}
+              totalElements={totalElements}
+              pageNumber={pageNumber}
+              totalPages={totalPages}
+              onPageChange={setPage}
+            />
           </div>
         </div>
       </div>

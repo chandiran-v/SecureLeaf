@@ -4,6 +4,8 @@ import { GoogleOAuthProvider } from '@react-oauth/google';
 import client from './graphql/apolloClient';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
+import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
+import ResetPasswordPage from './pages/auth/ResetPasswordPage';
 import ProtectedRoute from './components/layout/ProtectedRoute';
 import BecomeCreatorPage from './pages/creator/BecomeCreatorPage';
 import CreatorDashboardPage from './pages/creator/CreatorDashboardPage';
@@ -24,6 +26,8 @@ function App() {
           {/* Public routes */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
 
           {/* Public marketplace — browsing and free preview need no auth (Phase 3) */}
           <Route path="/" element={<MarketplacePage />} />
