@@ -103,3 +103,5 @@
 | **`INCR`/`EXPIRE` rate limiting** | Redis's atomic counter-with-a-deadline pattern for capping how often something may happen | [Phase 7](../phase-07-reviews-password-reset.md) |
 | **ARIA `radiogroup`/`radio`** | Accessibility roles making a custom multi-option picker behave like native radio buttons | [Phase 7](../phase-07-reviews-password-reset.md) |
 | **Roving tabindex** | Only one item in a custom widget is Tab-reachable; arrow keys move focus among the rest | [Phase 7](../phase-07-reviews-password-reset.md) |
+| **Canvas backing store** | A canvas's real pixel buffer (`canvas.width/height`), separate from its on-screen CSS size | [Phase 5](../phase-05-secure-viewer.md) |
+| **Passive event listener** | A listener that promises not to call `preventDefault()`, so the browser can scroll without waiting on it; React's `onWheel` is passive | [Phase 5](../phase-05-secure-viewer.md) |
