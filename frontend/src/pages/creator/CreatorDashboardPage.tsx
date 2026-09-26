@@ -1,11 +1,12 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@apollo/client';
 import AppLayout from '../../components/layout/AppLayout';
 import StatusBadge from '../../components/ui/StatusBadge';
+import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import { useCreatorProducts } from '../../hooks/useCreatorProducts';
 import { CREATOR_EARNINGS } from '../../graphql/queries/commerce.queries';
-import type { CreatorEarnings, Product } from '../../types';
+import type { CreatorEarnings, JobStage, Product } from '../../types';
 
 // ── Price formatter ───────────────────────────────────────────────────────────
 
@@ -18,6 +19,14 @@ function formatPrice(pricePaise: number): string {
 function formatRupees(paise: number): string {
   return '₹' + (paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 });
 }
+
+const STAGE_LABELS: Record<JobStage, string> = {
+  VALIDATE: 'Validating PDF',
+  CONVERT_TILES: 'Converting pages',
+  GENERATE_THUMBNAIL: 'Generating thumbnail',
+  GENERATE_PREVIEW: 'Preparing preview',
+  MARK_LIVE: 'Finishing up',
+};
 
 // ── Empty state ───────────────────────────────────────────────────────────────
 
@@ -48,15 +57,31 @@ function EmptyState() {
 
 // ── Product row ───────────────────────────────────────────────────────────────
 
+type PendingAction = 'unpublish' | 'delete' | null;
+
 function ProductRow({
   product,
   onUnpublish,
   onDelete,
+  onRetry,
+  onRepublish,
 }: {
   product: Product;
   onUnpublish: (id: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  onRetry: (id: string) => Promise<void>;
+  onRepublish: (id: string) => Promise<void>;
 }) {
+  const [pendingAction, setPendingAction] = useState<PendingAction>(null);
+
+  const salesCount = product.salesCount ?? product.totalSales;
+
+  const confirmAndRun = async () => {
+    if (pendingAction === 'unpublish') await onUnpublish(product.id);
+    if (pendingAction === 'delete') await onDelete(product.id);
+    setPendingAction(null);
+  };
+
   return (
     <tr className="hover:bg-gray-50 transition-colors">
       <td className="py-4 px-6">
@@ -82,18 +107,29 @@ function ProductRow({
       </td>
       <td className="py-4 px-6">
         <StatusBadge status={product.status} />
+        {product.status === 'PROCESSING' && product.processingStage && (
+          <p className="text-[11px] text-amber-700/80 mt-1">{STAGE_LABELS[product.processingStage]}</p>
+        )}
+        {product.status === 'FAILED' && product.failureReason && (
+          <p className="text-[11px] text-red-600 mt-1 max-w-[220px] line-clamp-2" title={product.failureReason}>
+            {product.failureReason}
+          </p>
+        )}
       </td>
       <td className="py-4 px-6 text-sm text-gray-700 font-medium">
         {formatPrice(product.pricePaise)}
       </td>
       <td className="py-4 px-6 text-sm text-gray-500">
-        {product.totalSales} sale{product.totalSales !== 1 ? 's' : ''}
+        <p>{salesCount} sale{salesCount !== 1 ? 's' : ''}</p>
+        {product.netEarningsPaise != null && (
+          <p className="text-[11px] text-gray-400">{formatRupees(product.netEarningsPaise)} earned</p>
+        )}
       </td>
       <td className="py-4 px-6">
         <div className="flex items-center gap-2 justify-end">
           {product.status === 'LIVE' && (
             <button
-              onClick={() => onUnpublish(product.id)}
+              onClick={() => setPendingAction('unpublish')}
               className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
             >
               Unpublish
@@ -108,14 +144,48 @@ function ProductRow({
               Upload PDF
             </Link>
           )}
+          {product.status === 'FAILED' && (
+            <button
+              onClick={() => onRetry(product.id)}
+              className="text-xs px-3 py-1.5 rounded-lg border border-amber-200 text-amber-700 hover:bg-amber-50 transition-colors"
+            >
+              Retry
+            </button>
+          )}
+          {product.status === 'UNPUBLISHED' && (
+            <button
+              onClick={() => onRepublish(product.id)}
+              className="text-xs px-3 py-1.5 rounded-lg border border-emerald-200 text-emerald-700 hover:bg-emerald-50 transition-colors"
+            >
+              Republish
+            </button>
+          )}
           <button
-            onClick={() => onDelete(product.id)}
+            onClick={() => setPendingAction('delete')}
             className="text-xs px-3 py-1.5 rounded-lg border border-red-100 text-red-500 hover:bg-red-50 transition-colors"
           >
             Delete
           </button>
         </div>
       </td>
+
+      {pendingAction && (
+        <td>
+          <ConfirmDialog
+            title={pendingAction === 'unpublish' ? 'Unpublish this product?' : 'Delete this product?'}
+            message={
+              (pendingAction === 'unpublish'
+                ? 'It will disappear from the marketplace and stop accepting new sales. '
+                : 'It will be removed from the marketplace and your dashboard. ') +
+              'Buyers who already own it keep their access and can still read it.'
+            }
+            confirmLabel={pendingAction === 'unpublish' ? 'Unpublish' : 'Delete'}
+            danger={pendingAction === 'delete'}
+            onConfirm={() => void confirmAndRun()}
+            onCancel={() => setPendingAction(null)}
+          />
+        </td>
+      )}
     </tr>
   );
 }
@@ -137,6 +207,8 @@ export default function CreatorDashboardPage() {
     refetchProducts,
     unpublishProduct,
     deleteProduct,
+    retryProcessing,
+    republishProduct,
   } = useCreatorProducts();
 
   // Auto-poll while any product is processing
@@ -180,7 +252,7 @@ export default function CreatorDashboardPage() {
           </Link>
         </div>
 
-        {/* ── Stats bar ── */}
+        {/* ── Stats bar (DASH-03: gross, platform fee, net) ── */}
         {products.length > 0 && (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             {[
@@ -242,6 +314,8 @@ export default function CreatorDashboardPage() {
                     product={product}
                     onUnpublish={unpublishProduct}
                     onDelete={deleteProduct}
+                    onRetry={retryProcessing}
+                    onRepublish={republishProduct}
                   />
                 ))}
               </tbody>

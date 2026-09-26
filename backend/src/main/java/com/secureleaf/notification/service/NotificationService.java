@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Optional;
 
 import static com.secureleaf.common.util.Money.formatRupees;
 
@@ -49,11 +50,39 @@ public class NotificationService {
                 buyer.getDisplayName() + " bought \"" + product.getTitle() + "\" for " + price + ".");
     }
 
+    /**
+     * NOTIF-03 (D6) — the pipeline just marked the product LIVE. Called from
+     * {@code DocumentProcessingService.markLive}, inside the same transaction as the rest of the
+     * pipeline's writes, so the notification only ever goes out for a completion that actually
+     * committed (AFTER_COMMIT path — see {@code NotificationDispatcher}).
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void notifyProcessingComplete(Product product) {
+        create(product.getCreator(), NotificationType.PROCESSING_COMPLETE, null, product,
+                "Your product is live: " + product.getTitle(),
+                "\"" + product.getTitle() + "\" finished processing and is now visible in the marketplace.");
+    }
+
+    /** NOTIF-03 (D6) — the pipeline gave up after exhausting its retries. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void notifyProcessingFailed(Product product, String reason) {
+        create(product.getCreator(), NotificationType.PROCESSING_FAILED, null, product,
+                "Processing failed: " + product.getTitle(),
+                "We couldn't process \"" + product.getTitle() + "\": " + reason);
+    }
+
     @Transactional(readOnly = true)
     public List<NotificationDto> myNotifications(Long userId) {
         return notificationRepository.findTop20ByRecipientIdOrderByCreatedAtDescIdDesc(userId).stream()
                 .map(NotificationService::toDto)
                 .toList();
+    }
+
+    /** D7 — the SSE listener re-reads the row it was pinged about instead of trusting the Redis
+     *  payload, so the pushed event always reflects the DB's current, committed shape. */
+    @Transactional(readOnly = true)
+    public Optional<NotificationDto> findDtoById(Long id) {
+        return notificationRepository.findById(id).map(NotificationService::toDto);
     }
 
     /** Idempotent: marking an already-read notification read again is a no-op success. */
@@ -66,6 +95,12 @@ public class NotificationService {
             n.setReadAt(Instant.now());
         }
         return true;
+    }
+
+    /** D8 — "Mark all read"; returns how many rows actually flipped (already-read rows don't count). */
+    @Transactional
+    public int markAllRead(Long userId) {
+        return notificationRepository.markAllReadForRecipient(userId, Instant.now());
     }
 
     private void create(User recipient, NotificationType type, Order order, Product product,

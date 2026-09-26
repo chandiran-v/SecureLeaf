@@ -19,6 +19,8 @@ They serve a dual purpose:
 5. **[Phase 05 — Secure viewer (backend + frontend)](phase-05-secure-viewer.md)**
    - **05A (backend):** the DRM threat model, HMAC-signed single-use tile URLs vs. presigned storage URLs, `SET NX` vs `SET...GET` in Redis, leases + heartbeats, constant-time comparison, append-only audit logs, defense in depth.
    - **05B (frontend):** canvas rendering vs. `<img>`, `createImageBitmap` + memory hygiene, `keepalive` fetch vs. `sendBeacon`, custom hooks as units of behaviour, Apollo vs. Zustand, and an honest table of what each piracy-friction control stops and how it's bypassed.
+6. **[Phase 06 — Library, creator dashboard & live notifications](phase-06-library-dashboard-notifications.md)**
+   - Covers: SSE vs. WebSocket vs. polling, one-time Redis tickets for a stream `EventSource` can't send a header on, Pub/Sub fan-out across instances and its at-most-once caveat, a named `DataLoader` shared across two GraphQL fields, guarded state transitions, soft delete re-verified end to end.
 
 **Tooling / DevOps**
 
@@ -51,7 +53,7 @@ When a new phase is complete, duplicate `TEMPLATE.md`, name it appropriately, an
 | 3 | [phase-03-marketplace.md](phase-03-marketplace.md) | ✅ Done | Full-text search, two-step ID paging, N+1 queries, DTO projection, field resolvers, Strategy pattern |
 | 4 | [phase-04-commerce.md](phase-04-commerce.md) | ✅ Done | Idempotency keys, check-then-act races, `FOR UPDATE`, state machines, append-only audit log, webhooks/HMAC, at-least-once delivery, AFTER_COMMIT events, `@BatchMapping` |
 | 5 | Secure Viewer — [05A + 05B, one note](phase-05-secure-viewer.md) | ✅ Done | DRM threat model, HMAC-signed single-use URLs, leases/heartbeats, canvas rendering, `createImageBitmap`, `keepalive` vs `sendBeacon`, honest browser-DRM limits |
-| 6 | [Library, dashboard, live notifications](../phases/phase-06-library-dashboard-notifications.md) | ⏳ Queued | SSE vs WebSocket, stream tickets, Pub/Sub fan-out, `@BatchMapping` aggregates |
+| 6 | [Library, dashboard, live notifications](phase-06-library-dashboard-notifications.md) | ✅ Done | SSE vs WebSocket vs polling, one-time Redis tickets, Pub/Sub fan-out + at-most-once caveat, a named `DataLoader` shared across two fields, guarded state transitions |
 | 7–9 | [Reviews + reset](../phases/phase-07-reviews-password-reset.md) · [Admin](../phases/phase-08-admin-panel.md) · [Hardening](../phases/phase-09-hardening-release.md) | ⏳ Queued | See `docs/phases/README.md` |
 | 10–17 | MVP2 — [roadmap](../phases/README.md) | ⏳ Queued | Observability, rate limiting, bulkheads, caching, libvips, versioning, capacity |
 | Ops 1 | [ops-01-phase-scheduler.md](ops-01-phase-scheduler.md) | ✅ Done | Cron + event-driven CI, WIP limit of one, reconciliation, privilege separation, `GITHUB_TOKEN` vs PAT, prompt injection, bounded retries |

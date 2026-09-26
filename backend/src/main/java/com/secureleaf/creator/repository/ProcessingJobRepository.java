@@ -5,9 +5,21 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 public interface ProcessingJobRepository extends JpaRepository<ProcessingJob, Long> {
+
+    /**
+     * The "current" job for a product — a re-upload (DocumentUploadController) marks every
+     * prior job FAILED and inserts a fresh row, so the highest id is always the attempt that
+     * matters right now, regardless of how many times the product has been re-uploaded.
+     */
+    Optional<ProcessingJob> findFirstByProductIdOrderByIdDesc(Long productId);
+
+    /** Dashboard batch loader (Phase 6, D4) — one query for a whole page of products. */
+    List<ProcessingJob> findByProductIdInOrderByIdDesc(Collection<Long> productIds);
 
     /**
      * Atomically claims up to {@code limit} QUEUED jobs for processing.

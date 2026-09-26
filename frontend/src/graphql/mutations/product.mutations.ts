@@ -26,6 +26,33 @@ export const DELETE_PRODUCT = gql`
   }
 `;
 
+// Phase 6, D4 — state-transition recovery from the dashboard.
+export const RETRY_PROCESSING = gql`
+  ${PRODUCT_FIELDS}
+  mutation RetryProcessing($productId: ID!) {
+    retryProcessing(productId: $productId) {
+      ...ProductFields
+      salesCount
+      netEarningsPaise
+      processingStage
+      failureReason
+    }
+  }
+`;
+
+export const REPUBLISH_PRODUCT = gql`
+  ${PRODUCT_FIELDS}
+  mutation RepublishProduct($productId: ID!) {
+    republishProduct(productId: $productId) {
+      ...ProductFields
+      salesCount
+      netEarningsPaise
+      processingStage
+      failureReason
+    }
+  }
+`;
+
 export const BECOME_CREATOR = gql`
   ${USER_FIELDS}
   mutation BecomeCreator($input: BecomeCreatorInput!) {

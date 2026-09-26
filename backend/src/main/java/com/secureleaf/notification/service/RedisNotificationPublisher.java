@@ -16,16 +16,17 @@ import org.springframework.stereotype.Service;
  * not a mailbox. That's why the notifications table is the source of truth and Pub/Sub is
  * only the "ping, something new arrived" signal.
  *
- * Nothing subscribes yet: Phase 6 adds a Server-Sent-Events endpoint that subscribes per
- * logged-in user and pushes to the browser. Until then the bell polls myNotifications.
- * Publishing now means Phase 6 is purely additive.
+ * Phase 6 adds {@link NotificationRedisSubscriber}, which subscribes to this exact channel
+ * pattern and forwards each message to whichever browser tab(s) hold an open SSE connection for
+ * that user (see {@link SseEmitterRegistry}).
  */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class RedisNotificationPublisher implements NotificationPublisher {
 
-    static final String CHANNEL_PREFIX = "notifications:user:";
+    /** Public: {@link NotificationRedisSubscriber} subscribes to this exact pattern + "*". */
+    public static final String CHANNEL_PREFIX = "notifications:user:";
 
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;

@@ -13,6 +13,7 @@ import com.secureleaf.creator.repository.ProcessingJobRepository;
 import com.secureleaf.marketplace.entity.Product;
 import com.secureleaf.marketplace.entity.ProductStatus;
 import com.secureleaf.marketplace.repository.ProductRepository;
+import com.secureleaf.notification.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.Loader;
@@ -69,6 +70,7 @@ public class DocumentProcessingService {
     private final ProductRepository productRepository;
     private final StorageService storageService;
     private final MinioProperties minioProperties;
+    private final NotificationService notificationService;
 
     /**
      * Entry point called by ProcessingJobWorker.
@@ -239,6 +241,10 @@ public class DocumentProcessingService {
         job.setCompletedAt(Instant.now());
         processingJobRepository.save(job);
 
+        // NOTIF-03 (D6) — inside this method's transaction, so the notification's AFTER_COMMIT
+        // side effects (Redis publish, email) never fire for a pipeline run that later rolls back.
+        notificationService.notifyProcessingComplete(product);
+
         log.info("[job-{}] Pipeline complete: product {} is now LIVE ({} pages)",
                 job.getId(), product.getId(), pageCount);
     }
@@ -270,6 +276,8 @@ public class DocumentProcessingService {
             productRepository.findById(job.getProduct().getId()).ifPresent(p -> {
                 p.setStatus(ProductStatus.FAILED);
                 productRepository.save(p);
+                // NOTIF-03 (D6) — same AFTER_COMMIT reasoning as the success path above.
+                notificationService.notifyProcessingFailed(p, e.getMessage());
             });
 
             log.error("[job-{}] Processing permanently failed after {} attempts",

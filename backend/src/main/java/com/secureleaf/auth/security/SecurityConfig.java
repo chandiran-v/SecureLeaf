@@ -64,6 +64,10 @@ public class SecurityConfig {
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/mock-gateway/**").permitAll()
                         // Actuator health & info
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                        // SSE notification stream (Phase 6, D7) — EventSource can't send an
+                        // Authorization header, so this is public at the HTTP level; the one-time
+                        // ticket (NotificationStreamTicketService) is the real authentication.
+                        .requestMatchers(HttpMethod.GET, "/api/notifications/stream").permitAll()
                         // D13 — the DRM tile endpoint is GET-only and always requires a JWT. The rest
                         // of D6's checks (signature, session, entitlement, page range) live inside
                         // SecureTileService, not here — this line only rules out anonymous access and

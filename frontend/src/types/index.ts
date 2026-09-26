@@ -38,6 +38,9 @@ export interface CreatorSummary {
   displayName: string;
 }
 
+// Mirrors the backend's JobStage enum (Phase 6, D4) — the processing pipeline's 5 stages.
+export type JobStage = 'VALIDATE' | 'CONVERT_TILES' | 'GENERATE_THUMBNAIL' | 'GENERATE_PREVIEW' | 'MARK_LIVE';
+
 export interface Product {
   id: UUID;
   title: string;
@@ -55,6 +58,13 @@ export interface Product {
   createdAt: string;
   // Only selected by queries that need it (product detail). Always false for anonymous visitors.
   ownedByMe?: boolean;
+  // Phase 6, D2 — creator-dashboard-only. Null for anyone but the product's own creator (the
+  // server enforces this; the client never has to). Only requested by the dashboard's query.
+  salesCount?: number | null;
+  netEarningsPaise?: number | null;
+  // Phase 6, D4 — non-null only while status is PROCESSING (processingStage) or FAILED (failureReason).
+  processingStage?: JobStage | null;
+  failureReason?: string | null;
 }
 
 export interface ProductPage {

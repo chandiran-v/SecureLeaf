@@ -33,6 +33,14 @@ public interface EntitlementRepository extends JpaRepository<Entitlement, Long> 
     List<Entitlement> findByBuyerIdAndStatusOrderByGrantedAtDesc(Long buyerId, EntitlementStatus status);
 
     /**
+     * My Library (Phase 6, D1) — every entitlement the buyer has ever held, ACTIVE or not, newest
+     * first. REVOKED/EXPIRED rows stay visible with their status so the buyer can see *why* a
+     * product is no longer readable, rather than the row silently vanishing.
+     */
+    @EntityGraph(attributePaths = {"product", "product.creator", "product.category", "product.tags"})
+    List<Entitlement> findByBuyerIdOrderByGrantedAtDesc(Long buyerId);
+
+    /**
      * Product.ownedByMe batch loader (D11) — one query for a whole page of products.
      * Status passed as a parameter, not a JPQL enum literal — see OrderRepository.findOpenOrders.
      */

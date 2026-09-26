@@ -6,6 +6,8 @@ import {
   UNPUBLISH_PRODUCT,
   DELETE_PRODUCT,
   BECOME_CREATOR,
+  RETRY_PROCESSING,
+  REPUBLISH_PRODUCT,
 } from '../graphql/mutations/product.mutations';
 import { REFRESH_TOKEN_MUTATION } from '../graphql/mutations/auth.mutations';
 import { useAuthStore } from '../store/authStore';
@@ -50,6 +52,16 @@ export function useCreatorProducts() {
       refetchQueries: [{ query: MY_PRODUCTS }],
     });
 
+  const [retryProcessingMutation] =
+    useMutation<{ retryProcessing: Product }>(RETRY_PROCESSING, {
+      refetchQueries: [{ query: MY_PRODUCTS }],
+    });
+
+  const [republishProductMutation] =
+    useMutation<{ republishProduct: Product }>(REPUBLISH_PRODUCT, {
+      refetchQueries: [{ query: MY_PRODUCTS }],
+    });
+
   const [becomeCreatorMutation] =
     useMutation<{ becomeCreator: User }>(BECOME_CREATOR);
 
@@ -85,6 +97,20 @@ export function useCreatorProducts() {
       await deleteProductMutation({ variables: { id } });
     },
     [deleteProductMutation]
+  );
+
+  const retryProcessing = useCallback(
+    async (productId: string) => {
+      await retryProcessingMutation({ variables: { productId } });
+    },
+    [retryProcessingMutation]
+  );
+
+  const republishProduct = useCallback(
+    async (productId: string) => {
+      await republishProductMutation({ variables: { productId } });
+    },
+    [republishProductMutation]
   );
 
   /**
@@ -123,6 +149,8 @@ export function useCreatorProducts() {
     createLoading,
     unpublishProduct,
     deleteProduct,
+    retryProcessing,
+    republishProduct,
     becomeCreator,
   };
 }

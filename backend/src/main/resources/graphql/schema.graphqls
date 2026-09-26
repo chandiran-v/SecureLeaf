@@ -47,6 +47,17 @@ enum ViewerSessionStatus {
     EXPIRED
 }
 
+# Mirrors com.secureleaf.creator.entity.JobStage — the processing pipeline's 5 stages
+# (Phase 6, D4). Surfaced on Product so the creator dashboard can show exactly where a
+# PROCESSING product currently is, not just the fact that it's processing.
+enum JobStage {
+    VALIDATE
+    CONVERT_TILES
+    GENERATE_THUMBNAIL
+    GENERATE_PREVIEW
+    MARK_LIVE
+}
+
 # ── Types ─────────────────────────────────────────────────────────────────────
 
 type User {
@@ -75,6 +86,15 @@ type Product {
     # True when the current user holds an ACTIVE entitlement. Always false for anonymous visitors.
     # Resolved in one batched query per request (@BatchMapping), never once per product.
     ownedByMe: Boolean!
+    # Phase 6, D2 — creator-only. Null for every viewer except the product's own creator (checked
+    # in the resolver, not by the client), so the schema itself can't be asked to leak another
+    # creator's numbers. Both fields share one aggregate query per request via a named DataLoader.
+    salesCount: Int
+    netEarningsPaise: Long
+    # Phase 6, D4 — creator-dashboard-only detail. Null unless the product is currently
+    # PROCESSING (processingStage) or FAILED (failureReason).
+    processingStage: JobStage
+    failureReason: String
 }
 
 # Public-safe projection of a product's creator — never exposes email.
@@ -228,6 +248,9 @@ type Query {
     order(id: ID!): Order
     myLibrary: [Entitlement!]!
     myNotifications: [Notification!]!
+    # Phase 6, D7 — a one-time, ~30s Redis-backed ticket that authenticates the SSE stream
+    # (EventSource can't send an Authorization header). Single-use: GETDEL on first connect.
+    notificationStreamTicket: String!
 
     # Secure viewer (D1) — side-effect-free: signing a tile URL doesn't itself change any state.
     viewerPageUrl(sessionToken: String!, pageNumber: Int!): SignedPageUrl!
@@ -259,6 +282,10 @@ type Mutation {
     createProduct(input: CreateProductInput!): Product!
     unpublishProduct(id: ID!): Product!
     deleteProduct(id: ID!): Boolean!
+    # Phase 6, D4 — state-transition recovery. Both are owner-only (object-level check in the
+    # service) and throw INVALID_STATE_TRANSITION from any other starting status.
+    retryProcessing(productId: ID!): Product!
+    republishProduct(productId: ID!): Product!
 
     # Commerce — idempotencyKey: a client-generated UUID per purchase attempt (Stripe pattern);
     # repeating the call with the same key returns the same order instead of creating another.
@@ -276,6 +303,7 @@ type Mutation {
 
     # Notifications
     markNotificationRead(id: ID!): Boolean!
+    markAllNotificationsRead: Int!   # returns how many rows were flipped to read
 
     # Admin
     suspendUser(userId: ID!): User!

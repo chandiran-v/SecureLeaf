@@ -62,4 +62,21 @@ class NotificationIT extends AbstractCommerceIT {
         asBuyer.document(MY_NOTIFICATIONS).execute()
                 .path("myNotifications[0].isRead").entity(Boolean.class).isEqualTo(true);
     }
+
+    @Test
+    void markAllNotificationsRead_flipsEveryUnreadRow_andReturnsHowMany() {
+        asBuyer.document(INITIATE).variable("productId", freeProduct.getId()).variable("key", newKey()).execute();
+        asBuyer.document(INITIATE).variable("productId", paidProduct.getId()).variable("key", newKey()).execute();
+
+        asBuyer.document("mutation { markAllNotificationsRead }").execute()
+                .path("markAllNotificationsRead").entity(Integer.class).isEqualTo(1);
+
+        asBuyer.document(MY_NOTIFICATIONS).execute()
+                .path("myNotifications[*].isRead").entityList(Boolean.class).get()
+                .forEach(isRead -> assertThat(isRead).isTrue());
+
+        // Idempotent: nothing left unread, so a second call flips zero rows.
+        asBuyer.document("mutation { markAllNotificationsRead }").execute()
+                .path("markAllNotificationsRead").entity(Integer.class).isEqualTo(0);
+    }
 }

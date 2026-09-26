@@ -85,3 +85,11 @@
 | **Privilege separation** | Split work so the part handling untrusted input never holds the powerful credential | [Ops 1](../ops-01-phase-scheduler.md) |
 | **Git bundle** | A single file containing commits — moves them between machines without a shared remote | [Ops 1](../ops-01-phase-scheduler.md) |
 | **WIP limit** | Kanban rule capping how many items are in progress at once (the scheduler's is one) | [Ops 1](../ops-01-phase-scheduler.md) |
+| **Server-Sent Events (SSE)** | A one-way, server-to-browser push channel over plain HTTP, read with `EventSource` | [Phase 6](../phase-06-library-dashboard-notifications.md) |
+| **`SseEmitter`** | Spring MVC's handle for writing SSE frames to one open HTTP response over time | [Phase 6](../phase-06-library-dashboard-notifications.md) |
+| **Redis Pub/Sub** | Fire-and-forget broadcast: only currently-subscribed listeners receive a published message; nothing is stored | [Phase 6](../phase-06-library-dashboard-notifications.md) |
+| **At-most-once delivery** | A message might be lost but is never duplicated — the opposite of webhooks' at-least-once | [Phase 6](../phase-06-library-dashboard-notifications.md) |
+| **`GETDEL`** | A Redis command that atomically reads and deletes a key — the basis of a single-use ticket | [Phase 6](../phase-06-library-dashboard-notifications.md) |
+| **`DataLoader`** | A per-request batching/caching layer that folds individual `.load(key)` calls into one batch function | [Phase 6](../phase-06-library-dashboard-notifications.md) |
+| **Named `DataLoader`** | A `DataLoader` registered under an explicit name so multiple resolver methods can share one batch/cache | [Phase 6](../phase-06-library-dashboard-notifications.md) |
+| **Guarded state transition** | A mutation that checks the current state is a legal starting point before changing it | [Phase 6](../phase-06-library-dashboard-notifications.md) |
