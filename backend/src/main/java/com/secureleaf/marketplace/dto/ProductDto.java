@@ -39,5 +39,6 @@ public record ProductDto(
         Integer totalSales,
         Integer freePreviewPages,
         Integer pageCount,
-        OffsetDateTime createdAt
+        OffsetDateTime createdAt,
+        String takedownReason
 ) {}

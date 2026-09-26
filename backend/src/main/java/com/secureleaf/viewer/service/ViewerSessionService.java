@@ -245,6 +245,30 @@ public class ViewerSessionService {
         });
     }
 
+    /**
+     * Admin suspendUser (Phase 8, D4) — ends every session this user currently has open,
+     * across every product they were viewing, and releases each one's Redis active-session
+     * key. Unlike {@link #endViewerSession}, the caller here is an admin, not the buyer, so
+     * there is no raw session token to run the compare-and-swap RELEASE_SESSION_SCRIPT with;
+     * an unconditional DEL is safe because the whole point of this call is "this session's
+     * owner is being suspended right now" — nothing legitimate should still be renewing that
+     * key underneath us.
+     */
+    @Transactional
+    public void endAllSessionsForUser(Long userId, ViewerSessionEndReason reason) {
+        List<ViewerSession> sessions = viewerSessionRepository.findActiveByUserId(userId);
+        if (sessions.isEmpty()) {
+            return;
+        }
+        Instant now = Instant.now(clock);
+        for (ViewerSession session : sessions) {
+            session.setEndedAt(now);
+            session.setEndReason(reason);
+            redisTemplate.delete(activeKey(session.getUser().getId(), session.getProduct().getId()));
+        }
+        viewerSessionRepository.saveAll(sessions);
+    }
+
     /** D2 — 256 bits from SecureRandom, Base64URL-encoded. Only its SHA-256 hash is ever stored. */
     private static String generateSessionToken() {
         byte[] bytes = new byte[32];

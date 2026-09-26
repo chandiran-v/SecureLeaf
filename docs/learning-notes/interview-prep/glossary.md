@@ -103,3 +103,14 @@
 | **`INCR`/`EXPIRE` rate limiting** | Redis's atomic counter-with-a-deadline pattern for capping how often something may happen | [Phase 7](../phase-07-reviews-password-reset.md) |
 | **ARIA `radiogroup`/`radio`** | Accessibility roles making a custom multi-option picker behave like native radio buttons | [Phase 7](../phase-07-reviews-password-reset.md) |
 | **Roving tabindex** | Only one item in a custom widget is Tab-reachable; arrow keys move focus among the rest | [Phase 7](../phase-07-reviews-password-reset.md) |
+| **RBAC** (see also Phase 1) | Role-Based Access Control — permission based on a role, not the specific record | [Phase 8](../phase-08-admin-panel.md) |
+| **Object-level authorization** | A narrower check on top of RBAC: is *this specific record* the caller's to act on | [Phase 8](../phase-08-admin-panel.md) |
+| **Privilege-escalation surface** | Every code path that could let a user end up with more permission than they started with | [Phase 8](../phase-08-admin-panel.md) |
+| **Deny-list (token revocation)** | A side list of "these are no longer good," checked alongside an otherwise-stateless credential | [Phase 8](../phase-08-admin-panel.md) |
+| **Fail open / fail closed** | On error, allow the request through / deny it — the right default depends on whether the check is the only boundary or a redundant layer | [Phase 8](../phase-08-admin-panel.md) |
+| **Post-moderation** | Content goes live first; review (and possible takedown) happens after, only if flagged | [Phase 8](../phase-08-admin-panel.md) |
+| **Pre-moderation** | Content is reviewed *before* it becomes visible | [Phase 8](../phase-08-admin-panel.md) |
+| **Append-only table** | A table only ever `INSERT`ed into — `UPDATE`/`DELETE` rejected, usually by a DB trigger | [Phase 8](../phase-08-admin-panel.md) |
+| **Guarded state transition** (see also Phase 6) | A mutation that checks the record's current state is a legal starting point before changing it | [Phase 8](../phase-08-admin-panel.md) |
+| **`Propagation.MANDATORY`** | A `@Transactional` method that must join an existing transaction or throw | [Phase 8](../phase-08-admin-panel.md) |
+| **Aggregate query** | `COUNT`/`SUM`/`GROUP BY` computed by the database in one round trip, never by looping over fetched rows in application code | [Phase 8](../phase-08-admin-panel.md) |

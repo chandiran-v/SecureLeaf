@@ -55,6 +55,12 @@ spring:
 app:
   frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:5173}   # used to build emailed links (e.g. password reset)
 
+# ── Admin bootstrap (Phase 8, D1) ─────────────────────────────────────────────
+# Comma-separated list of emails granted ADMIN at startup (existing users) and at
+# registration (new users). Empty by default — nobody is an admin until this is set.
+admin:
+  emails: ${ADMIN_EMAILS:}
+
 # ── MinIO (S3-compatible storage) ────────────────────────────────────────────
 minio:
   endpoint: ${MINIO_ENDPOINT:http://localhost:9000}

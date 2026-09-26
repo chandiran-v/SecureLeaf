@@ -8,11 +8,21 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import jakarta.persistence.LockModeType;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByEmail(String email);
+
+    /**
+     * D3 (admin panel) — step 3 of the two-step paging recipe: one @EntityGraph fetch of the
+     * full entities for an id page {@link com.secureleaf.admin.repository.AdminUserQueryRepository}
+     * already produced. Same pattern as {@code ProductRepository.findAllByIdIn} — the returned
+     * list's order follows the JOIN plan, not {@code ids}'s order, so the caller re-orders it.
+     */
+    @EntityGraph(attributePaths = "roles")
+    List<User> findAllByIdIn(List<Long> ids);
 
     /** AUTH-07 — the reset link's token is hashed before storage; this looks it up by that hash. */
     Optional<User> findByResetTokenHash(String resetTokenHash);

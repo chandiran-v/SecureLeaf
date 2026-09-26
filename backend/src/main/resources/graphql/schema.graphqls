@@ -95,6 +95,11 @@ type Product {
     # PROCESSING (processingStage) or FAILED (failureReason).
     processingStage: JobStage
     failureReason: String
+    # Phase 8, D5 — set only when an admin's takeDownProduct moved this LIVE product to
+    # UNPUBLISHED. Null for a creator's own unpublishProduct. The creator dashboard uses
+    # this (not status alone) to show why, and to hide the Republish button — a creator
+    # can never republish past an admin takedown, only an admin's restoreProduct reverses it.
+    takedownReason: String
 }
 
 # Public-safe projection of a product's creator — never exposes email.
@@ -287,10 +292,6 @@ type Query {
     productReviews(productId: ID!, page: Int = 0, size: Int = 10): ReviewPage!
     myReview(productId: ID!): Review
     ratingBreakdown(productId: ID!): [RatingCount!]!
-
-    # Admin
-    allUsers(page: Int = 0, size: Int = 50): [User!]!
-    allProducts(page: Int = 0, size: Int = 50): [Product!]!
 }
 
 # ── Mutations ─────────────────────────────────────────────────────────────────
@@ -335,11 +336,6 @@ type Mutation {
     # Notifications
     markNotificationRead(id: ID!): Boolean!
     markAllNotificationsRead: Int!   # returns how many rows were flipped to read
-
-    # Admin
-    suspendUser(userId: ID!): User!
-    approveProduct(productId: ID!): Product!
-    takeDownProduct(productId: ID!): Product!
 }
 
 # ── Payload Types ─────────────────────────────────────────────────────────────

@@ -1,8 +1,9 @@
-import type { EntitlementStatus, ProductStatus } from '../../types';
+import type { AccountStatus, EntitlementStatus, ProductStatus } from '../../types';
 
-// Product and entitlement statuses never share a name, so one badge safely covers both (LIB-03:
-// the library shows an entitlement's Active/Revoked/Expired using this same component).
-type BadgeStatus = ProductStatus | EntitlementStatus;
+// Product, entitlement and account statuses never share a name, so one badge safely covers all
+// three (LIB-03: the library shows an entitlement's Active/Revoked/Expired; Phase 8's admin
+// users table shows an account's Active/Suspended/Deactivated — using this same component).
+type BadgeStatus = ProductStatus | EntitlementStatus | AccountStatus;
 
 const STATUS_STYLES: Record<BadgeStatus, { bg: string; text: string; dot: string; label: string }> = {
   LIVE:        { bg: 'bg-emerald-50',  text: 'text-emerald-700', dot: 'bg-emerald-500', label: 'Live' },
@@ -13,6 +14,8 @@ const STATUS_STYLES: Record<BadgeStatus, { bg: string; text: string; dot: string
   ACTIVE:      { bg: 'bg-emerald-50',  text: 'text-emerald-700', dot: 'bg-emerald-500', label: 'Active' },
   REVOKED:     { bg: 'bg-red-50',     text: 'text-red-700',     dot: 'bg-red-500',     label: 'Revoked' },
   EXPIRED:     { bg: 'bg-slate-100',  text: 'text-slate-600',   dot: 'bg-slate-400',   label: 'Expired' },
+  SUSPENDED:   { bg: 'bg-red-50',     text: 'text-red-700',     dot: 'bg-red-500',     label: 'Suspended' },
+  DEACTIVATED: { bg: 'bg-slate-100',  text: 'text-slate-600',   dot: 'bg-slate-400',   label: 'Deactivated' },
 };
 
 export default function StatusBadge({ status }: { status: BadgeStatus }) {
