@@ -7,6 +7,7 @@ import com.secureleaf.auth.dto.RegisterInput;
 import com.secureleaf.auth.dto.UserDto;
 import com.secureleaf.auth.mapper.UserMapper;
 import com.secureleaf.auth.service.AuthService;
+import com.secureleaf.auth.service.PasswordResetService;
 import com.secureleaf.auth.service.SecureLeafUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +31,7 @@ import org.springframework.validation.annotation.Validated;
 public class AuthResolver {
 
     private final AuthService authService;
+    private final PasswordResetService passwordResetService;
 
     // ── Mutations ───────────────────────────────────────────────────────────────
 
@@ -72,6 +74,16 @@ public class AuthResolver {
                         input.payoutUpi()
                 )
         );
+    }
+
+    @MutationMapping
+    public boolean requestPasswordReset(@Argument String email) {
+        return passwordResetService.requestPasswordReset(email);
+    }
+
+    @MutationMapping
+    public boolean resetPassword(@Argument String token, @Argument String newPassword) {
+        return passwordResetService.resetPassword(token, newPassword);
     }
 
     // ── Queries ─────────────────────────────────────────────────────────────────

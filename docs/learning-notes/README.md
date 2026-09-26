@@ -21,6 +21,8 @@ They serve a dual purpose:
    - **05B (frontend):** canvas rendering vs. `<img>`, `createImageBitmap` + memory hygiene, `keepalive` fetch vs. `sendBeacon`, custom hooks as units of behaviour, Apollo vs. Zustand, and an honest table of what each piracy-friction control stops and how it's bypassed.
 6. **[Phase 06 — Library, creator dashboard & live notifications](phase-06-library-dashboard-notifications.md)**
    - Covers: SSE vs. WebSocket vs. polling, one-time Redis tickets for a stream `EventSource` can't send a header on, Pub/Sub fan-out across instances and its at-most-once caveat, a named `DataLoader` shared across two GraphQL fields, guarded state transitions, soft delete re-verified end to end.
+7. **[Phase 07 — Reviews & ratings + password reset](phase-07-reviews-password-reset.md)**
+   - Covers: denormalized aggregates and the lost-update anomaly (pessimistic lock vs. incremental formula vs. nightly recompute vs. `SERIALIZABLE`), upserts, data minimisation (the `Review.buyer`→email leak caught before shipping), user enumeration, reset-token hashing + single use, session revocation on credential change, Redis `INCR`/`EXPIRE` rate limiting, an accessible ARIA `radiogroup` star input.
 
 **Tooling / DevOps**
 
@@ -54,7 +56,8 @@ When a new phase is complete, duplicate `TEMPLATE.md`, name it appropriately, an
 | 4 | [phase-04-commerce.md](phase-04-commerce.md) | ✅ Done | Idempotency keys, check-then-act races, `FOR UPDATE`, state machines, append-only audit log, webhooks/HMAC, at-least-once delivery, AFTER_COMMIT events, `@BatchMapping` |
 | 5 | Secure Viewer — [05A + 05B, one note](phase-05-secure-viewer.md) | ✅ Done | DRM threat model, HMAC-signed single-use URLs, leases/heartbeats, canvas rendering, `createImageBitmap`, `keepalive` vs `sendBeacon`, honest browser-DRM limits |
 | 6 | [Library, dashboard, live notifications](phase-06-library-dashboard-notifications.md) | ✅ Done | SSE vs WebSocket vs polling, one-time Redis tickets, Pub/Sub fan-out + at-most-once caveat, a named `DataLoader` shared across two fields, guarded state transitions |
-| 7–9 | [Reviews + reset](../phases/phase-07-reviews-password-reset.md) · [Admin](../phases/phase-08-admin-panel.md) · [Hardening](../phases/phase-09-hardening-release.md) | ⏳ Queued | See `docs/phases/README.md` |
+| 7 | [Reviews & ratings + password reset](phase-07-reviews-password-reset.md) | ✅ Done | Denormalized aggregates, the lost-update anomaly, pessimistic locking, upserts, data minimisation, user enumeration, single-use hashed tokens, session revocation, Redis rate limiting |
+| 8–9 | [Admin](../phases/phase-08-admin-panel.md) · [Hardening](../phases/phase-09-hardening-release.md) | ⏳ Queued | See `docs/phases/README.md` |
 | 10–17 | MVP2 — [roadmap](../phases/README.md) | ⏳ Queued | Observability, rate limiting, bulkheads, caching, libvips, versioning, capacity |
 | Ops 1 | [ops-01-phase-scheduler.md](ops-01-phase-scheduler.md) | ✅ Done | Cron + event-driven CI, WIP limit of one, reconciliation, privilege separation, `GITHUB_TOKEN` vs PAT, prompt injection, bounded retries |
 

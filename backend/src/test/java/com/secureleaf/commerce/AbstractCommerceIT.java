@@ -38,7 +38,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
  * buyers, JWT-authenticated GraphQL testers, and helpers that play the gateway's part —
  * paying through the mock checkout and posting correctly signed webhooks.
  */
-abstract class AbstractCommerceIT extends AbstractIntegrationTest {
+public abstract class AbstractCommerceIT extends AbstractIntegrationTest {
 
     protected static final long PRICE_PAISE = 49_900;   // ₹499
 

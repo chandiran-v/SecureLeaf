@@ -199,3 +199,30 @@ See [`docs/learning-notes/phase-06-library-dashboard-notifications.md`](docs/lea
 for the full write-up: SSE vs. WebSocket vs. polling, why a ticket and not the JWT, the Pub/Sub
 fan-out's at-most-once caveat (and why that's fine here), and a named `DataLoader` shared across two
 GraphQL fields.
+
+---
+
+## Reviews & Ratings + Password Reset (Phase 7)
+
+- **Reviews**: an entitled buyer can rate a product 1–5 stars with optional text — `submitReview` is
+  an **upsert** (one review per buyer per product, editable any time), with **Edit**/**Delete** on
+  the product page. The creator can never review their own product. `average_rating`/`review_count`
+  stay exactly correct even when two buyers review the same product at the same instant, via a
+  product-row lock plus a full recompute from the `reviews` table — not an incremental formula.
+- **Fixed a privacy leak before it shipped**: the schema's `Review.buyer: User!` would have exposed
+  the reviewer's email to anyone viewing a product's reviews. Replaced with `Review.reviewer:
+  ReviewerSummary!` (display name only) — closed at the type level, not just in a resolver.
+- The product page now shows a **rating histogram** (count per star) and a **paginated review
+  list**; the marketplace can filter to **"4★ & up" / "3★ & up"**, and unrated products always sort
+  last.
+- **Password reset**: `requestPasswordReset(email)` always returns `true` — whether or not the email
+  has an account — and is rate-limited to 3 emails/hour per address via Redis. A LOCAL account gets a
+  reset link with a **hashed, single-use, 30-minute token**; a Google-only account gets a "you sign
+  in with Google" email instead. `resetPassword` BCrypts the new password and **revokes every
+  existing session** (refresh token) for that account, so a stolen, already-open session dies with
+  the old password.
+
+See [`docs/learning-notes/phase-07-reviews-password-reset.md`](docs/learning-notes/phase-07-reviews-password-reset.md)
+for the full write-up: denormalized aggregates and the lost-update anomaly, why a pessimistic lock
+beats an incremental formula or `SERIALIZABLE`, data minimisation, user enumeration, and reset-token
+hashing/single-use/session-revocation.

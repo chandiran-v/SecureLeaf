@@ -14,6 +14,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByEmail(String email);
 
+    /** AUTH-07 — the reset link's token is hashed before storage; this looks it up by that hash. */
+    Optional<User> findByResetTokenHash(String resetTokenHash);
+
     Optional<User> findByGoogleSub(String googleSub);
 
     boolean existsByEmail(String email);

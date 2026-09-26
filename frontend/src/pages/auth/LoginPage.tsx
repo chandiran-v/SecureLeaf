@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
 import AuthLayout from '../../components/layout/AuthLayout';
 import { useAuth } from '../../hooks/useAuth';
 
 export default function LoginPage() {
   const { login, googleLogin, isLoading, error } = useAuth();
+  const location = useLocation();
+  const toast = (location.state as { toast?: string } | null)?.toast;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -27,6 +29,13 @@ export default function LoginPage() {
       subtitle="Sign in to your SecureLeaf account"
     >
       <form onSubmit={handleSubmit} className="space-y-5">
+        {/* Post-reset confirmation — shown once, via router state (no toast library in this app) */}
+        {toast && (
+          <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-700 animate-in">
+            {toast}
+          </div>
+        )}
+
         {/* Error Alert */}
         {errorMessage && (
           <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 animate-in">
@@ -54,9 +63,14 @@ export default function LoginPage() {
 
         {/* Password */}
         <div>
-          <label htmlFor="login-password" className="block text-sm font-medium text-gray-700 mb-1.5">
-            Password
-          </label>
+          <div className="flex items-center justify-between mb-1.5">
+            <label htmlFor="login-password" className="block text-sm font-medium text-gray-700">
+              Password
+            </label>
+            <Link to="/forgot-password" className="text-xs font-medium text-emerald-600 hover:text-emerald-700 transition-colors">
+              Forgot password?
+            </Link>
+          </div>
           <div className="relative">
             <input
               id="login-password"

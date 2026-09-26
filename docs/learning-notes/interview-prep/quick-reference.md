@@ -160,6 +160,28 @@
 
 ---
 
+## Phase 7 — Reviews & ratings + password reset · [full note](../phase-07-reviews-password-reset.md)
+
+| Concept | The one-line answer |
+|---|---|
+| The three-step lock recipe | `SELECT ... FOR UPDATE` the product row → write the review → recompute `average_rating`/`review_count` from `reviews`, all in one transaction |
+| Why a lock, not `@Version` | Optimistic locking would fail one of two concurrent `submitReview` calls for no reason a buyer would understand; the pessimistic lock avoids the conflict instead of rejecting it after the fact |
+| Recompute, not increment | `AVG`/`COUNT` re-derived from source rows every time — correct for edits and deletes, not just new reviews |
+| Why not `SERIALIZABLE` | Correct, but Postgres aborts one of two conflicting transactions under load — a retry storm, not a fix |
+| The privacy fix | `Review.buyer: User!` (leaks email) → `Review.reviewer: ReviewerSummary!` (name only, no id) — closed at the *type* level, provable with a schema-validation test |
+| Enumeration safety | `requestPasswordReset` always returns `true`; the frontend shows the identical message on success and on error |
+| Why hash the reset token | Same reasoning as refresh tokens (Phase 1) — a DB leak yields useless hashes, not working reset links |
+| Single-use | Token fields cleared the instant a reset succeeds — a replayed link finds nothing |
+| One error for every token failure | Missing/expired/used all collapse into `INVALID_TOKEN` — doesn't tell an attacker which is true |
+| Session revocation on reset | `revokeAllForUser` (built for refresh-token reuse detection, Phase 1) is reused here — a reset actually kills a stolen session, not just future logins |
+| Redis rate limit | `INCR` (atomic; `1` on a fresh key answers "is this the first request" with no separate check) + `EXPIRE` only on that first call — 3/email/hour |
+| Injectable `Clock` | Expiry checked against `Instant.now(clock)`, same pattern as `TileUrlSigner` (Phase 5) — unit-testable with a fixed "now" |
+| Accessible star input | ARIA `radiogroup`/`radio` with roving tabindex — arrow keys move *and* select, matching the native radio-group pattern |
+
+**Weakest point to volunteer:** `resetPassword` revokes refresh tokens but not the still-live 15-minute access token a stolen session might hold — for up to 15 minutes after a "successful" reset, that old session still works. Fully closing it needs a server-side access-token blocklist or a shorter token lifetime; deferred as an accepted, time-bounded gap.
+
+---
+
 ## Cross-cutting themes to weave into any answer
 
 1. **Threat-model each decision.** Every security choice here has a "what attack does this stop" answer. Say it.

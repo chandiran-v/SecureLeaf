@@ -118,10 +118,31 @@ type ProductPage {
 
 type Review {
     id: ID!
-    buyer: User!
+    reviewer: ReviewerSummary!
     rating: Int!
     reviewText: String
     createdAt: DateTime!
+    updatedAt: DateTime!
+}
+
+# D5 — the reviewer's public-safe projection. Deliberately narrower than CreatorSummary
+# (no id): a review is displayed with a name only, never with anything that could be used
+# to look the buyer up.
+type ReviewerSummary {
+    displayName: String!
+}
+
+type ReviewPage {
+    content: [Review!]!
+    totalElements: Int!
+    totalPages: Int!
+    pageNumber: Int!
+}
+
+# D6 — one row per star value, always all five (0 counts included), for the histogram.
+type RatingCount {
+    rating: Int!
+    count: Int!
 }
 
 type Entitlement {
@@ -208,6 +229,9 @@ input ProductFilterInput {
     isFree: Boolean
     searchQuery: String
     sortBy: String   # newest | popular | rating | price_asc | price_desc
+    # MARKET-03 — only products whose average_rating >= this value. Products with no
+    # reviews yet (average_rating IS NULL) never match a minRating filter.
+    minRating: Float
 }
 
 input CreateProductInput {
@@ -260,7 +284,9 @@ type Query {
     creatorEarnings: CreatorEarnings!
 
     # Reviews
-    productReviews(productId: ID!, page: Int = 0, size: Int = 10): [Review!]!
+    productReviews(productId: ID!, page: Int = 0, size: Int = 10): ReviewPage!
+    myReview(productId: ID!): Review
+    ratingBreakdown(productId: ID!): [RatingCount!]!
 
     # Admin
     allUsers(page: Int = 0, size: Int = 50): [User!]!
@@ -300,6 +326,11 @@ type Mutation {
 
     # Reviews
     submitReview(input: SubmitReviewInput!): Review!
+    deleteMyReview(productId: ID!): Boolean!
+
+    # Password reset (AUTH-07) — always returns true; never reveals whether the email exists.
+    requestPasswordReset(email: String!): Boolean!
+    resetPassword(token: String!, newPassword: String!): Boolean!
 
     # Notifications
     markNotificationRead(id: ID!): Boolean!

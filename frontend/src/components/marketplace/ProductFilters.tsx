@@ -9,6 +9,8 @@ interface ProductFiltersProps {
   onSortChange: (sort: ProductSortBy | undefined) => void;
   free: boolean;
   onFreeChange: (free: boolean) => void;
+  minRating: number | undefined;
+  onMinRatingChange: (rating: number | undefined) => void;
 }
 
 const SORT_OPTIONS: { value: ProductSortBy; label: string }[] = [
@@ -26,6 +28,8 @@ export default function ProductFilters({
   onSortChange,
   free,
   onFreeChange,
+  minRating,
+  onMinRatingChange,
 }: ProductFiltersProps) {
   const { data } = useQuery<{ categories: Category[] }>(CATEGORIES);
 
@@ -56,6 +60,17 @@ export default function ProductFilters({
             {opt.label}
           </option>
         ))}
+      </select>
+
+      <select
+        aria-label="Minimum rating"
+        value={minRating ?? ''}
+        onChange={(e) => onMinRatingChange(e.target.value ? Number(e.target.value) : undefined)}
+        className="text-sm rounded-lg border border-gray-200 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+      >
+        <option value="">Any rating</option>
+        <option value="4">4★ & up</option>
+        <option value="3">3★ & up</option>
       </select>
 
       <label className="flex items-center gap-2 text-sm text-gray-600 px-1 cursor-pointer">

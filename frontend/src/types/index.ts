@@ -155,14 +155,35 @@ export interface SignedPageUrl {
   expiresAt: string;
 }
 
-// ── Reviews ───────────────────────────────────────────────────────────────────
+// ── Reviews (REV-01..04) ────────────────────────────────────────────────────
+
+// Public-safe projection of a review's author — mirrors the backend's ReviewerSummary
+// GraphQL type (D5). Deliberately just a name: the original Review.buyer: User! field
+// leaked the reviewer's email to anyone who could see the review.
+export interface ReviewerSummary {
+  displayName: string;
+}
 
 export interface Review {
   id: UUID;
-  buyer: User;
+  reviewer: ReviewerSummary;
   rating: number;
-  comment?: string;
+  reviewText?: string | null;
   createdAt: string;
+  updatedAt: string;
+}
+
+export interface ReviewPage {
+  content: Review[];
+  totalElements: number;
+  totalPages: number;
+  pageNumber: number;
+}
+
+// One star value's count for the rating histogram (D6) — always all five, zero included.
+export interface RatingCount {
+  rating: number;
+  count: number;
 }
 
 // ── Notifications ─────────────────────────────────────────────────────────────
@@ -194,6 +215,8 @@ export interface ProductFilterInput {
   isFree?: boolean;
   searchQuery?: string;
   sortBy?: ProductSortBy;
+  // MARKET-03 — only products whose averageRating >= this value; unrated products never match.
+  minRating?: number;
 }
 
 export interface PaginationParams {

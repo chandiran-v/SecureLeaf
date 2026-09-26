@@ -4,6 +4,7 @@ import { MockedProvider, type MockedResponse } from '@apollo/client/testing';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import ProductDetailPage from './ProductDetailPage';
 import { PRODUCT_DETAIL } from '../../graphql/queries/marketplace.queries';
+import { PRODUCT_REVIEWS, RATING_BREAKDOWN, MY_REVIEW } from '../../graphql/queries/review.queries';
 import { useAuthStore } from '../../store/authStore';
 
 vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ logout: vi.fn() }) }));
@@ -38,10 +39,30 @@ function detailMock(overrides: Partial<typeof product> = {}): MockedResponse {
   };
 }
 
-function renderDetail(mocks: MockedResponse[]) {
+function reviewMocks(ownedByMe = false): MockedResponse[] {
+  const mocks: MockedResponse[] = [
+    {
+      request: { query: PRODUCT_REVIEWS, variables: { productId: '1', page: 0, size: 10 } },
+      result: { data: { productReviews: { content: [], totalElements: 0, totalPages: 0, pageNumber: 0 } } },
+    },
+    {
+      request: { query: RATING_BREAKDOWN, variables: { productId: '1' } },
+      result: { data: { ratingBreakdown: [5, 4, 3, 2, 1].map((rating) => ({ rating, count: 0 })) } },
+    },
+  ];
+  if (ownedByMe) {
+    mocks.push({
+      request: { query: MY_REVIEW, variables: { productId: '1' } },
+      result: { data: { myReview: null } },
+    });
+  }
+  return mocks;
+}
+
+function renderDetail(mocks: MockedResponse[], ownedByMe = false) {
   render(
     <MemoryRouter initialEntries={['/product/1']}>
-      <MockedProvider mocks={mocks}>
+      <MockedProvider mocks={[...mocks, ...reviewMocks(ownedByMe)]}>
         <Routes>
           <Route path="/product/:id" element={<ProductDetailPage />} />
         </Routes>
@@ -88,7 +109,7 @@ describe('ProductDetailPage — buy panel states', () => {
 
   it('links to the secure reader instead of Buy when the product is already owned', async () => {
     logInAs('buyer1');
-    renderDetail([detailMock({ ownedByMe: true })]);
+    renderDetail([detailMock({ ownedByMe: true })], true);
 
     await waitFor(() => expect(screen.getByRole('link', { name: /read now/i })).toHaveAttribute('href', '/read/1'));
     expect(screen.queryByRole('button', { name: /buy/i })).not.toBeInTheDocument();

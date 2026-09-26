@@ -75,6 +75,12 @@ public class ProductSearchRepositoryImpl implements ProductSearchRepository {
         if (filter != null && Boolean.TRUE.equals(filter.isFree())) {
             where.append(" AND p.price_paise = 0 ");
         }
+        if (filter != null && filter.minRating() != null) {
+            // average_rating IS NULL for a product with no reviews yet — NULL >= x is
+            // unknown, never true, so unrated products are correctly excluded (MARKET-03).
+            where.append(" AND p.average_rating >= :minRating ");
+            params.put("minRating", filter.minRating());
+        }
 
         String orderBy = resolveOrderBy(filter, hasSearch);
 
