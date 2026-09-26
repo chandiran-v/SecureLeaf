@@ -162,7 +162,7 @@ class AdminUserManagementIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void adminUsersQuery_executesExactlyFiveStatements_regardlessOfPageSize() {
+    void adminUsersQuery_executesExactlySixStatements_regardlessOfPageSize() {
         for (int i = 0; i < 10; i++) {
             makeUser("bulk-user-" + i + "@example.com", "Bulk User " + i, Role.BUYER);
         }
@@ -174,9 +174,11 @@ class AdminUserManagementIT extends AbstractIntegrationTest {
 
         asAdmin.document(ADMIN_USERS).variable("filter", null).variable("page", 0).variable("size", 20).execute();
 
-        // 1: id page (native, LIMIT/OFFSET). 2: COUNT(*). 3: @EntityGraph fetch of the users +
-        // roles. 4: productCount GROUP BY. 5: purchaseCount GROUP BY. Always five, never N+1.
-        assertThat(stats.getPrepareStatementCount()).isEqualTo(5);
+        // 0: JwtAuthenticationFilter authenticating the calling admin (findWithRolesById) — every
+        // authenticated request pays this, not specific to adminUsers. 1: id page (native,
+        // LIMIT/OFFSET). 2: COUNT(*). 3: @EntityGraph fetch of the users + roles. 4: productCount
+        // GROUP BY. 5: purchaseCount GROUP BY. Six total, always, never N+1 on the page size.
+        assertThat(stats.getPrepareStatementCount()).isEqualTo(6);
     }
 
     // ═══ 4. Suspension is immediate ═════════════════════════════════════════
@@ -236,9 +238,12 @@ class AdminUserManagementIT extends AbstractIntegrationTest {
         asTarget.document(MY_LIBRARY).execute()
                 .errors().expect(e -> e.getExtensions().get("code") != null).verify();
 
-        // (b) refresh fails.
+        // (b) refresh fails. suspendUser already revoked every refresh token (D4's first bullet),
+        // so AuthService's reuse-detection rejects this one as TOKEN_REUSE before it ever reaches
+        // the account_status check — an even more immediate rejection than ACCOUNT_SUSPENDED
+        // would be, and exactly what D4 promises ("revoke all refresh tokens").
         asTarget.document(REFRESH).variable("token", refreshToken).execute()
-                .errors().expect(e -> "ACCOUNT_SUSPENDED".equals(e.getExtensions().get("code"))).verify();
+                .errors().expect(e -> "TOKEN_REUSE".equals(e.getExtensions().get("code"))).verify();
 
         // (c) the viewer session's tile fetch fails.
         mockMvc.perform(get(tileUrl).header("Authorization", "Bearer " + preSuspensionAccessToken))

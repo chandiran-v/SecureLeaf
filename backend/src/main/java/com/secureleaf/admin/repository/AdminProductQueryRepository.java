@@ -36,7 +36,12 @@ public class AdminProductQueryRepository {
             params.put("search", "%" + filter.search().trim().toLowerCase() + "%");
         }
         if (filter != null && filter.status() != null) {
-            where.append(" AND p.status = :status ");
+            // Explicit CAST(... AS product_status) — see AdminUserQueryRepository's identical
+            // comment: a native query parameter has no type of its own, so Postgres needs the
+            // cast to compare it against an enum column, and it must be CAST(...), not the
+            // terser `::product_status`, because Hibernate's named-parameter parser otherwise
+            // swallows the `::type` suffix into the parameter name itself.
+            where.append(" AND p.status = CAST(:status AS product_status) ");
             params.put("status", filter.status().name());
         }
         if (filter != null && filter.creatorId() != null) {

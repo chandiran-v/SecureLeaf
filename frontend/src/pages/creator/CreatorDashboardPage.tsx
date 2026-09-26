@@ -115,6 +115,11 @@ function ProductRow({
             {product.failureReason}
           </p>
         )}
+        {product.status === 'UNPUBLISHED' && product.takedownReason && (
+          <p className="text-[11px] text-red-600 mt-1 max-w-[220px] line-clamp-2" title={product.takedownReason}>
+            Taken down by an admin: {product.takedownReason}
+          </p>
+        )}
       </td>
       <td className="py-4 px-6 text-sm text-gray-700 font-medium">
         {formatPrice(product.pricePaise)}
@@ -152,7 +157,7 @@ function ProductRow({
               Retry
             </button>
           )}
-          {product.status === 'UNPUBLISHED' && (
+          {product.status === 'UNPUBLISHED' && !product.takedownReason && (
             <button
               onClick={() => onRepublish(product.id)}
               className="text-xs px-3 py-1.5 rounded-lg border border-emerald-200 text-emerald-700 hover:bg-emerald-50 transition-colors"

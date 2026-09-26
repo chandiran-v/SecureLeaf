@@ -35,11 +35,18 @@ public class AdminUserQueryRepository {
             params.put("search", "%" + filter.search().trim().toLowerCase() + "%");
         }
         if (filter != null && filter.status() != null) {
-            where.append(" AND u.account_status = :status ");
+            // Explicit CAST(... AS account_status) — a bound String parameter has no type of
+            // its own in a native query (unlike JPQL, where Hibernate infers the column's
+            // type), so Postgres would otherwise reject "enum_column = text" outright. Written
+            // as CAST(...) rather than the terser `:status::account_status` because Hibernate's
+            // named-parameter parser greedily swallows the `::type` suffix into the parameter
+            // NAME itself (UnknownParameterException: no parameter named ":status::account_status"),
+            // not just the SQL Postgres eventually sees.
+            where.append(" AND u.account_status = CAST(:status AS account_status) ");
             params.put("status", filter.status().name());
         }
         if (filter != null && filter.role() != null) {
-            where.append(" AND EXISTS (SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id AND ur.role = :role) ");
+            where.append(" AND EXISTS (SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id AND ur.role = CAST(:role AS user_role)) ");
             params.put("role", filter.role().name());
         }
 
