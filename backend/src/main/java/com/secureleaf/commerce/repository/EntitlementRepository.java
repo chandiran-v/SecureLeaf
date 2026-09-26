@@ -57,4 +57,12 @@ public interface EntitlementRepository extends JpaRepository<Entitlement, Long> 
     default List<Long> findOwnedProductIds(Long buyerId, Collection<Long> productIds) {
         return findProductIdsByBuyerAndStatus(buyerId, EntitlementStatus.ACTIVE, productIds);
     }
+
+    /**
+     * AdminUser.purchaseCount (Phase 8, D3) — every entitlement ever granted (any status), not
+     * just ACTIVE ones: it answers "how many things has this buyer ever purchased", the same
+     * intent as My Library showing REVOKED/EXPIRED rows rather than hiding them.
+     */
+    @Query("select e.buyer.id, count(e) from Entitlement e where e.buyer.id in :buyerIds group by e.buyer.id")
+    List<Object[]> countByBuyerIdsGrouped(@Param("buyerIds") Collection<Long> buyerIds);
 }

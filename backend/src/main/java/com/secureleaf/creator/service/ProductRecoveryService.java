@@ -90,6 +90,14 @@ public class ProductRecoveryService {
             throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION,
                     "Product " + productId + " is not UNPUBLISHED (currently " + product.getStatus() + ").");
         }
+        // Phase 8, D5 — an admin takedown (product.takedownReason != null) can only be reversed
+        // by an admin's restoreProduct. A creator's own unpublishProduct leaves this null, so
+        // that path is unaffected.
+        if (product.getTakedownReason() != null) {
+            throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION,
+                    "Product " + productId + " was taken down by an admin and cannot be republished. "
+                            + "An admin must restore it first.");
+        }
 
         boolean hasProcessedVersion = documentVersionRepository
                 .findFirstByProductIdOrderByVersionNumberDesc(productId)

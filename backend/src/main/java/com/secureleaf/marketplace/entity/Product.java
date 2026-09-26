@@ -63,6 +63,15 @@ public class Product extends BaseEntity {
     @Column(name = "review_count", nullable = false)
     private Integer reviewCount = 0;
 
+    /** D5 — set together with {@link #takedownReason} by an admin's takeDownProduct; both
+     *  null again after restoreProduct. Null/null distinguishes an admin takedown from a
+     *  creator's own unpublishProduct, which leaves both columns untouched. */
+    @Column(name = "taken_down_at")
+    private Instant takenDownAt;
+
+    @Column(name = "takedown_reason", columnDefinition = "TEXT")
+    private String takedownReason;
+
     @Version
     @Column(nullable = false)
     private Long version = 0L;
