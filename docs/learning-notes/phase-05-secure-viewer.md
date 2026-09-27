@@ -44,6 +44,14 @@ Four things had to exist together for that to be safe:
 
 ---
 
+### 1C. Zoom (added after 05B)
+
+Zoom was out of scope in the 05B spec, and a real reader missed it straight away: small print was hard to read, and the browser's own zoom (Ctrl +) didn't help. The page just re-fitted the bigger window, and could trip the DevTools blur. The reader now has **− / % / + / Fit** in the toolbar, the `+` `-` `0` keys, and **Ctrl + mouse wheel / trackpad pinch** over the page, from 50% to 300%. Zoomed pages scroll, and can be dragged to pan. Zoom stays the same when you turn pages and resets when you open another book.
+
+**Before:** the page was locked to "fit the screen". **After:** readers choose the size, and the browser's own zoom is kept out of the reader.
+
+---
+
 ## 2. Why it matters
 
 - **This is the actual product.** SecureLeaf's entire pitch is "buy once, never get a raw file". Everything before this phase — auth, upload, search, checkout — exists to get a buyer to this moment. If this phase leaks a clean page, the business has no product.
@@ -369,12 +377,40 @@ useEffect(() => {
 
 ---
 
+### 3.14 Zoom: the canvas's CSS size vs. its backing store (addendum)
+
+**What it is:** A `<canvas>` has two sizes. Its **backing store** (`canvas.width`/`height`) is how many real pixels it holds. Its **CSS size** is how big it is drawn on screen. The browser stretches one to fit the other.
+
+**The analogy:** A printed photo (the backing store) viewed through a magnifying glass (the CSS size). The magnifier makes it bigger, but it can't add detail that isn't in the print.
+
+**How it works here:** `useSecureTile` sets the backing store to the tile's resolution × `devicePixelRatio`, once per page. Zoom never touches it. `ViewerCanvas` only sets `canvas.style.width = fitWidth × zoom`, where `fitWidth = computeFitWidth(areaWidth, areaHeight, aspect)` (`frontend/src/lib/viewerLayout.ts`), the width at which the whole page fits. So:
+- zooming is instant and **never re-fetches** a page (no new signed URL, access-log row or watermark render);
+- the burned-in watermark scales with the page, so it can't be zoomed away;
+- beyond the tile's native size the browser upscales, and text gets soft. The real fix is serving a higher-resolution tile variant, which is exactly Phase 16 (adaptive tile resolution).
+
+**In our code:** `frontend/src/components/viewer/ViewerCanvas.tsx` (the `useLayoutEffect` that sizes the canvas). A `MutationObserver` on the canvas's `width`/`height` attributes re-fits when a differently-shaped page is drawn, and a `ResizeObserver` re-fits when the window changes.
+
+**What breaks without it:** zooming by re-requesting bigger images would multiply server-side watermark work (the most expensive thing the backend does, per MVP2) for every zoom click.
+
+### 3.15 Passive event listeners, and why Ctrl + wheel needs a native one
+
+**What it is:** A *passive* listener promises the browser it will never call `preventDefault()`. That lets the browser scroll immediately without waiting for JavaScript. React attaches `onWheel` as passive, so calling `preventDefault()` inside it is silently ignored.
+
+**Why we needed it:** browsers report both Ctrl + wheel and trackpad pinch as a `wheel` event with `ctrlKey: true`, and their default action is **zooming the whole tab**. To zoom only the page, `ViewerCanvas` adds a native `addEventListener('wheel', handler, { passive: false })` and cancels only when Ctrl/Cmd is held. A plain wheel still scrolls normally.
+
+**Keyboard counterpart:** `useZoomShortcuts` also cancels Ctrl/Cmd + `+`/`-`/`0` inside the reader. Browser zoom changes `innerWidth` relative to `outerWidth`, which is exactly what the VIEW-08 DevTools heuristic measures, so leaving it alone could blur the page for no reason.
+
+---
+
 ## 4. Best practices applied
 
 | Practice | What we did | Why it matters | Where |
 |---|---|---|---|
 | Never presign protected content | Tile URLs point at our own signing controller, never at storage | The clean file is never one HTTP hop away from the browser | `TileUrlSigner.java`, `SecureTileController.java` |
 | Right primitive per policy | `SET...GET` (last-writer-wins) for sessions, `SET NX` (first-writer-wins) for signatures | Using the wrong one either locks buyers out or lets URLs replay | `ViewerSessionService.java:59-66`, `SecureTileService.java:75` |
+| Canvas backing store | The canvas's real pixel buffer (`canvas.width/height`), separate from its CSS display size |
+| Fit width | The CSS width at which the whole page fits the reading area; the reader's "100%" zoom |
+| Passive event listener | A listener that promises not to call `preventDefault()`, so the browser can scroll without waiting for it |
 | Atomic compare-and-refresh | A Lua script, not `GET` then `EXPIRE` | Closes the race where another session's write lands between the two calls | `ViewerSessionService.java:68-79` |
 | Constant-time signature compare | `MessageDigest.isEqual`, same as Phase 4's HMAC checks | Closes a timing side-channel | `TileUrlSigner.java:62` |
 | Re-check authorization on every request | Entitlement status re-read fresh per tile, not cached on the session | A revoke takes effect on the very next tile, not at the next login | `SecureTileService.java:96-100` |
@@ -493,6 +529,19 @@ useEffect(() => {
 
 ---
 
+### Decision (zoom addendum): scale the canvas in CSS, don't fetch bigger tiles
+- **Alternatives considered:** request a higher-resolution tile per zoom level; re-render the PDF page in the browser (would require shipping the PDF, which violates VIEW-01).
+- **Why we chose this:** zero extra server work, no new attack surface, instant response, and the watermark scales with the content.
+- **What we gave up:** sharpness above roughly 150–200%, depending on the tile's native width.
+- **When we would revisit:** Phase 16 (adaptive tile resolution): request a larger variant once zoom × fit width exceeds the tile's width.
+
+### Decision (zoom addendum): swallow the browser's own zoom inside the reader
+- **Alternatives considered:** leave Ctrl +/− alone and let users rely on browser zoom.
+- **Why we chose this:** browser zoom doesn't enlarge a fit-to-screen canvas, and it can falsely trip the DevTools blur. Cancelling it inside `/read/*` only (the listeners are removed on unmount) keeps the rest of the site normal.
+- **What we gave up:** inside the reader, Ctrl +/− no longer zooms the toolbar text itself.
+
+---
+
 ## 7. Interview questions
 
 > Answer out loud first. Then read. Ordered easy → hard.
@@ -599,6 +648,19 @@ A: They cover different exits. `pagehide` fires when the whole tab goes away —
 
 ---
 
+### Zoom addendum — questions
+
+**Q (Beginner): How does the reader zoom without downloading a bigger image?**
+A: A canvas has a pixel buffer and a display size. We keep the pixels the same and only change the CSS width to "fit width × zoom". The browser stretches it. It's instant and costs the server nothing, but past the image's real resolution it gets a bit blurry.
+
+**Q (Intermediate): Why couldn't you just call `preventDefault()` in React's `onWheel` to stop the browser zooming?**
+A: React registers wheel listeners as passive for scroll performance, and a passive listener's `preventDefault()` is ignored. You need a native listener with `{ passive: false }`. And you should only cancel when Ctrl or Cmd is held, so normal scrolling stays fast.
+
+**Q (Advanced): A zoomed page centred with `justify-content: center` loses its top-left corner. Why, and what's the fix?**
+A: Flex centring distributes negative free space equally on both sides, so an overflowing child spills past the start edge, where the scroll container can't reach. `margin: auto` on the child centres it while it fits, and collapses to 0 once it overflows, so all of it stays scrollable. That's why the canvas uses `m-auto` rather than `items-center justify-center`.
+
+---
+
 ## 8. Gotchas and bugs we hit
 
 | # | Symptom | Root cause | Fix | Lesson |
@@ -614,6 +676,10 @@ A: They cover different exits. `pagehide` fires when the whole tab goes away —
 | 9 | (05B) Every heartbeat tick and every prefetch query printed a `MockedProvider` deprecation warning to the test output, even though the tests all passed | I'd used `MockedResponse`'s `newData` callback to let one mock answer a repeated query (heartbeat fires every few ms in one test). `newData` is deprecated in this Apollo Client version and unconditionally logs a warning on every use, regardless of whether the mock array itself was configured correctly | Switched to `result: () => ({...})` — a plain function, which Apollo Client also supports for a dynamic response, with `maxUsageCount: Infinity` so the same mock keeps matching — with no deprecation warning | A deprecation warning firing in a passing test suite is still worth chasing down; "the tests are green" and "the tests are clean" are different bars, and the second one is what stops real bugs from hiding in a wall of expected-looking noise |
 | 10 | (05B) `MockedProvider`'s default `maxUsageCount` is 1 — a query mocked once and legitimately fetched twice (e.g. paging forward then back to a page whose prefetched bitmap was already drawn-and-closed) failed its *second* fetch with "No more mocked responses," not because of a code bug but because the test's own mock array only anticipated one call | Traced by reading `mockLink.js` directly rather than guessing from the warning text, which doesn't mention `maxUsageCount` at all | Set `maxUsageCount: Number.POSITIVE_INFINITY` on any `MockedResponse` a test expects to satisfy more than once | A test double's default limits (a mock's use-once default, here) are part of the contract you're testing against just as much as the code under test — when a test fails in a way the application code can't explain, check the test infrastructure's own defaults next |
 
+| 11 | (zoom addendum) Browser zoom (Ctrl +) didn't enlarge the page at all | The canvas was `max-h-full max-w-full` inside an `overflow-hidden` box, so it always re-fitted whatever viewport it had | Explicit CSS width = fit width × zoom, inside an `overflow-auto` scroller | "Fit to container" and "zoomable" pull in opposite directions; pick one explicit size source |
+| 12 | (zoom addendum) Zoomed page couldn't be scrolled to its top/left edge (a known CSS trap, avoided by design) | Flex `items-center justify-center` centres an overflowing child by pushing it past the start edge | `m-auto` on the canvas | Use `margin: auto` for "centre while it fits, scroll when it doesn't" |
+| 13 | (zoom addendum) New sizing test saw `1000px` instead of `560px` | `MutationObserver` callbacks are delivered on a later microtask; a synchronous `act()` asserted before the observer had fired, while the canvas still had its default 300×150 shape | `await act(async () => …)` so pending microtasks run first | Observers are asynchronous; tests have to wait for them like any other async work |
+| 14 | (zoom addendum) `npm run lint` failed on a warning | `react-refresh/only-export-components`: a component file also exported a helper function, which breaks hot reload; lint runs with `--max-warnings 0` | Moved `computeFitWidth` to `src/lib/viewerLayout.ts` | Pure helpers belong in `lib/`, not in component files |
 ---
 
 ## 9. New vocabulary
