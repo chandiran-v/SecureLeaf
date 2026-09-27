@@ -23,7 +23,7 @@
         <pdfbox.version>3.0.2</pdfbox.version>
         <minio.version>8.5.10</minio.version>
         <jjwt.version>0.12.6</jjwt.version>
-        <testcontainers.version>1.19.8</testcontainers.version>
+        <testcontainers.version>1.21.4</testcontainers.version>
         <lombok.version>1.18.36</lombok.version>
     </properties>
 

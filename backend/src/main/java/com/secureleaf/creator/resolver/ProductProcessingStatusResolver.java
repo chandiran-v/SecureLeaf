@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.graphql.data.method.annotation.BatchMapping;
 import org.springframework.stereotype.Controller;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -33,20 +34,30 @@ public class ProductProcessingStatusResolver {
 
     private final ProcessingJobRepository processingJobRepository;
 
+    // Return a Map, not a List: Spring GraphQL turns a List result into a Reactor Flux, and a Flux
+    // cannot carry nulls ("The iterator returned a null value"). Almost every product's value here
+    // IS null (not processing / not failed), so a List crashed every product. A product that is
+    // absent from the Map resolves to null, which is exactly the intended answer.
     @BatchMapping(typeName = "Product", field = "processingStage")
-    public List<JobStage> processingStage(List<ProductDto> products) {
+    public Map<ProductDto, JobStage> processingStage(List<ProductDto> products) {
         Map<Long, ProcessingJob> latestJobByProduct = latestJobByProduct(products);
-        return products.stream()
-                .map(p -> "PROCESSING".equals(p.status()) ? stageOf(latestJobByProduct.get(p.id())) : null)
-                .toList();
+        Map<ProductDto, JobStage> result = new HashMap<>();
+        for (ProductDto p : products) {
+            JobStage stage = "PROCESSING".equals(p.status()) ? stageOf(latestJobByProduct.get(p.id())) : null;
+            if (stage != null) result.put(p, stage);
+        }
+        return result;
     }
 
     @BatchMapping(typeName = "Product", field = "failureReason")
-    public List<String> failureReason(List<ProductDto> products) {
+    public Map<ProductDto, String> failureReason(List<ProductDto> products) {
         Map<Long, ProcessingJob> latestJobByProduct = latestJobByProduct(products);
-        return products.stream()
-                .map(p -> "FAILED".equals(p.status()) ? reasonOf(latestJobByProduct.get(p.id())) : null)
-                .toList();
+        Map<ProductDto, String> result = new HashMap<>();
+        for (ProductDto p : products) {
+            String reason = "FAILED".equals(p.status()) ? reasonOf(latestJobByProduct.get(p.id())) : null;
+            if (reason != null) result.put(p, reason);
+        }
+        return result;
     }
 
     private static JobStage stageOf(ProcessingJob job) {

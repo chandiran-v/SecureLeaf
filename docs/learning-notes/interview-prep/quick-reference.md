@@ -155,6 +155,7 @@
 | Guarded transitions | `retryProcessing`/`republishProduct` check the exact starting status first; anything else is a typed `INVALID_STATE_TRANSITION`, never a silent no-op |
 | Retry reuses the poller | `retryProcessing` resets the job to QUEUED and lets the existing 5s `@Scheduled` poll pick it up — one code path for "a job is ready," not two |
 | Soft delete re-verified | `myLibrary` widened to every entitlement status, independent of the product's own status/`deleted_at` — proven end to end with a dedicated IT, not assumed |
+| `@BatchMapping` with nullable values | Return `Map<key, value>`, not `List`: a List becomes a Reactor `Flux`, and a Flux can't hold `null`. That bug broke `processingStage`/`failureReason` on every product |
 
 **Weakest point to volunteer:** `SseEmitterRegistry` has no per-user connection cap or total ceiling — nothing stops one user opening the stream hundreds of times. Fine for MVP load, first thing to add before real adversarial traffic.
 

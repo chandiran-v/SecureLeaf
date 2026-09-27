@@ -114,3 +114,4 @@
 | **Guarded state transition** (see also Phase 6) | A mutation that checks the record's current state is a legal starting point before changing it | [Phase 8](../phase-08-admin-panel.md) |
 | **`Propagation.MANDATORY`** | A `@Transactional` method that must join an existing transaction or throw | [Phase 8](../phase-08-admin-panel.md) |
 | **Aggregate query** | `COUNT`/`SUM`/`GROUP BY` computed by the database in one round trip, never by looping over fetched rows in application code | [Phase 8](../phase-08-admin-panel.md) |
+| **Reactive null rule** | Reactor `Flux`/`Mono` can't carry `null`; a `@BatchMapping` whose values may be null must return a `Map` (missing key = null), not a `List` | [Phase 6](../phase-06-library-dashboard-notifications.md) |
