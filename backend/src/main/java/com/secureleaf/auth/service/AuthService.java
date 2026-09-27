@@ -1,5 +1,6 @@
 package com.secureleaf.auth.service;
 
+import com.secureleaf.admin.service.AdminBootstrapService;
 import com.secureleaf.auth.dto.AuthPayload;
 import com.secureleaf.auth.entity.*;
 import com.secureleaf.auth.mapper.UserMapper;
@@ -42,9 +43,11 @@ public class AuthService {
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
     private final GoogleOAuthService googleOAuthService;
+    private final AdminBootstrapService adminBootstrapService;
 
-    /** Package-visible so {@link PasswordResetService} (same package) can reuse it. */
-    static String normalizeEmail(String email) {
+    /** Public so {@link PasswordResetService} (same package) and the admin bootstrap (D1,
+     *  {@code com.secureleaf.admin.service.AdminBootstrapService}) share one normalization rule. */
+    public static String normalizeEmail(String email) {
         return email == null ? null : email.toLowerCase().trim();
     }
 
@@ -69,6 +72,9 @@ public class AuthService {
         }
 
         assignDefaultRole(user);
+        // D1 — a brand-new registration whose email matches ADMIN_EMAILS gets ADMIN immediately,
+        // not just on the next restart (AdminBootstrapRunner handles existing accounts).
+        adminBootstrapService.grantAdminRoleIfConfigured(user);
         log.info("New user registered: id={}, email={}", user.getId(), user.getEmail());
         return user;
     }

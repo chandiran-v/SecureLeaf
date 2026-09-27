@@ -15,6 +15,10 @@ import ProductDetailPage from './pages/marketplace/ProductDetailPage';
 import CheckoutPage from './pages/buyer/CheckoutPage';
 import LibraryPage from './pages/buyer/LibraryPage';
 import ReaderPage from './pages/viewer/ReaderPage';
+import AdminDashboardPage from './pages/admin/AdminDashboardPage';
+import AdminUsersPage from './pages/admin/AdminUsersPage';
+import AdminProductsPage from './pages/admin/AdminProductsPage';
+import AdminAuditLogPage from './pages/admin/AdminAuditLogPage';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 
@@ -84,6 +88,40 @@ function App() {
             element={
               <ProtectedRoute>
                 <ReaderPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Admin panel (Phase 8) — every route requires the ADMIN role. */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute requiredRole="ADMIN">
+                <AdminDashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/users"
+            element={
+              <ProtectedRoute requiredRole="ADMIN">
+                <AdminUsersPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/products"
+            element={
+              <ProtectedRoute requiredRole="ADMIN">
+                <AdminProductsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/audit-log"
+            element={
+              <ProtectedRoute requiredRole="ADMIN">
+                <AdminAuditLogPage />
               </ProtectedRoute>
             }
           />

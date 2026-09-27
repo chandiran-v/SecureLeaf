@@ -182,6 +182,25 @@
 
 ---
 
+## Phase 8 — Admin panel · [full note](../phase-08-admin-panel.md)
+
+| Concept | The one-line answer |
+|---|---|
+| No `grantAdmin` mutation, ever | ADMIN comes only from `ADMIN_EMAILS` config + a restart/registration — removes the whole "can a bug let someone self-promote" question from the app's own code |
+| RBAC vs. object-level | `hasRole('ADMIN')` gates the operation; a separate in-service check stops an admin suspending themselves or another admin — role alone can't express that |
+| Revoking a stateless JWT | Redis set `auth:suspended`, keyed by user id (not by token `jti`) — one entry per suspended user, O(1) `SISMEMBER`, self-cleans on reactivation |
+| Fail-open here, fail-closed elsewhere | The Redis check is a redundant, latency-focused layer on top of a DB `account_status` check that's enforced regardless — failing closed would turn a Redis blip into a platform-wide outage for a non-load-bearing check |
+| Post- not pre-moderation | Products go LIVE automatically after processing (Phase 2); admins can only take one *down* after the fact, never approve one before |
+| Reused `UNPUBLISHED`, not a new status | `taken_down_at`/`takedown_reason` (paired by a CHECK constraint) distinguish an admin takedown from a creator's own unpublish — every existing status-keyed rule stays correct for free |
+| Append-only audit log | Same DB-trigger pattern as Phase 4's `payment_events` — `admin_actions` rejects UPDATE/DELETE structurally, not by convention |
+| `Propagation.MANDATORY` on the audit write | Guarantees the audit row commits atomically with the change it describes — calling it outside a transaction is a bug that fails loudly |
+| Aggregate queries for `platformStats` | Plain `COUNT`/`SUM`/`GROUP BY` SQL — Postgres computes totals over the whole `orders` table in one round trip, never loop-and-sum in the JVM |
+| Bounded query count | `adminUsers` always runs the same handful of queries regardless of page size: id-page, count, one `@EntityGraph` fetch, two batched `GROUP BY` aggregates |
+
+**Weakest point to volunteer:** the `auth:suspended` fail-open default is only safe because `JwtAuthenticationFilter` happens to *also* re-check `account_status` from the database on every request, for reasons that predate this phase. If that per-request DB lookup is ever optimized away, the Redis check silently becomes the only enforcement layer and its fail-open default should flip to fail-closed — a cross-cutting assumption documented in comments, not pinned by a test.
+
+---
+
 ## Cross-cutting themes to weave into any answer
 
 1. **Threat-model each decision.** Every security choice here has a "what attack does this stop" answer. Say it.

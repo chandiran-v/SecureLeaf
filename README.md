@@ -226,3 +226,32 @@ See [`docs/learning-notes/phase-07-reviews-password-reset.md`](docs/learning-not
 for the full write-up: denormalized aggregates and the lost-update anomaly, why a pessimistic lock
 beats an incremental formula or `SERIALIZABLE`, data minimisation, user enumeration, and reset-token
 hashing/single-use/session-revocation.
+
+---
+
+## Admin Panel (Phase 8)
+
+- **Becoming an admin is config-only**: there is no mutation that grants the ADMIN role. Set
+  `ADMIN_EMAILS` (comma-separated) and matching accounts become admins — existing ones at the next
+  startup, brand-new ones immediately at registration.
+- **Users** (`/admin/users`): search by email/name, filter by role or account status, paginated —
+  with per-user product/purchase counts from two batched aggregate queries, never one-per-row.
+  **Suspend** (reason required) is immediate: every refresh token is revoked, every open viewer
+  session ends, and a Redis deny-list rejects the next request from an already-issued access token
+  — not just at its natural 15-minute expiry. **Reactivate** reverses it. An admin can't suspend
+  themselves or another admin.
+- **Products** (`/admin/products`): search/filter, paginated. **Take down** (reason required) moves
+  a LIVE product to UNPUBLISHED and stamps why — existing buyers keep their entitlement and viewer
+  access; the creator just can't republish it themselves until an admin **restores** it.
+- **Dashboard** (`/admin`): platform-wide totals (users, creators, live products) plus a 7/30/90-day
+  window of orders/gross sales/platform fees and the top 5 products by sales — all plain aggregate
+  SQL, computed by Postgres in one round trip each.
+- **Audit log** (`/admin/audit-log`): every suspend/reactivate/take-down/restore writes exactly one
+  row to an **append-only** table — a database trigger rejects any `UPDATE`/`DELETE`, the same
+  pattern Phase 4 already uses for `payment_events`.
+
+See [`docs/learning-notes/phase-08-admin-panel.md`](docs/learning-notes/phase-08-admin-panel.md) for
+the full write-up: RBAC vs. object-level authorization, why admin bootstrap is config-only, revoking
+a stateless JWT immediately (a Redis deny-list vs. the alternatives), fail-open vs. fail-closed and
+why this project's usual "fail closed" instinct doesn't apply here, post- vs. pre-moderation, and
+append-only audit logs enforced in the database.

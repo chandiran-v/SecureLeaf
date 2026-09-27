@@ -58,7 +58,8 @@ public class ProductMapper {
                 product.getTotalSales(),
                 product.getFreePreviewPages(),
                 pageCount,
-                product.getCreatedAt() != null ? product.getCreatedAt().atOffset(ZoneOffset.UTC) : null
+                product.getCreatedAt() != null ? product.getCreatedAt().atOffset(ZoneOffset.UTC) : null,
+                product.getTakedownReason()
         );
     }
 

@@ -19,6 +19,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
 
   const isCreator = user?.roles.includes('CREATOR') ?? false;
+  const isAdmin = user?.roles.includes('ADMIN') ?? false;
 
   const handleLogout = async () => {
     await logout();
@@ -74,6 +75,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   Become a Creator
                 </Link>
               )
+            )}
+            {isAuthenticated && isAdmin && (
+              <Link
+                to="/admin"
+                className="px-3 py-2 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-100 hover:text-gray-900 transition-colors"
+              >
+                Admin
+              </Link>
             )}
           </nav>
 

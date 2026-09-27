@@ -7,6 +7,11 @@ export type UUID = string;
 
 export type UserRole = 'BUYER' | 'CREATOR' | 'ADMIN';
 
+// Mirrors the backend's AccountStatus/AuthProvider enums (Phase 8, D3) — admin-only fields,
+// never exposed on the plain `User` type (see AdminUser below).
+export type AccountStatus = 'ACTIVE' | 'SUSPENDED' | 'DEACTIVATED';
+export type AuthProviderType = 'LOCAL' | 'GOOGLE';
+
 export interface User {
   id: UUID;
   email: string;
@@ -65,6 +70,10 @@ export interface Product {
   // Phase 6, D4 — non-null only while status is PROCESSING (processingStage) or FAILED (failureReason).
   processingStage?: JobStage | null;
   failureReason?: string | null;
+  // Phase 8, D5 — set only when an admin's takeDownProduct moved this product to
+  // UNPUBLISHED; null for a creator's own unpublishProduct. The creator dashboard uses
+  // this to show why and to hide the Republish button.
+  takedownReason?: string | null;
 }
 
 export interface ProductPage {
@@ -222,4 +231,101 @@ export interface ProductFilterInput {
 export interface PaginationParams {
   page?: number;
   size?: number;
+}
+
+// ── Admin (Phase 8: ADMIN-01..04, AUTH-08) ────────────────────────────────────
+
+export interface AdminUser {
+  id: UUID;
+  email: string;
+  displayName: string;
+  roles: UserRole[];
+  accountStatus: AccountStatus;
+  authProvider: AuthProviderType;
+  createdAt: string;
+  productCount: number;
+  purchaseCount: number;
+}
+
+export interface AdminUserPage {
+  content: AdminUser[];
+  totalElements: number;
+  totalPages: number;
+  pageNumber: number;
+}
+
+export interface AdminUserFilterInput {
+  search?: string;
+  role?: UserRole;
+  status?: AccountStatus;
+}
+
+export interface AdminProduct {
+  id: UUID;
+  title: string;
+  status: ProductStatus;
+  creator: CreatorSummary;
+  pricePaise: number;
+  totalSales: number;
+  takenDownAt?: string | null;
+  takedownReason?: string | null;
+  createdAt: string;
+}
+
+export interface AdminProductPage {
+  content: AdminProduct[];
+  totalElements: number;
+  totalPages: number;
+  pageNumber: number;
+}
+
+export interface AdminProductFilterInput {
+  search?: string;
+  status?: ProductStatus;
+  creatorId?: string;
+}
+
+// One row of PlatformStats.topProducts — top 5 by sales in the selected window.
+export interface TopProduct {
+  productId: UUID;
+  title: string;
+  salesCount: number;
+  grossSalesPaise: number;
+}
+
+export interface PlatformStats {
+  totalUsers: number;
+  totalCreators: number;
+  totalLiveProducts: number;
+  completedOrdersAllTime: number;
+  grossSalesPaiseAllTime: number;
+  platformFeePaiseAllTime: number;
+  windowDays: number;
+  completedOrdersWindow: number;
+  grossSalesPaiseWindow: number;
+  platformFeePaiseWindow: number;
+  topProducts: TopProduct[];
+}
+
+// Public-safe projection of the acting admin — same reasoning as CreatorSummary.
+export interface AdminActor {
+  id: UUID;
+  displayName: string;
+}
+
+export interface AdminAction {
+  id: UUID;
+  admin: AdminActor;
+  action: string;
+  targetType: string;
+  targetId?: UUID | null;
+  reason?: string | null;
+  createdAt: string;
+}
+
+export interface AdminActionPage {
+  content: AdminAction[];
+  totalElements: number;
+  totalPages: number;
+  pageNumber: number;
 }

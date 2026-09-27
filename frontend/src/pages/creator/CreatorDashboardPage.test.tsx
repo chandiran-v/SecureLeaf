@@ -31,6 +31,7 @@ function makeProduct(overrides: Record<string, unknown> = {}) {
     netEarningsPaise: 2700,
     processingStage: null,
     failureReason: null,
+    takedownReason: null,
     ...overrides,
   };
 }
@@ -107,6 +108,19 @@ describe('CreatorDashboardPage', () => {
 
     expect(await screen.findByTestId('status-badge-unpublished')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /republish/i })).toBeInTheDocument();
+  });
+
+  it('shows an admin takedown reason and hides the Republish button', async () => {
+    const takenDown = makeProduct({
+      id: '3b',
+      status: 'UNPUBLISHED',
+      takedownReason: 'Copyright complaint',
+    });
+    renderDashboard([myProductsMock([takenDown]), earningsMock]);
+
+    expect(await screen.findByTestId('status-badge-unpublished')).toBeInTheDocument();
+    expect(screen.getByText(/copyright complaint/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /republish/i })).not.toBeInTheDocument();
   });
 
   it('unpublishing a LIVE product asks for confirmation before mutating', async () => {
