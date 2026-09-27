@@ -62,6 +62,7 @@ When a new phase is complete, duplicate `TEMPLATE.md`, name it appropriately, an
 | 8 | [Admin panel](phase-08-admin-panel.md) | ✅ Done | RBAC vs. object-level authz, privilege-escalation surface, config-only bootstrap, Redis deny-list for immediate JWT revocation, fail-open vs. fail-closed, post-moderation, append-only audit log (DB trigger), aggregate dashboard queries |
 | 9 | [Hardening](../phases/phase-09-hardening-release.md) | ⏳ Queued | See `docs/phases/README.md` |
 | 10–17 | MVP2 — [roadmap](../phases/README.md) | ⏳ Queued | Observability, rate limiting, bulkheads, caching, libvips, versioning, capacity |
+| UI 1 | [ui-01-responsive-navigation.md](ui-01-responsive-navigation.md) | ✅ Done | Mobile-first breakpoints, accessible disclosure menu (`aria-expanded`), single source of truth for nav |
 | Ops 1 | [ops-01-phase-scheduler.md](ops-01-phase-scheduler.md) | ✅ Done | Cron + event-driven CI, WIP limit of one, reconciliation, privilege separation, `GITHUB_TOKEN` vs PAT, prompt injection, bounded retries |
 
 ---

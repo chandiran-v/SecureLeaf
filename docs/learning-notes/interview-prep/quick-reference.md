@@ -202,6 +202,18 @@
 
 ---
 
+## UI 1 — Responsive navigation · [full note](../ui-01-responsive-navigation.md)
+
+| Concept | The one-line answer |
+|---|---|
+| `hidden md:flex` | Mobile-first: hidden on phones, flex from 768 px. Every "hidden below X" needs a replacement below X |
+| Accessible hamburger | A real `<button>`, text label, `aria-expanded`, `aria-controls`; closes on Escape / outside tap / navigation |
+| One `navItems` list | Desktop and mobile menus render from the same role-based list, so they can't drift |
+
+**Weakest point to volunteer:** no focus management (focus isn't moved into the panel or returned to the button).
+
+---
+
 ## Cross-cutting themes to weave into any answer
 
 1. **Threat-model each decision.** Every security choice here has a "what attack does this stop" answer. Say it.
