@@ -34,12 +34,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final UserRepository userRepository;
+    private final SuspendedUsersService suspendedUsersService;
     private final HandlerExceptionResolver handlerExceptionResolver;
 
     public JwtAuthenticationFilter(JwtService jwtService, UserRepository userRepository,
+                                   SuspendedUsersService suspendedUsersService,
                                    @Qualifier("handlerExceptionResolver") HandlerExceptionResolver handlerExceptionResolver) {
         this.jwtService = jwtService;
         this.userRepository = userRepository;
+        this.suspendedUsersService = suspendedUsersService;
         this.handlerExceptionResolver = handlerExceptionResolver;
     }
 
@@ -62,6 +65,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             User user = userRepository.findWithRolesById(userId).orElse(null);
 
             if (user == null || user.getAccountStatus() != AccountStatus.ACTIVE || user.getDeletedAt() != null) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+
+            // Phase 8, D4 — catches a token minted before a suspension that revoked it, without
+            // waiting out the access token's remaining lifetime. Fails open (see
+            // SuspendedUsersService's javadoc) if Redis itself is the thing that's down.
+            if (suspendedUsersService.isSuspended(userId)) {
                 filterChain.doFilter(request, response);
                 return;
             }

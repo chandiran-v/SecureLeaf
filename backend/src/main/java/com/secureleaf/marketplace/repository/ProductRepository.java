@@ -98,4 +98,13 @@ public interface ProductRepository extends JpaRepository<Product, Long>, Product
             WHERE id = :id
             """, nativeQuery = true)
     int recalculateReviewAggregate(@Param("id") Long id);
+
+    /**
+     * AdminUser.productCount (Phase 8, D3) — one aggregate query for a whole batch of user ids,
+     * grouped by creator. A user with zero products simply has no row here; the caller (
+     * {@link com.secureleaf.admin.service.AdminUserService}) treats "missing" as zero, the same
+     * convention {@code OrderItemRepository.sumStatsByProductIds} already uses.
+     */
+    @Query("select p.creator.id, count(p) from Product p where p.creator.id in :creatorIds and p.deletedAt is null group by p.creator.id")
+    List<Object[]> countByCreatorIdsGrouped(@Param("creatorIds") java.util.Collection<Long> creatorIds);
 }

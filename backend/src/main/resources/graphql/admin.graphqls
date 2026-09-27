@@ -1,0 +1,138 @@
+# SecureLeaf — Admin GraphQL Schema (Phase 8: ADMIN-01..04, AUTH-08)
+#
+# Kept in its own file — Spring for GraphQL merges every .graphqls file under
+# classpath:graphql/ into one schema, so this reads independently of the growing
+# main schema.graphqls, mirroring how com.secureleaf.admin is its own Java package
+# (D2): the RBAC boundary is visible in the file tree, not just in @PreAuthorize.
+
+enum AccountStatus {
+    ACTIVE
+    SUSPENDED
+    DEACTIVATED
+}
+
+enum AuthProvider {
+    LOCAL
+    GOOGLE
+}
+
+# D3 — replaces allUsers. Deliberately its own type, not a reuse of User: an admin needs
+# fields (accountStatus, authProvider, productCount, purchaseCount) that would otherwise
+# leak into every other place User is returned (e.g. Product.creator's public projection).
+type AdminUser {
+    id: ID!
+    email: String!
+    displayName: String!
+    roles: [UserRole!]!
+    accountStatus: AccountStatus!
+    authProvider: AuthProvider!
+    createdAt: DateTime!
+    productCount: Int!
+    purchaseCount: Int!
+}
+
+type AdminUserPage {
+    content: [AdminUser!]!
+    totalElements: Int!
+    totalPages: Int!
+    pageNumber: Int!
+}
+
+input AdminUserFilter {
+    search: String     # matches email or display name, case-insensitive
+    role: UserRole
+    status: AccountStatus
+}
+
+# D5 — replaces allProducts.
+type AdminProduct {
+    id: ID!
+    title: String!
+    status: ProductStatus!
+    creator: CreatorSummary!
+    pricePaise: Int!
+    totalSales: Int!
+    takenDownAt: DateTime
+    takedownReason: String
+    createdAt: DateTime!
+}
+
+type AdminProductPage {
+    content: [AdminProduct!]!
+    totalElements: Int!
+    totalPages: Int!
+    pageNumber: Int!
+}
+
+input AdminProductFilter {
+    search: String     # matches title, case-insensitive
+    status: ProductStatus
+    creatorId: ID
+}
+
+# D6 — one row per product in platformStats' top-5-by-sales window.
+type TopProduct {
+    productId: ID!
+    title: String!
+    salesCount: Int!
+    grossSalesPaise: Long!
+}
+
+type PlatformStats {
+    totalUsers: Int!
+    totalCreators: Int!
+    totalLiveProducts: Int!
+    # All-time and last-`days` figures side by side, so the dashboard can show both
+    # without a second round trip (D6).
+    completedOrdersAllTime: Int!
+    grossSalesPaiseAllTime: Long!
+    platformFeePaiseAllTime: Long!
+    windowDays: Int!
+    completedOrdersWindow: Int!
+    grossSalesPaiseWindow: Long!
+    platformFeePaiseWindow: Long!
+    topProducts: [TopProduct!]!
+}
+
+# D7 — append-only audit trail, one row per admin mutation in this phase.
+type AdminAction {
+    id: ID!
+    admin: AdminActor!
+    action: String!
+    targetType: String!
+    targetId: ID
+    reason: String
+    createdAt: DateTime!
+}
+
+# Public-safe projection of the acting admin — same shape/reasoning as CreatorSummary.
+type AdminActor {
+    id: ID!
+    displayName: String!
+}
+
+type AdminActionPage {
+    content: [AdminAction!]!
+    totalElements: Int!
+    totalPages: Int!
+    pageNumber: Int!
+}
+
+extend type Query {
+    adminUsers(filter: AdminUserFilter, page: Int = 0, size: Int = 25): AdminUserPage!
+    adminProducts(filter: AdminProductFilter, page: Int = 0, size: Int = 25): AdminProductPage!
+    platformStats(days: Int = 30): PlatformStats!
+    adminActions(page: Int = 0, size: Int = 25): AdminActionPage!
+}
+
+extend type Mutation {
+    # D4 — immediate: revokes refresh tokens, ends viewer sessions, and adds the user to
+    # the Redis auth:suspended set so an already-issued access token stops working too.
+    suspendUser(userId: ID!, reason: String!): AdminUser!
+    reactivateUser(userId: ID!): AdminUser!
+
+    # D5 — post-moderation takedown/restore. Existing buyers keep their entitlement and
+    # viewer access; only marketplace visibility and the creator's republish path change.
+    takeDownProduct(productId: ID!, reason: String!): AdminProduct!
+    restoreProduct(productId: ID!): AdminProduct!
+}

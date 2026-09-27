@@ -14,6 +14,7 @@ export const MY_PRODUCTS = gql`
       netEarningsPaise
       processingStage
       failureReason
+      takedownReason
     }
   }
 `;
