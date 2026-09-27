@@ -3,6 +3,7 @@ import type { RefObject } from 'react';
 import { useApolloClient } from '@apollo/client';
 import { VIEWER_PAGE_URL } from '../../graphql/queries/viewer.queries';
 import { useAuthStore } from '../../store/authStore';
+import { recoverFromUnauthorized } from '../../lib/session';
 import type { SignedPageUrl, ViewerSession } from '../../types';
 
 /** Most bytes a browser can decode this way, kept small for smooth page turns. */
@@ -103,12 +104,27 @@ export function useSecureTile({
         fetchPolicy: 'network-only',
       });
       const url = data.viewerPageUrl.url;
-      const accessToken = useAuthStore.getState().accessToken;
+      const fetchTile = () => {
+        const accessToken = useAuthStore.getState().accessToken;
+        return fetch(url, {
+          cache: 'no-store',
+          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+        });
+      };
 
-      const response = await fetch(url, {
-        cache: 'no-store',
-        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
-      });
+      let response = await fetchTile();
+      // The login expired between signing the URL and fetching it. The JWT filter rejects the
+      // request before the single-use check runs, so the same signed URL is still good:
+      // refresh once and retry it. If the refresh fails, the session-expired modal takes over.
+      if (response.status === 401) {
+        let code: string | null = null;
+        try {
+          code = ((await response.json()) as { code?: string })?.code ?? null;
+        } catch {
+          // no JSON body
+        }
+        if (await recoverFromUnauthorized(code)) response = await fetchTile();
+      }
 
       if (!response.ok) {
         let code: string | null = null;

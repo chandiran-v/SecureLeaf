@@ -119,3 +119,6 @@
 | **Disclosure pattern** | A button that shows/hides a region and announces its state with `aria-expanded` (e.g. a hamburger menu) | [UI 1](../ui-01-responsive-navigation.md) |
 | **Canvas backing store** | A canvas's real pixel buffer (`canvas.width/height`), separate from its on-screen CSS size | [Phase 5](../phase-05-secure-viewer.md) |
 | **Passive event listener** | A listener that promises not to call `preventDefault()`, so the browser can scroll without waiting on it; React's `onWheel` is passive | [Phase 5](../phase-05-secure-viewer.md) |
+| **Single-flight** | Concurrent callers of the same operation share one in-flight request/promise instead of each starting their own (e.g. one token refresh for many 401s) | [Phase 1](../phase-01-auth.md) |
+| **RFC 6750 / `invalid_token`** | OAuth 2.0 Bearer Token standard: a bad or expired bearer token gets 401 with `WWW-Authenticate: Bearer error="invalid_token"` | [Phase 1](../phase-01-auth.md) |
+| **`StatementInspector`** | Hibernate hook that sees every SQL statement before it runs; used in tests to count one request's queries | [Phase 6](../phase-06-library-dashboard-notifications.md) |

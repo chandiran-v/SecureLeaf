@@ -8,6 +8,9 @@ spring:
         # N+1 assertion in MarketplaceQueryIT can read Statistics.getPrepareStatementCount()
         # directly instead of scraping stdout.
         session.events.log.LOG_QUERIES_SLOW_THRESHOLD_MILLIS: 999999999
+        # Records SQL from HTTP request threads only, when a test switches it on (off otherwise).
+        # Immune to background @Scheduled queries, unlike the global Statistics counter.
+        session_factory.statement_inspector: com.secureleaf.support.RequestSqlRecorder
 
 
 # Phase 4 — tests post signed webhooks themselves, deterministically, instead of relying on

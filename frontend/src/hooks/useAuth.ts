@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from '@apollo/client';
 import { useCallback, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, type Location } from 'react-router-dom';
 import {
   LOGIN_MUTATION,
   REGISTER_MUTATION,
@@ -18,6 +18,13 @@ import type { AuthPayload, User } from '../types';
 export function useAuth() {
   const { setAuth, clearAuth, isAuthenticated } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Where to go after logging in: back to the page that sent the user to /login (ProtectedRoute
+  // and SessionExpiredModal pass it as `state.from`), otherwise home. Never back to an auth page.
+  const from = (location.state as { from?: Location } | null)?.from;
+  const afterLoginPath =
+    from && !['/login', '/register'].includes(from.pathname) ? `${from.pathname}${from.search}` : '/';
 
   // ── Mutations ────────────────────────────────────────────────────────────
 
@@ -57,10 +64,10 @@ export function useAuth() {
       });
       if (data?.login) {
         setAuth(data.login.user, data.login.accessToken, data.login.refreshToken);
-        navigate('/');
+        navigate(afterLoginPath);
       }
     },
-    [loginMutation, setAuth, navigate]
+    [loginMutation, setAuth, navigate, afterLoginPath]
   );
 
   // ── Register ──────────────────────────────────────────────────────────────
@@ -89,10 +96,10 @@ export function useAuth() {
           data.googleLogin.accessToken,
           data.googleLogin.refreshToken
         );
-        navigate('/');
+        navigate(afterLoginPath);
       }
     },
-    [googleLoginMutation, setAuth, navigate]
+    [googleLoginMutation, setAuth, navigate, afterLoginPath]
   );
 
   // ── Logout ────────────────────────────────────────────────────────────────

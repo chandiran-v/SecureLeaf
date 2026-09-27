@@ -1,12 +1,8 @@
 package com.secureleaf.commerce;
 
 import com.secureleaf.commerce.gateway.MockWebhookSender;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
-import org.hibernate.SessionFactory;
-import org.hibernate.stat.Statistics;
+import com.secureleaf.support.RequestSqlRecorder;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
 import java.util.Map;
@@ -19,9 +15,6 @@ import static org.assertj.core.api.Assertions.assertThat;
  * already paid for.
  */
 class LibraryIT extends AbstractCommerceIT {
-
-    @PersistenceContext
-    private EntityManager entityManager;
 
     private static final String MY_LIBRARY = """
             query {
@@ -63,25 +56,24 @@ class LibraryIT extends AbstractCommerceIT {
     void myLibrary_isNewestFirst_andQueryCountDoesNotGrowWithLibrarySize() {
         buy(freeProduct);
 
-        SessionFactory sessionFactory = entityManager.getEntityManagerFactory().unwrap(SessionFactory.class);
-        Statistics stats = sessionFactory.getStatistics();
-        stats.setStatisticsEnabled(true);
-
-        stats.clear();
+        // Only the request thread's SQL: the global Statistics counter used to pick up background
+        // @Scheduled queries mid-measurement and fail at random (see RequestSqlRecorder).
+        RequestSqlRecorder.start();
         List<String> oneItem = asBuyer.document(MY_LIBRARY).execute()
                 .path("myLibrary[*].product.title").entityList(String.class).get();
-        long statementsForOne = stats.getPrepareStatementCount();
+        int statementsForOne = RequestSqlRecorder.stop().size();
 
         buy(paidProduct);
 
-        stats.clear();
+        RequestSqlRecorder.start();
         List<String> twoItems = asBuyer.document(MY_LIBRARY).execute()
                 .path("myLibrary[*].product.title").entityList(String.class).get();
-        long statementsForTwo = stats.getPrepareStatementCount();
+        int statementsForTwo = RequestSqlRecorder.stop().size();
 
         // The flagship point (D1: "no N+1", same teaching moment as MarketplaceQueryIT's
         // listingRequest_executesExactlyThreeStatements): fetching a 2nd entitlement's product,
         // creator, category and tags must NOT add a 2nd round of queries.
+        assertThat(statementsForOne).isPositive();
         assertThat(statementsForTwo).isEqualTo(statementsForOne);
         assertThat(oneItem).containsExactly("Free Guide");
         assertThat(twoItems).containsExactly("Paid Guide", "Free Guide");

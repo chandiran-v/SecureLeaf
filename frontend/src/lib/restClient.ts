@@ -11,8 +11,9 @@
  * This client shares the same base URL as the GraphQL proxy: Vite forwards
  * /api → localhost:8080 in dev (vite.config.ts), and nginx does it in prod.
  */
-import axios from 'axios';
+import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '../store/authStore';
+import { recoverFromUnauthorized } from './session';
 
 const restClient = axios.create({
   baseURL: '/api',
@@ -25,6 +26,19 @@ restClient.interceptors.request.use((config) => {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
+});
+
+// Response interceptor: on 401, refresh the login once and retry, or end the session
+// (SessionExpiredModal). Same rules as Apollo's errorLink, via lib/session.ts.
+restClient.interceptors.response.use(undefined, async (error: AxiosError<{ code?: string }>) => {
+  const config = error.config as (InternalAxiosRequestConfig & { _authRetried?: boolean }) | undefined;
+  if (error.response?.status !== 401 || !config || config._authRetried) {
+    return Promise.reject(error);
+  }
+  const refreshed = await recoverFromUnauthorized(error.response.data?.code);
+  if (!refreshed) return Promise.reject(error);
+  config._authRetried = true;
+  return restClient(config); // request interceptor attaches the new token
 });
 
 export default restClient;

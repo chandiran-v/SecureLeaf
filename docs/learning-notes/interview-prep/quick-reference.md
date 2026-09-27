@@ -26,6 +26,8 @@
 | Google OAuth | Verify signature + issuer + **audience**; we never see a password |
 | `ddl-auto: validate` | Flyway owns the schema; Hibernate only checks for drift |
 | AuthN vs AuthZ vs BOLA | Who are you / what may you do / is *this record* yours |
+| Expired token → 401, not silence | RFC 6750: `401` + `WWW-Authenticate: Bearer error="invalid_token"` + a code (`TOKEN_EXPIRED`). We used to send an empty 200 (bug) |
+| One refresh for many 401s | Single-flight: share the in-flight refresh promise; each request retries once, else the session-expired modal |
 
 **Weakest point to volunteer:** tokens in localStorage — XSS-exposed. Correct fix is httpOnly cookies + CSRF tokens.
 
