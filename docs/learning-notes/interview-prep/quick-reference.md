@@ -128,6 +128,8 @@
 | Zoom without new downloads (addendum) | CSS width = fit width × zoom; the canvas's pixel buffer is untouched, so no re-fetch or re-watermark. Soft above ~150–200% until Phase 16 adds bigger tiles |
 | Ctrl + wheel needs `{ passive: false }` | React's `onWheel` is passive, so `preventDefault()` there is ignored and the whole tab would zoom |
 | `m-auto`, not flex-centre, for zoomed content | Flex centring pushes overflow past the top/left, out of scroll reach; `margin: auto` doesn't |
+| Clickable links on a picture (addendum) | Extract PDF link rectangles while processing, store as fractions, overlay invisible `<a>`/buttons in percent. Old uploads get a backfill |
+| Untrusted links | Allowlist http/https/mailto on server **and** client; `rel="noopener noreferrer"` against reverse tabnabbing; cap counts and lengths |
 
 **Weakest point to volunteer:** a generic tile-fetch failure just shows "Couldn't load this page / Retry" with no detail surfaced in the UI (the backend's `X-Correlation-Id` isn't displayed anywhere yet); and there's no push/subscription for "you've been taken over" — the first laptop only finds out on its next heartbeat or next page turn.
 

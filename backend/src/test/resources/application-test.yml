@@ -29,3 +29,10 @@ drm:
   session:
     heartbeat-interval-seconds: 1
     lease-seconds: 2
+
+# V8 — the link backfill timer would add background queries to query-count tests;
+# PageLinkBackfillIT calls PageLinkService.backfill directly instead.
+content:
+  links:
+    backfill:
+      enabled: false

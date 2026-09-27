@@ -6,10 +6,12 @@ import com.secureleaf.commerce.entity.EntitlementStatus;
 import com.secureleaf.commerce.repository.EntitlementRepository;
 import com.secureleaf.common.exception.BusinessException;
 import com.secureleaf.common.exception.ErrorCode;
+import com.secureleaf.content.repository.ContentPageLinkRepository;
 import com.secureleaf.viewer.DrmProperties;
 import com.secureleaf.viewer.dto.ViewerHeartbeatDto;
-import com.secureleaf.viewer.dto.ViewerSessionDto;
+import com.secureleaf.viewer.dto.PageLinkDto;
 import com.secureleaf.viewer.dto.SignedPageUrlDto;
+import com.secureleaf.viewer.dto.ViewerSessionDto;
 import com.secureleaf.viewer.entity.ViewerSession;
 import com.secureleaf.viewer.entity.ViewerSessionEndReason;
 import com.secureleaf.viewer.repository.ViewerSessionRepository;
@@ -95,6 +97,7 @@ public class ViewerSessionService {
     private final DrmProperties drmProperties;
     private final Clock clock;
     private final TileUrlSigner tileUrlSigner;
+    private final ContentPageLinkRepository contentPageLinkRepository;
 
     /** D1/D2 — starts (or takes over) the one viewer session for this buyer+product. */
     @Transactional
@@ -230,7 +233,13 @@ public class ViewerSessionService {
         TileUrlSigner.Signature signature = tileUrlSigner.sign(session.getId(), pageNumber, callerUserId);
         String url = "/api/viewer/tiles/%d/%d?exp=%d&sig=%s"
                 .formatted(session.getId(), pageNumber, signature.expiresAtEpochSeconds(), signature.value());
-        return new SignedPageUrlDto(url, Instant.ofEpochSecond(signature.expiresAtEpochSeconds()).atOffset(ZoneOffset.UTC));
+        // The page's clickable links (V8), from the version this buyer is ENTITLED to, the same
+        // version the tile itself is served from.
+        Long versionId = session.getEntitlement().getDocumentVersion().getId();
+        List<PageLinkDto> links = contentPageLinkRepository.findForPage(versionId, pageNumber).stream()
+                .map(PageLinkDto::from)
+                .toList();
+        return new SignedPageUrlDto(url, Instant.ofEpochSecond(signature.expiresAtEpochSeconds()).atOffset(ZoneOffset.UTC), links);
     }
 
     /** Used both by the D3 supersede step (start) and directly by tests/other services if needed. */

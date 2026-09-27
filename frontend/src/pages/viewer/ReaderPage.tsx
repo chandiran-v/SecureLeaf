@@ -14,6 +14,7 @@ import NotEntitledPanel from '../../components/viewer/NotEntitledPanel';
 import SessionEndedPanel from '../../components/viewer/SessionEndedPanel';
 import ViewerToolbar from '../../components/viewer/ViewerToolbar';
 import ViewerCanvas from '../../components/viewer/ViewerCanvas';
+import { usableLinks } from '../../lib/viewerLinks';
 
 function clampPage(page: number, pageCount: number | null): number {
   const safePage = Number.isFinite(page) && page >= 1 ? Math.floor(page) : 1;
@@ -80,6 +81,7 @@ export default function ReaderPage() {
     loading: tileLoading,
     error: tileError,
     retry: retryTile,
+    links: pageLinks,
   } = useSecureTile({
     session: status === 'active' ? session : null,
     pageNumber: clampedPage,
@@ -121,6 +123,8 @@ export default function ReaderPage() {
         printScreenBlanked={printScreenBlanked}
         error={!!tileError}
         onRetry={retryTile}
+        links={usableLinks(pageLinks, pageCount)}
+        onGoToPage={goToPage}
       />
 
       {(status === 'superseded' || status === 'expired') && (

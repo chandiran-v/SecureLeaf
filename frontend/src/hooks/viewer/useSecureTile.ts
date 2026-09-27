@@ -4,10 +4,16 @@ import { useApolloClient } from '@apollo/client';
 import { VIEWER_PAGE_URL } from '../../graphql/queries/viewer.queries';
 import { useAuthStore } from '../../store/authStore';
 import { recoverFromUnauthorized } from '../../lib/session';
-import type { SignedPageUrl, ViewerSession } from '../../types';
+import type { PageLink, SignedPageUrl, ViewerSession } from '../../types';
 
 /** Most bytes a browser can decode this way, kept small for smooth page turns. */
 const MAX_CACHED_BITMAPS = 3;
+
+/** A decoded page and its clickable links (V8), kept together so a prefetched page has both. */
+interface LoadedPage {
+  bitmap: ImageBitmap;
+  links: PageLink[];
+}
 
 class TileFetchError extends Error {
   constructor(
@@ -35,6 +41,8 @@ export interface UseSecureTileResult {
   error: { code: string | null; status: number | null } | null;
   /** Re-runs the fetch for the current page — for a generic failure (a blip, not 403/409/410). */
   retry: () => void;
+  /** The drawn page's clickable links (V8). Empty while a page is loading. */
+  links: PageLink[];
 }
 
 function drawBitmapToCanvas(canvas: HTMLCanvasElement, bitmap: ImageBitmap): void {
@@ -49,11 +57,11 @@ function drawBitmapToCanvas(canvas: HTMLCanvasElement, bitmap: ImageBitmap): voi
   ctx.drawImage(bitmap, 0, 0, bitmap.width, bitmap.height);
 }
 
-function evictOldest(cache: Map<number, ImageBitmap>, maxSize: number): void {
+function evictOldest(cache: Map<number, LoadedPage>, maxSize: number): void {
   while (cache.size > maxSize) {
     const oldestKey = cache.keys().next().value;
     if (oldestKey === undefined) break;
-    cache.get(oldestKey)?.close();
+    cache.get(oldestKey)?.bitmap.close();
     cache.delete(oldestKey);
   }
 }
@@ -78,17 +86,18 @@ export function useSecureTile({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<{ code: string | null; status: number | null } | null>(null);
   const [retryNonce, setRetryNonce] = useState(0);
+  const [links, setLinks] = useState<PageLink[]>([]);
   const retry = () => setRetryNonce((n) => n + 1);
 
   // Undrawn, prefetched bitmaps only — see the module comment above.
-  const cacheRef = useRef(new Map<number, ImageBitmap>());
+  const cacheRef = useRef(new Map<number, LoadedPage>());
   const sessionTokenRef = useRef<string | null>(null);
   sessionTokenRef.current = session?.sessionToken ?? null;
 
   useEffect(() => {
     const cache = cacheRef.current;
     return () => {
-      for (const bitmap of cache.values()) bitmap.close();
+      for (const page of cache.values()) page.bitmap.close();
       cache.clear();
     };
   }, []);
@@ -97,7 +106,7 @@ export function useSecureTile({
     if (!session) return undefined;
     let cancelled = false;
 
-    async function fetchAndDecode(page: number): Promise<ImageBitmap> {
+    async function fetchAndDecode(page: number): Promise<LoadedPage> {
       const { data } = await apolloClient.query<{ viewerPageUrl: SignedPageUrl }>({
         query: VIEWER_PAGE_URL,
         variables: { sessionToken: sessionTokenRef.current, pageNumber: page },
@@ -138,10 +147,10 @@ export function useSecureTile({
       }
 
       const blob = await response.blob();
-      return createImageBitmap(blob);
+      return { bitmap: await createImageBitmap(blob), links: data.viewerPageUrl.links ?? [] };
     }
 
-    async function loadPage(page: number): Promise<ImageBitmap> {
+    async function loadPage(page: number): Promise<LoadedPage> {
       const cached = cacheRef.current.get(page);
       if (cached) {
         cacheRef.current.delete(page);
@@ -153,14 +162,16 @@ export function useSecureTile({
     async function run() {
       setLoading(true);
       setError(null);
+      setLinks([]); // never leave the previous page's links over the next page
       try {
-        const bitmap = await loadPage(pageNumber);
+        const loaded = await loadPage(pageNumber);
         if (cancelled) {
-          bitmap.close();
+          loaded.bitmap.close();
           return;
         }
-        if (canvasRef.current) drawBitmapToCanvas(canvasRef.current, bitmap);
-        bitmap.close();
+        if (canvasRef.current) drawBitmapToCanvas(canvasRef.current, loaded.bitmap);
+        loaded.bitmap.close();
+        setLinks(loaded.links);
         setLoading(false);
 
         // D5 — prefetch the next page into the cache; failures here are silent, the real
@@ -170,7 +181,7 @@ export function useSecureTile({
           fetchAndDecode(pageNumber + 1)
             .then((prefetched) => {
               if (cancelled) {
-                prefetched.close();
+                prefetched.bitmap.close();
                 return;
               }
               cacheRef.current.set(pageNumber + 1, prefetched);
@@ -203,5 +214,5 @@ export function useSecureTile({
     };
   }, [session, pageNumber, pageCount, canvasRef, onSuperseded, onExpired, apolloClient, retryNonce]);
 
-  return { loading, error, retry };
+  return { loading, error, retry, links };
 }
