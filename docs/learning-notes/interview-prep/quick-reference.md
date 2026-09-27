@@ -158,6 +158,7 @@
 | Guarded transitions | `retryProcessing`/`republishProduct` check the exact starting status first; anything else is a typed `INVALID_STATE_TRANSITION`, never a silent no-op |
 | Retry reuses the poller | `retryProcessing` resets the job to QUEUED and lets the existing 5s `@Scheduled` poll pick it up — one code path for "a job is ready," not two |
 | Soft delete re-verified | `myLibrary` widened to every entitlement status, independent of the product's own status/`deleted_at` — proven end to end with a dedicated IT, not assumed |
+| `@BatchMapping` with nullable values | Return `Map<key, value>`, not `List`: a List becomes a Reactor `Flux`, and a Flux can't hold `null`. That bug broke `processingStage`/`failureReason` on every product |
 
 **Weakest point to volunteer:** `SseEmitterRegistry` has no per-user connection cap or total ceiling — nothing stops one user opening the stream hundreds of times. Fine for MVP load, first thing to add before real adversarial traffic.
 
@@ -201,6 +202,18 @@
 | Bounded query count | `adminUsers` always runs the same handful of queries regardless of page size: id-page, count, one `@EntityGraph` fetch, two batched `GROUP BY` aggregates |
 
 **Weakest point to volunteer:** the `auth:suspended` fail-open default is only safe because `JwtAuthenticationFilter` happens to *also* re-check `account_status` from the database on every request, for reasons that predate this phase. If that per-request DB lookup is ever optimized away, the Redis check silently becomes the only enforcement layer and its fail-open default should flip to fail-closed — a cross-cutting assumption documented in comments, not pinned by a test.
+
+---
+
+## UI 1 — Responsive navigation · [full note](../ui-01-responsive-navigation.md)
+
+| Concept | The one-line answer |
+|---|---|
+| `hidden md:flex` | Mobile-first: hidden on phones, flex from 768 px. Every "hidden below X" needs a replacement below X |
+| Accessible hamburger | A real `<button>`, text label, `aria-expanded`, `aria-controls`; closes on Escape / outside tap / navigation |
+| One `navItems` list | Desktop and mobile menus render from the same role-based list, so they can't drift |
+
+**Weakest point to volunteer:** no focus management (focus isn't moved into the panel or returned to the button).
 
 ---
 

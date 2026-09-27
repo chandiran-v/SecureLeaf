@@ -114,5 +114,8 @@
 | **Guarded state transition** (see also Phase 6) | A mutation that checks the record's current state is a legal starting point before changing it | [Phase 8](../phase-08-admin-panel.md) |
 | **`Propagation.MANDATORY`** | A `@Transactional` method that must join an existing transaction or throw | [Phase 8](../phase-08-admin-panel.md) |
 | **Aggregate query** | `COUNT`/`SUM`/`GROUP BY` computed by the database in one round trip, never by looping over fetched rows in application code | [Phase 8](../phase-08-admin-panel.md) |
+| **Reactive null rule** | Reactor `Flux`/`Mono` can't carry `null`; a `@BatchMapping` whose values may be null must return a `Map` (missing key = null), not a `List` | [Phase 6](../phase-06-library-dashboard-notifications.md) |
+| **Mobile-first** | Styles target the smallest screen by default; breakpoint prefixes (`md:`) add rules for larger screens | [UI 1](../ui-01-responsive-navigation.md) |
+| **Disclosure pattern** | A button that shows/hides a region and announces its state with `aria-expanded` (e.g. a hamburger menu) | [UI 1](../ui-01-responsive-navigation.md) |
 | **Canvas backing store** | A canvas's real pixel buffer (`canvas.width/height`), separate from its on-screen CSS size | [Phase 5](../phase-05-secure-viewer.md) |
 | **Passive event listener** | A listener that promises not to call `preventDefault()`, so the browser can scroll without waiting on it; React's `onWheel` is passive | [Phase 5](../phase-05-secure-viewer.md) |
