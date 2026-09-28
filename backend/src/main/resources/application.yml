@@ -128,7 +128,12 @@ processing:
   retry:
     max-attempts: 3
 
-# ── Actuator ─────────────────────────────────────────────────────────────────
+# ── Actuator (D7) ────────────────────────────────────────────────────────────
+# Liveness ("is the process alive at all") and readiness ("can it currently serve traffic")
+# are separate questions — see the D7 learning note section. An orchestrator restarts the
+# container on a failed liveness probe, but only stops *routing new requests* to it on a failed
+# readiness probe, which matters here because a Postgres/Redis blip should pull this instance
+# out of rotation, not kill and restart a perfectly healthy JVM.
 management:
   endpoints:
     web:
@@ -136,7 +141,19 @@ management:
         include: health,info,metrics
   endpoint:
     health:
-      show-details: when-authorized
+      show-details: when-authorized   # the readiness/liveness UP-or-DOWN status is always public;
+                                       # this only gates the per-component breakdown (D7)
+      probes:
+        enabled: true
+      group:
+        readiness:
+          # readinessState is Boot's own "has the app finished starting and not begun shutting
+          # down" signal; db/redis are the auto-configured HealthIndicators for our two stateful
+          # dependencies — spring-boot-starter-data-jpa and spring-boot-starter-data-redis wire
+          # these in automatically, no custom HealthIndicator code needed.
+          include: readinessState,db,redis
+        liveness:
+          include: livenessState
 
 server:
   error:

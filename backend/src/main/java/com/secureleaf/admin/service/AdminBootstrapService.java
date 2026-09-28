@@ -68,6 +68,6 @@ public class AdminBootstrapService {
         adminRole.setRole(Role.ADMIN);
         user.getRoles().add(adminRole);
         userRepository.save(user);
-        log.info("ADMIN role granted to user id={}, email={} (ADMIN_EMAILS bootstrap)", user.getId(), user.getEmail());
+        log.info("ADMIN role granted to user id={} (ADMIN_EMAILS bootstrap)", user.getId());
     }
 }

@@ -9,6 +9,7 @@ import com.secureleaf.auth.mapper.UserMapper;
 import com.secureleaf.auth.service.AuthService;
 import com.secureleaf.auth.service.PasswordResetService;
 import com.secureleaf.auth.service.SecureLeafUserDetails;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.graphql.data.method.annotation.Argument;
@@ -32,6 +33,7 @@ public class AuthResolver {
 
     private final AuthService authService;
     private final PasswordResetService passwordResetService;
+    private final HttpServletRequest request;
 
     // ── Mutations ───────────────────────────────────────────────────────────────
 
@@ -42,7 +44,8 @@ public class AuthResolver {
 
     @MutationMapping
     public AuthPayload login(@Argument @Valid LoginInput input) {
-        return authService.login(input.email(), input.password());
+        // D5 (Phase 9) — the login-throttle counter is keyed by email+IP; see LoginThrottleService.
+        return authService.login(input.email(), input.password(), request.getRemoteAddr());
     }
 
     @MutationMapping

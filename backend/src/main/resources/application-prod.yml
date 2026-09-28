@@ -2,6 +2,18 @@ spring:
   graphql:
     graphiql:
       enabled: false
+    schema:
+      # D4 (Phase 9) — introspection (__schema/__type) hands an attacker the entire schema for
+      # free; harmless and useful for local GraphiQL/tooling, not something prod should answer.
+      introspection:
+        enabled: false
+
+# D3 (Phase 9) — Render terminates TLS in front of this app; without this, every request arrives
+# over plain HTTP from Render's proxy and request.isSecure() is always false, so Spring Security's
+# HSTS header writer (which only fires on secure requests) would never fire in production. This
+# tells Spring Boot to trust the X-Forwarded-Proto/X-Forwarded-For headers the proxy sets.
+server:
+  forward-headers-strategy: framework
 
 
 # Phase 4 (D12): production must name a real gateway. There is no RazorpayGateway yet, so

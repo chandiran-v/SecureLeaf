@@ -14,17 +14,19 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '../store/authStore';
 import { recoverFromUnauthorized } from './session';
+import { newCorrelationId, withReference } from './correlationId';
 
 const restClient = axios.create({
   baseURL: '/api',
 });
 
-// Request interceptor: attach the access token to every request
+// Request interceptor: attach the access token and a fresh correlation id (D1) to every request.
 restClient.interceptors.request.use((config) => {
   const token = useAuthStore.getState().accessToken;
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  config.headers['X-Correlation-Id'] = newCorrelationId();
   return config;
 });
 
@@ -33,6 +35,11 @@ restClient.interceptors.request.use((config) => {
 restClient.interceptors.response.use(undefined, async (error: AxiosError<{ code?: string }>) => {
   const config = error.config as (InternalAxiosRequestConfig & { _authRetried?: boolean }) | undefined;
   if (error.response?.status !== 401 || !config || config._authRetried) {
+    // D1 — genuinely failing here (not a transparently-retried expired token): callers across
+    // this app read `err.message` straight into their error banner (see UploadProductPage,
+    // RegisterPage), so appending the reference here reaches the user for free, everywhere.
+    const correlationId = config?.headers?.['X-Correlation-Id'] as string | undefined;
+    error.message = withReference(error.message, correlationId);
     return Promise.reject(error);
   }
   const refreshed = await recoverFromUnauthorized(error.response.data?.code);

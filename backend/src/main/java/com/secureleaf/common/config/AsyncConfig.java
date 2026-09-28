@@ -53,6 +53,8 @@ public class AsyncConfig {
         executor.setThreadNamePrefix(threadNamePrefix);
         executor.setWaitForTasksToCompleteOnShutdown(true);   // graceful shutdown
         executor.setAwaitTerminationSeconds(30);               // wait up to 30s for in-flight jobs
+        // D1 (Phase 9) — propagate the calling request's correlation id onto this pool thread.
+        executor.setTaskDecorator(new MdcTaskDecorator());
         executor.initialize();
         return executor;
     }
@@ -77,6 +79,8 @@ public class AsyncConfig {
         executor.setRejectedExecutionHandler(new java.util.concurrent.ThreadPoolExecutor.CallerRunsPolicy());
         executor.setWaitForTasksToCompleteOnShutdown(true);
         executor.setAwaitTerminationSeconds(10);
+        // D1 (Phase 9) — same correlation-id propagation as contentProcessingExecutor.
+        executor.setTaskDecorator(new MdcTaskDecorator());
         executor.initialize();
         return executor;
     }

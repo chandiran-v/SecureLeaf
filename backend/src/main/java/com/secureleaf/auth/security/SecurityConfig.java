@@ -1,5 +1,6 @@
 package com.secureleaf.auth.security;
 
+import com.secureleaf.common.web.CorrelationIdFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -13,6 +14,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
+import org.springframework.security.web.header.writers.StaticHeadersWriter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -41,6 +44,7 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final CorrelationIdFilter correlationIdFilter;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -62,8 +66,11 @@ public class SecurityConfig {
                         // Mock gateway ("Razorpay's servers" stand-in). The controller only exists
                         // when payment.gateway.provider=mock; CommerceConfig blocks that in prod.
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/mock-gateway/**").permitAll()
-                        // Actuator health & info
-                        .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                        // Actuator — D7: liveness/readiness are public (a load balancer/orchestrator
+                        // has no JWT to send); management.endpoint.health.show-details stays
+                        // when-authorized so the *details* (DB/Redis component status) never leak to
+                        // an anonymous prober, only the top-level UP/DOWN.
+                        .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
                         // SSE notification stream (Phase 6, D7) — EventSource can't send an
                         // Authorization header, so this is public at the HTTP level; the one-time
                         // ticket (NotificationStreamTicketService) is the real authentication.
@@ -83,7 +90,38 @@ public class SecurityConfig {
                         // you"), distinct from a valid JWT that fails an authorization check (403,
                         // handled by BusinessException -> GlobalRestExceptionHandler below).
                         .authenticationEntryPoint(new HttpStatusEntryPoint(org.springframework.http.HttpStatus.UNAUTHORIZED)))
+                // Phase 9, D3 — HTTP security headers. Spring Security already adds a sensible
+                // default set (X-Content-Type-Options: nosniff, a permissive-by-default
+                // X-Frame-Options, cache headers) even with no .headers(...) call at all; this
+                // block makes the DENY explicit and adds the three headers Spring Security has no
+                // built-in support for at this version: CSP, Referrer-Policy and Permissions-Policy.
+                .headers(headers -> headers
+                        .frameOptions(frame -> frame.deny())
+                        .referrerPolicy(referrer -> referrer.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER))
+                        .contentSecurityPolicy(csp -> csp.policyDirectives(
+                                "default-src 'self'; "
+                                        + "script-src 'self'; "
+                                        + "style-src 'self' 'unsafe-inline'; "
+                                        + "img-src 'self' data:; "
+                                        + "connect-src 'self'; "
+                                        + "frame-ancestors 'none'; "
+                                        + "base-uri 'self'"))
+                        .addHeaderWriter(new StaticHeadersWriter("Permissions-Policy",
+                                "camera=(), microphone=(), geolocation=(), payment=()"))
+                        // HSTS: Spring Security's default HeadersConfigurer already writes
+                        // Strict-Transport-Security whenever the request is secure (HTTPS) — true
+                        // in 'prod' behind Render/Vercel's TLS termination once
+                        // server.forward-headers-strategy makes request.isSecure() honest (see
+                        // application-prod.yml). Nothing extra to configure here; called out
+                        // explicitly so a future reader doesn't go looking for it.
+                        .httpStrictTransportSecurity(hsts -> hsts.includeSubDomains(true).preload(true)))
+                // Order matters here: JwtAuthenticationFilter must be registered against a
+                // filter Spring Security's internal FilterOrderRegistry already knows about
+                // (UsernamePasswordAuthenticationFilter, a standard filter) BEFORE it can itself
+                // be used as the reference point for correlationIdFilter below — registering a
+                // custom filter before it has any known order throws IllegalArgumentException.
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(correlationIdFilter, JwtAuthenticationFilter.class)
                 // Disable Spring's default OAuth2 login (we handle Google OAuth via GraphQL mutation)
                 .oauth2Login(oauth2 -> oauth2.disable())
                 .build();

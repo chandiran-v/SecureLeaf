@@ -6,4 +6,4 @@ package com.secureleaf.auth.service;
  * {@code NotificationCreatedEvent} (Phase 4, D9): carries the fully-composed subject/body so the
  * listener doesn't need to re-open a transaction to build it.
  */
-public record PasswordResetMailRequestedEvent(String recipientEmail, String subject, String body) {}
+public record PasswordResetMailRequestedEvent(Long userId, String recipientEmail, String subject, String body) {}

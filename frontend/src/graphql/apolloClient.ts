@@ -18,15 +18,20 @@ import { setContext } from '@apollo/client/link/context';
 import { onError } from '@apollo/client/link/error';
 import { useAuthStore } from '../store/authStore';
 import { recoverFromUnauthorized } from '../lib/session';
+import { newCorrelationId, withReference } from '../lib/correlationId';
 
-// Auth link — inject Bearer token on every request
+// Auth link — inject Bearer token and a fresh correlation id (D1) on every request. The id is
+// also stashed on the operation's context so errorLink below can quote it if this request fails.
 const authLink = setContext((_, { headers }) => {
   const token = useAuthStore.getState().accessToken;
+  const correlationId = newCorrelationId();
   return {
     headers: {
       ...headers,
       authorization: token ? `Bearer ${token}` : '',
+      'X-Correlation-Id': correlationId,
     },
+    correlationId,
   };
 });
 
@@ -80,10 +85,21 @@ const errorLink = onError(({ graphQLErrors, networkError, operation, forward }) 
     });
   }
 
-  graphQLErrors?.forEach((err) =>
-    console.error(`[GraphQL error] Message: ${err.message}, Path: ${err.path}`, err.locations)
-  );
+  // D1 — every error that actually reaches the user (as opposed to the transparently-retried
+  // 401 case above) gets the request's correlation id appended to its message, so whatever UI
+  // renders `error.message` (every page in this app uses a plain inline banner, not a toast
+  // library — see LoginPage/RegisterPage/UploadProductPage) shows a reference a support request
+  // can quote, and that id is exactly what CorrelationIdFilter put in every backend log line for
+  // this request.
+  const correlationId = operation.getContext().correlationId as string | undefined;
+  graphQLErrors?.forEach((err) => {
+    // `message` is typed readonly on GraphQLFormattedError, but it's a plain object at runtime —
+    // the assertion below only affects the type used for this one assignment.
+    (err as { message: string }).message = withReference(err.message, correlationId);
+    console.error(`[GraphQL error] Message: ${err.message}, Path: ${err.path}`, err.locations);
+  });
   if (networkError) {
+    (networkError as { message: string }).message = withReference(networkError.message, correlationId);
     console.error('[Network error]', networkError);
   }
 });
