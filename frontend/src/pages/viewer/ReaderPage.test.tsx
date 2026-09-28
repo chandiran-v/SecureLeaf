@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { MockedProvider, type MockedResponse } from '@apollo/client/testing';
 import { GraphQLError } from 'graphql';
@@ -51,7 +51,7 @@ function notEntitledMock(): MockedResponse {
 function pageUrlMock(sessionToken: string, pageNumber: number, url: string): MockedResponse {
   return {
     request: { query: VIEWER_PAGE_URL, variables: { sessionToken, pageNumber } },
-    result: { data: { viewerPageUrl: { url, expiresAt: new Date(Date.now() + 30_000).toISOString() } } },
+    result: { data: { viewerPageUrl: { url, expiresAt: new Date(Date.now() + 30_000).toISOString(), links: [] } } },
   };
 }
 
@@ -66,6 +66,7 @@ function pageUrlMockRepeatable(sessionToken: string, pageNumber: number): Mocked
         viewerPageUrl: {
           url: `/api/viewer/tiles/100/${pageNumber}?exp=1&sig=page-${pageNumber}`,
           expiresAt: new Date(Date.now() + 30_000).toISOString(),
+          links: [],
         },
       },
     }),
@@ -322,6 +323,42 @@ describe('ReaderPage', () => {
 
     expect(await screen.findByText('Page 2 / 2')).toBeInTheDocument();
     expect(screen.getByTestId('zoom-level')).toHaveTextContent('125%');
+  });
+
+  // V8 — PDF links overlaid on the canvas
+  it('overlays the page links: web links open in a new tab, page links jump, unsafe ones are dropped', async () => {
+    const box = { left: 0.1, top: 0.1, width: 0.2, height: 0.05 };
+    const linksMock: MockedResponse = {
+      request: { query: VIEWER_PAGE_URL, variables: { sessionToken: 'tok-1', pageNumber: 1 } },
+      result: {
+        data: {
+          viewerPageUrl: {
+            url: '/api/viewer/tiles/100/1?exp=1&sig=page-1',
+            expiresAt: new Date(Date.now() + 30_000).toISOString(),
+            links: [
+              { ...box, type: 'URL', url: 'https://example.com/ref', targetPage: null },
+              { ...box, type: 'URL', url: 'javascript:alert(1)', targetPage: null },
+              { ...box, type: 'PAGE', url: null, targetPage: 3 },
+            ],
+          },
+        },
+      },
+    };
+    renderReader([
+      startSessionMock({ pageCount: 3 }),
+      linksMock,
+      pageUrlMockRepeatable('tok-1', 2),
+      pageUrlMockRepeatable('tok-1', 3),
+    ]);
+
+    const webLink = await screen.findByRole('link', { name: /example\.com\/ref/ });
+    expect(webLink).toHaveAttribute('href', 'https://example.com/ref');
+    // Only links ON the page (the toolbar's "Exit" link doesn't count): the javascript: one never rendered.
+    expect(within(screen.getByTestId('viewer-page')).getAllByRole('link')).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Go to page 3' }));
+
+    expect(await screen.findByText('Page 3 / 3')).toBeInTheDocument();
   });
 
   // Criterion 6 — ?page= on load

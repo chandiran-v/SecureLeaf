@@ -52,6 +52,12 @@ Zoom was out of scope in the 05B spec, and a real reader missed it straight away
 
 ---
 
+### 1D. Clickable links (added after zoom)
+
+A buyer noticed that links in a book did nothing. That follows from the whole design: the reader shows each page as a *picture*, and a picture of a link isn't a link. Now, while an upload is processed, the backend also reads the PDF's **link annotations**: where each link sits and where it points. The reader lays **invisible click targets** over the picture in exactly those places. Web links open in a new tab; links like "see chapter 3" jump to that page. They line up at any zoom. Books uploaded before this change get their links from a **backfill** job. Only real PDF links become clickable; text that merely *looks* like an address stays plain text.
+
+---
+
 ## 2. Why it matters
 
 - **This is the actual product.** SecureLeaf's entire pitch is "buy once, never get a raw file". Everything before this phase — auth, upload, search, checkout — exists to get a buyer to this moment. If this phase leaks a clean page, the business has no product.
@@ -402,6 +408,27 @@ useEffect(() => {
 
 ---
 
+### 3.16 Two coordinate systems: PDF points vs the rendered picture (links addendum)
+
+**What it is:** A PDF describes positions in **points** (1/72 inch), with the origin at the **bottom-left** of the page. Our tile is a picture whose origin is the **top-left**, cropped to the page's crop box, and turned if the page has a `/Rotate` of 90/180/270°. A link rectangle has to be translated from the first system into the second.
+
+**How it works** (`PdfLinkExtractor.normalise`):
+1. Subtract the crop box's origin; divide by its width and height to get fractions 0..1.
+2. Flip the vertical axis: `top = (cropTop − rectTop) / cropHeight`.
+3. Apply the page rotation clockwise, as the renderer does. At 90°, a box in the top-left corner moves to the top-right, and its width and height swap.
+4. Store **fractions**, not pixels. The reader positions links in **percent** of the page wrapper, so they stay aligned at any screen size or zoom with no maths in the browser.
+
+**What breaks without it:** links that sit a little too high (forgotten flip), shifted (forgotten crop box), or sideways (forgotten rotation). All four rotations are unit-tested.
+
+### 3.17 Links as an attack surface: `javascript:` URLs and reverse tabnabbing
+
+**What it is:** A PDF is untrusted input. Its links become real `<a href>` elements in *our* page, so:
+- **Scheme allowlist.** Only `http`, `https` and `mailto` survive. A `javascript:` link would run code in our site's origin, which is where the buyer's login lives. `file:` and `data:` are dropped too. The check runs on the server (`PdfLinkExtractor.safeUrl`) **and again in the browser** (`lib/viewerLinks.ts`), as defense in depth.
+- **`rel="noopener noreferrer"`** on every new-tab link. Without it, the opened page gets `window.opener` and can redirect *our* tab to a fake login page (**reverse tabnabbing**), and it would also learn which page linked to it.
+- **Caps:** at most 200 links per page, and 2,048 characters per URL, so a hostile file can't bloat the database.
+
+---
+
 ## 4. Best practices applied
 
 | Practice | What we did | Why it matters | Where |
@@ -411,6 +438,9 @@ useEffect(() => {
 | Canvas backing store | The canvas's real pixel buffer (`canvas.width/height`), separate from its CSS display size |
 | Fit width | The CSS width at which the whole page fits the reading area; the reader's "100%" zoom |
 | Passive event listener | A listener that promises not to call `preventDefault()`, so the browser can scroll without waiting for it |
+| PDF user space | A PDF's coordinate system: points (1/72 in), origin bottom-left |
+| Link annotation | The PDF object that makes a rectangle on a page clickable (a URI or a destination page) |
+| Reverse tabnabbing | A page opened in a new tab using `window.opener` to redirect the original tab; stopped by `rel="noopener"` |
 | Atomic compare-and-refresh | A Lua script, not `GET` then `EXPIRE` | Closes the race where another session's write lands between the two calls | `ViewerSessionService.java:68-79` |
 | Constant-time signature compare | `MessageDigest.isEqual`, same as Phase 4's HMAC checks | Closes a timing side-channel | `TileUrlSigner.java:62` |
 | Re-check authorization on every request | Entitlement status re-read fresh per tile, not cached on the session | A revoke takes effect on the very next tile, not at the next login | `SecureTileService.java:96-100` |
@@ -542,6 +572,13 @@ useEffect(() => {
 
 ---
 
+### Decision (links addendum): extract links while processing, and backfill old uploads
+- **Alternatives considered:** read the PDF on every page view (slow, and repeats work forever); send the PDF's text layer to the browser and link-ify addresses (would leak the book's text, which the whole DRM design avoids).
+- **Why we chose this:** the pipeline already has the PDF open, so extraction is nearly free; the links are then one indexed query per page view. Old uploads get a background backfill (20 versions per run, idempotent, and stamped even if the file is missing so it can't retry forever).
+- **What we gave up:** links arrive with the page's signed URL, so a page's links are visible only to entitled buyers. That's intended; free-preview pages don't have clickable links yet.
+
+---
+
 ## 7. Interview questions
 
 > Answer out loud first. Then read. Ordered easy → hard.
@@ -661,6 +698,19 @@ A: Flex centring distributes negative free space equally on both sides, so an ov
 
 ---
 
+### Links addendum — questions
+
+**Q (Beginner): The reader shows pictures of pages. How can a link in the book be clickable?**
+A: When the PDF is processed we read each link's rectangle and target. The reader puts an invisible, correctly sized `<a>` or button exactly over that spot on the picture. The positions are stored as fractions of the page, so they scale with zoom.
+
+**Q (Intermediate): Why store link positions as fractions instead of pixels?**
+A: The picture is shown at many sizes (screen width, zoom level, device pixel ratio). Fractions let the browser place each link in percent of the page box, and it stays aligned at every size without recalculation.
+
+**Q (Advanced): What could go wrong security-wise when you turn PDF links into HTML links?**
+A: The PDF is attacker-controlled. A `javascript:` URL would run script in our origin, so we allowlist http/https/mailto on both server and client. New-tab links need `rel="noopener noreferrer"` to prevent reverse tabnabbing. And we cap link counts and URL lengths so a hostile file can't bloat storage.
+
+---
+
 ## 8. Gotchas and bugs we hit
 
 | # | Symptom | Root cause | Fix | Lesson |
@@ -680,6 +730,9 @@ A: Flex centring distributes negative free space equally on both sides, so an ov
 | 12 | (zoom addendum) Zoomed page couldn't be scrolled to its top/left edge (a known CSS trap, avoided by design) | Flex `items-center justify-center` centres an overflowing child by pushing it past the start edge | `m-auto` on the canvas | Use `margin: auto` for "centre while it fits, scroll when it doesn't" |
 | 13 | (zoom addendum) New sizing test saw `1000px` instead of `560px` | `MutationObserver` callbacks are delivered on a later microtask; a synchronous `act()` asserted before the observer had fired, while the canvas still had its default 300×150 shape | `await act(async () => …)` so pending microtasks run first | Observers are asynchronous; tests have to wait for them like any other async work |
 | 14 | (zoom addendum) `npm run lint` failed on a warning | `react-refresh/only-export-components`: a component file also exported a helper function, which breaks hot reload; lint runs with `--max-warnings 0` | Moved `computeFitWidth` to `src/lib/viewerLayout.ts` | Pure helpers belong in `lib/`, not in component files |
+| 15 | (links) Clicking a link on a **zoomed** page did nothing (caught while building) | Drag-to-pan calls `setPointerCapture` on `pointerdown`; with capture, the browser sends the click to the scroller instead of the link | `onPointerDown` ignores presses that start on an `a` or `button` | Pointer capture retargets later events, including `click`; exclude interactive children |
+| 16 | (links) A new integration test failed only in the full suite with `deadlock detected` during the shared `TRUNCATE` | `DocumentUploadIT` queues processing jobs that the background poller runs **after** that test ends; the next test's `TRUNCATE` (exclusive locks on every table) deadlocked with that pipeline | `AbstractIntegrationTest.truncateAllTables` retries on `PessimisticLockingFailureException` (up to 5×, backing off) | Tests that start async work leak it into the next test; make the shared reset tolerant, or wait for the work |
+| 17 | (links) A reader test expected 1 link but found 2 | The toolbar's "← Exit" is also a link; the query counted the whole screen | Scope the query: `within(getByTestId('viewer-page'))` | Query the region you mean, not the whole screen |
 ---
 
 ## 9. New vocabulary

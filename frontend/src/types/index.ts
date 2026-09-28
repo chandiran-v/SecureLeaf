@@ -159,9 +159,21 @@ export interface ViewerHeartbeat {
 }
 
 // A single-use, ~30s link to one watermarked tile: GET the `url` over REST, not GraphQL.
+/** One clickable area on a page: fractions (0..1) of the page image, origin top-left (V8). */
+export interface PageLink {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  type: 'URL' | 'PAGE';
+  url: string | null;
+  targetPage: number | null;
+}
+
 export interface SignedPageUrl {
   url: string;
   expiresAt: string;
+  links: PageLink[];
 }
 
 // ── Reviews (REV-01..04) ────────────────────────────────────────────────────

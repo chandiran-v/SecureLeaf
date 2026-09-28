@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, type PointerEvent, type RefObject } from 'react';
 import { useViewerStore } from '../../stores/viewerStore';
 import { computeFitWidth } from '../../lib/viewerLayout';
+import type { PageLink } from '../../types';
 
 interface ViewerCanvasProps {
   canvasRef: RefObject<HTMLCanvasElement>;
@@ -8,6 +9,10 @@ interface ViewerCanvasProps {
   printScreenBlanked: boolean;
   error?: boolean;
   onRetry?: () => void;
+  /** The drawn page's clickable links (already filtered by `usableLinks`). */
+  links?: PageLink[];
+  /** Called for a link to another page of this document. */
+  onGoToPage?: (page: number) => void;
 }
 
 /** How fast Ctrl+wheel / trackpad pinch zooms. exp() makes zooming in then out by the same
@@ -24,8 +29,20 @@ const WHEEL_ZOOM_SENSITIVITY = 0.002;
  * tile's resolution. Zooming only changes its *CSS* width: fit width × zoom. So zooming never
  * re-fetches a page, and past the tile's native size the browser upscales (a little soft). When
  * the page is bigger than the screen, the scroller scrolls, and dragging pans.
+ *
+ * Links (V8): the page is a picture, so the PDF's links are laid over it as invisible `<a>` /
+ * `<button>` areas positioned in PERCENT of the page wrapper. The wrapper is exactly the canvas's
+ * size, so the links line up at any zoom without recalculating anything.
  */
-export default function ViewerCanvas({ canvasRef, loading, printScreenBlanked, error, onRetry }: ViewerCanvasProps) {
+export default function ViewerCanvas({
+  canvasRef,
+  loading,
+  printScreenBlanked,
+  error,
+  onRetry,
+  links = [],
+  onGoToPage,
+}: ViewerCanvasProps) {
   const blurred = useViewerStore((state) => state.focusBlurred || state.devToolsBlurred);
   const zoom = useViewerStore((state) => state.zoom);
   const hide = blurred || printScreenBlanked;
@@ -81,6 +98,9 @@ export default function ViewerCanvas({ canvasRef, loading, printScreenBlanked, e
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     const scroller = scrollerRef.current;
     if (!scroller || event.button !== 0) return;
+    // Pressing on a link must click it, not start a pan: pointer capture would retarget the
+    // click to the scroller and the link would never fire.
+    if ((event.target as HTMLElement).closest('a, button')) return;
     if (scroller.scrollWidth <= scroller.clientWidth && scroller.scrollHeight <= scroller.clientHeight) return;
     panStart.current = { x: event.clientX, y: event.clientY, left: scroller.scrollLeft, top: scroller.scrollTop };
     scroller.setPointerCapture?.(event.pointerId);
@@ -109,12 +129,57 @@ export default function ViewerCanvas({ canvasRef, loading, printScreenBlanked, e
         onPointerCancel={endPan}
         className={`absolute inset-0 flex overflow-auto p-4 ${zoom > 1 ? 'cursor-grab active:cursor-grabbing' : ''}`}
       >
-        <canvas
-          ref={canvasRef}
-          draggable={false}
-          onDragStart={(event) => event.preventDefault()}
-          className={`m-auto h-auto shrink-0 rounded shadow-2xl transition-[filter] duration-150 ${hide ? 'blur-3xl' : ''}`}
-        />
+        <div className="relative m-auto shrink-0" data-testid="viewer-page">
+          <canvas
+            ref={canvasRef}
+            draggable={false}
+            onDragStart={(event) => event.preventDefault()}
+            className={`block h-auto rounded shadow-2xl transition-[filter] duration-150 ${hide ? 'blur-3xl' : ''}`}
+          />
+
+          {/* Hidden with the page (blur / PrintScreen / loading) so links never float over nothing. */}
+          {!hide && !loading &&
+            links.map((link, index) => {
+              const style = {
+                left: `${link.left * 100}%`,
+                top: `${link.top * 100}%`,
+                width: `${link.width * 100}%`,
+                height: `${link.height * 100}%`,
+              };
+              const className =
+                'absolute block rounded-sm transition-colors hover:bg-emerald-400/20 focus-visible:bg-emerald-400/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400';
+              if (link.type === 'URL' && link.url) {
+                return (
+                  <a
+                    key={index}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={link.url}
+                    aria-label={`${link.url} (opens in a new tab)`}
+                    draggable={false}
+                    style={style}
+                    className={className}
+                  />
+                );
+              }
+              if (link.type === 'PAGE' && link.targetPage != null) {
+                const target = link.targetPage;
+                return (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => onGoToPage?.(target)}
+                    title={`Go to page ${target}`}
+                    aria-label={`Go to page ${target}`}
+                    style={style}
+                    className={`${className} cursor-pointer`}
+                  />
+                );
+              }
+              return null;
+            })}
+        </div>
       </div>
 
       {hide && (

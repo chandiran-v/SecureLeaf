@@ -67,6 +67,7 @@ public class DocumentProcessingService {
     private final ProcessingJobRepository processingJobRepository;
     private final DocumentVersionRepository documentVersionRepository;
     private final ContentPageRepository contentPageRepository;
+    private final PageLinkService pageLinkService;
     private final ProductRepository productRepository;
     private final StorageService storageService;
     private final MinioProperties minioProperties;
@@ -181,6 +182,9 @@ public class DocumentProcessingService {
             page.setFileSizeBytes((long) pngBytes.length);
             try {
                 contentPageRepository.save(page);
+                // V8 — the PDF's clickable links, while the document is already open. (The
+                // DELETE above cascades to the old links, so a retry doesn't duplicate them.)
+                pageLinkService.saveLinks(pdf, page);
             } catch (DataIntegrityViolationException e) {
                 // Race condition on retry — the unique constraint fired but the
                 // DELETE-before-INSERT should have prevented this. Log and continue.
@@ -232,6 +236,7 @@ public class DocumentProcessingService {
                            Product product, int pageCount) {
         docVersion.setPageCount(pageCount);
         docVersion.setProcessedAt(Instant.now());
+        docVersion.setLinksExtractedAt(Instant.now()); // links were saved with the tiles (V8)
         documentVersionRepository.save(docVersion);
 
         product.setStatus(ProductStatus.LIVE);

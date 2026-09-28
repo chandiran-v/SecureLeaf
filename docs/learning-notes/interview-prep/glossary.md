@@ -122,3 +122,6 @@
 | **Single-flight** | Concurrent callers of the same operation share one in-flight request/promise instead of each starting their own (e.g. one token refresh for many 401s) | [Phase 1](../phase-01-auth.md) |
 | **RFC 6750 / `invalid_token`** | OAuth 2.0 Bearer Token standard: a bad or expired bearer token gets 401 with `WWW-Authenticate: Bearer error="invalid_token"` | [Phase 1](../phase-01-auth.md) |
 | **`StatementInspector`** | Hibernate hook that sees every SQL statement before it runs; used in tests to count one request's queries | [Phase 6](../phase-06-library-dashboard-notifications.md) |
+| **Reverse tabnabbing** | A page opened in a new tab uses `window.opener` to redirect the original tab (e.g. to a fake login); prevented by `rel="noopener noreferrer"` | [Phase 5](../phase-05-secure-viewer.md) |
+| **PDF user space** | A PDF's coordinate system: points (1/72 inch) with the origin at the bottom-left; must be flipped/rotated to match a rendered image | [Phase 5](../phase-05-secure-viewer.md) |
+| **Backfill** | A one-off (or repeating, self-finishing) job that fills in data for records created before a feature existed | [Phase 5](../phase-05-secure-viewer.md) |

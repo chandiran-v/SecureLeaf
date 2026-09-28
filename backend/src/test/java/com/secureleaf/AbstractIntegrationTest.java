@@ -2,6 +2,7 @@ package com.secureleaf;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
@@ -89,17 +90,30 @@ public abstract class AbstractIntegrationTest {
      * subclass @BeforeEach (JUnit runs superclass lifecycle methods first).
      */
     @BeforeEach
-    void truncateAllTables() {
-        baseJdbcTemplate.execute("""
-                DO $$
-                DECLARE tables text;
-                BEGIN
-                    SELECT string_agg(format('%I', tablename), ', ') INTO tables
-                    FROM pg_tables
-                    WHERE schemaname = 'public' AND tablename <> 'flyway_schema_history';
-                    EXECUTE 'TRUNCATE ' || tables || ' RESTART IDENTITY CASCADE';
-                END $$;
-                """);
+    void truncateAllTables() throws InterruptedException {
+        // A previous test can leave async work running (e.g. DocumentUploadIT's uploads are
+        // picked up by the job poller AFTER that test ends). TRUNCATE needs an exclusive lock
+        // on every table, so it can deadlock with that work; Postgres then aborts one side.
+        // Retrying is the standard answer: the background work finishes and the next attempt
+        // gets its locks.
+        for (int attempt = 1; ; attempt++) {
+            try {
+                baseJdbcTemplate.execute("""
+                        DO $$
+                        DECLARE tables text;
+                        BEGIN
+                            SELECT string_agg(format('%I', tablename), ', ') INTO tables
+                            FROM pg_tables
+                            WHERE schemaname = 'public' AND tablename <> 'flyway_schema_history';
+                            EXECUTE 'TRUNCATE ' || tables || ' RESTART IDENTITY CASCADE';
+                        END $$;
+                        """);
+                return;
+            } catch (PessimisticLockingFailureException e) { // deadlock / lock timeout
+                if (attempt == 5) throw e;
+                Thread.sleep(250L * attempt);
+            }
+        }
     }
 
     /**

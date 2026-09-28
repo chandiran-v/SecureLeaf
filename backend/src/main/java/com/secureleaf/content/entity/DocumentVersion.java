@@ -55,4 +55,8 @@ public class DocumentVersion {
     @Column(name = "processed_at")
     private Instant processedAt;
 
+    /** When the PDF's link annotations were extracted (V8). NULL = not yet: the backfill job picks it up. */
+    @Column(name = "links_extracted_at")
+    private Instant linksExtractedAt;
+
 }

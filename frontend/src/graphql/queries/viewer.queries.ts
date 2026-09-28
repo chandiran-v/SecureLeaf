@@ -7,6 +7,16 @@ export const VIEWER_PAGE_URL = gql`
     viewerPageUrl(sessionToken: $sessionToken, pageNumber: $pageNumber) {
       url
       expiresAt
+      # V8 — clickable areas on this page, overlaid on the canvas by ViewerCanvas.
+      links {
+        left
+        top
+        width
+        height
+        type
+        url
+        targetPage
+      }
     }
   }
 `;
