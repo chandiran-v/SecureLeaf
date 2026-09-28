@@ -19,6 +19,18 @@ decision is numbered (D1, D2 …) and has an answer.
 | 08 | [Admin panel](phase-08-admin-panel.md) | ADMIN-01..04, AUTH-08 | `phase-08-admin-panel.md` |
 | 09 | [Hardening & release readiness](phase-09-hardening-release.md) | Non-functional requirements | `phase-09-hardening-release.md` |
 
+### Launch track (still MVP1): make it publicly usable at ₹0/month
+Hosting decision and measured numbers: [ADR 0001: one Oracle Always Free server](../adr/0001-hosting-oracle-always-free.md).
+
+| # | Spec | What it delivers | Learning note |
+|---|---|---|---|
+| 09B | [Real Razorpay (test mode)](phase-09b-razorpay-test-mode.md) | Real Razorpay API + checkout.js, refunds, reconciliation job, fee accounting, demo banner, guard against live keys | Phase 4 addendum or `phase-09b-razorpay.md` |
+| 09C | [Payouts, receipts & legal pages](phase-09c-payouts-receipts-legal.md) | Creator balance and payout requests, admin payout workflow, statements (CSV), printable receipts, Terms/Privacy/Refund/Contact | `phase-09c-payouts-legal.md` |
+| 09D | [Production package for one Oracle server](phase-09d-production-oracle-server.md) | Prod compose (Caddy + TLS), ARM images, memory/CPU budget, Brevo email, Sentry, setup/deploy/rollback/backup/restore scripts, runbook | `phase-09d-production-single-server.md` |
+| 09E | [**Go live**](phase-09e-go-live.md), 🧑‍💻 *manual, done together* | Create the server, deploy, smoke-test the live URL, backups verified → **🚀 LIVE** | `phase-09e-go-live.md` |
+
+**🚀 SecureLeaf goes live at the end of 09E**, as a public beta at `https://<name>.duckdns.org` with every feature working and payments in Razorpay **test mode**. After that: tag `v1.0.0`, merge to `main`, and switch the scheduler to MVP2.
+
 ## MVP2 — target branch `feature/secure-leaf-mvp2` (scale to 5,000 concurrent viewers)
 
 MVP2 starts after MVP1 is released. The scheduler only picks `mvp2` Issues once you switch it over (see "Switching to MVP2" below).
@@ -33,6 +45,11 @@ MVP2 starts after MVP1 is released. The scheduler only picks `mvp2` Issues once 
 | 15 | [Full document versioning](phase-15-document-versioning.md) | MVP2-05 | `phase-15-document-versioning.md` |
 | 16 | [Adaptive tile resolution](phase-16-adaptive-tile-resolution.md) | MVP2-06 | `phase-16-adaptive-tile-resolution.md` |
 | 17 | [5,000-viewer capacity verification](phase-17-capacity-verification.md) | MVP2-07 | `phase-17-capacity-verification.md` |
+| 18 | [Own domain + Razorpay **live** payments](phase-18-domain-and-live-payments.md), 🧑‍💻 *manual* | Domain, KYC, live keys, domain email, reviewed legal pages | 09E note addendum |
+
+> **Hardware note:** the free server has **2 OCPU / 12 GB**. Phases 10–16 raise what those 2 cores can serve (cache, render pool, rate limits, libvips), and their benchmarks still apply. **Phase 17's 5,000-viewer target needs bigger hardware**: on the free box, Phase 17 measures the real ceiling and says what hardware 5,000 viewers would need.
+>
+> Phase 18 doesn't depend on 10–17. Do it whenever you're ready to take real money.
 
 ---
 
@@ -63,6 +80,8 @@ MVP2 starts after MVP1 is released. The scheduler only picks `mvp2` Issues once 
 | Pause everything | Add `phase:blocked` to any open `mvp1` Issue. |
 
 Comments that mention **`@claude`** go to the interactive `claude.yml` workflow instead, which is useful for quick questions on a PR.
+
+**`manual` label:** Issues labelled `manual` (09E, 18) need your accounts and logins, so the scheduler **never picks them**. They are done together with Claude in a session. Only Issues labelled `phase` or `fix` are automated.
 
 ### Switching to MVP2 (when MVP1 is released)
 1. Merge `feature/secure-leaf-mvp1` into `main` (release).

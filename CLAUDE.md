@@ -11,7 +11,7 @@ This file provides context and rules for the AI assistant working on the SecureL
 - **Backend**: Java 21, Spring Boot 3, Spring Security 6
 - **Database**: PostgreSQL 16 (via Flyway migrations)
 - **Infrastructure**: Local Docker Compose (Postgres, Redis, MinIO)
-- **Production**: Render (Backend), Supabase (DB + Storage), Vercel (Frontend), Upstash (Redis)
+- **Production**: one Oracle Cloud Always Free ARM server (2 OCPU / 12 GB, Ubuntu aarch64) running docker-compose: Caddy (TLS + SPA) + backend + Postgres + Redis + MinIO; DuckDNS hostname; Brevo SMTP; optional Sentry. See `docs/adr/0001-hosting-oracle-always-free.md`. All images must support **linux/arm64**; stay within the memory/CPU budget in `docs/phases/phase-09d-production-oracle-server.md`.
 
 ## Coding Conventions
 ### Backend (Java / Spring Boot)
