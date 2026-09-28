@@ -54,6 +54,8 @@ spring:
 # ── App-wide (D10) ────────────────────────────────────────────────────────────
 app:
   frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:5173}   # used to build emailed links (e.g. password reset)
+  # D3/D9 (Phase 9) — see docs/deployment.md. Comma-separated; no spaces.
+  cors-allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}
 
 # ── Admin bootstrap (Phase 8, D1) ─────────────────────────────────────────────
 # Comma-separated list of emails granted ADMIN at startup (existing users) and at

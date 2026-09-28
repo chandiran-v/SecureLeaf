@@ -125,3 +125,16 @@
 | **Reverse tabnabbing** | A page opened in a new tab uses `window.opener` to redirect the original tab (e.g. to a fake login); prevented by `rel="noopener noreferrer"` | [Phase 5](../phase-05-secure-viewer.md) |
 | **PDF user space** | A PDF's coordinate system: points (1/72 inch) with the origin at the bottom-left; must be flipped/rotated to match a rendered image | [Phase 5](../phase-05-secure-viewer.md) |
 | **Backfill** | A one-off (or repeating, self-finishing) job that fills in data for records created before a feature existed | [Phase 5](../phase-05-secure-viewer.md) |
+| **Correlation id** | One value attached to every log line a single request produces, across every layer and thread it touches | [Phase 9](../phase-09-hardening-release.md) |
+| **MDC (Mapped Diagnostic Context)** | SLF4J's per-thread key/value map that every log statement on that thread reads automatically | [Phase 9](../phase-09-hardening-release.md) |
+| **Structured logging** | One JSON object per log line, built for a machine to filter/index rather than a human to read as prose | [Phase 9](../phase-09-hardening-release.md) |
+| **GraphQL introspection** | The `__schema`/`__type` meta-queries that let a client discover a GraphQL API's entire schema | [Phase 9](../phase-09-hardening-release.md) |
+| **Query complexity / query depth** | A numeric cost per selected field (aliases counted separately) / how many levels deep a query's selections nest — two independent GraphQL DoS limits | [Phase 9](../phase-09-hardening-release.md) |
+| **Credential stuffing** | Automated, high-volume password guessing against one or many accounts | [Phase 9](../phase-09-hardening-release.md) |
+| **Fail-fast configuration** | Refusing to start at all if a known-dangerous precondition (e.g. a dev secret still set in prod) is met, rather than starting and failing later | [Phase 9](../phase-09-hardening-release.md) |
+| **Liveness probe / readiness probe** | "Is this process alive?" (restart if not) vs. "should traffic be routed to it right now?" (pull from rotation if not) — two different orchestrator questions | [Phase 9](../phase-09-hardening-release.md) |
+| **Testing pyramid** | Many fast unit tests, fewer integration tests, very few slow end-to-end tests — each layer catching what the one below structurally can't | [Phase 9](../phase-09-hardening-release.md) |
+| **End-to-end (E2E) test** | A test that drives the real, fully assembled system — here, a real browser against a real running frontend, backend, database and cache, nothing mocked | [Phase 9](../phase-09-hardening-release.md) |
+| **Requirements traceability matrix** | A document mapping every requirement id to the specific evidence (test or code) proving it's implemented | [Phase 9](../phase-09-hardening-release.md) |
+| **HSTS (HTTP Strict Transport Security)** | A response header telling the browser to only ever connect to this origin over HTTPS from now on | [Phase 9](../phase-09-hardening-release.md) |
+| **Permissions-Policy** | A response header disabling specific browser APIs (camera, microphone, geolocation, payment) for the page | [Phase 9](../phase-09-hardening-release.md) |

@@ -8,8 +8,13 @@
  *    progress bar in UploadProductPage
  * 3. Automatic JSON parsing — fetch requires res.json() on every response
  *
- * This client shares the same base URL as the GraphQL proxy: Vite forwards
- * /api → localhost:8080 in dev (vite.config.ts), and nginx does it in prod.
+ * BASE URL (Phase 9, D9): defaults to the relative path `/api`, which only resolves correctly
+ * when something in front of this app proxies it to the backend — Vite does in dev
+ * (vite.config.ts), and nginx does for the Docker Compose deployment (infra/nginx/nginx.conf).
+ * A static Vercel deployment has no such proxy: the frontend and backend are genuinely different
+ * origins (Vercel vs Render), so `VITE_API_URL` must be set to the backend's full origin (e.g.
+ * `https://secureleaf-backend.onrender.com/api`) — see docs/deployment.md. Same pattern as
+ * apolloClient.ts's `VITE_GRAPHQL_URL`.
  */
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '../store/authStore';
@@ -17,7 +22,7 @@ import { recoverFromUnauthorized } from './session';
 import { newCorrelationId, withReference } from './correlationId';
 
 const restClient = axios.create({
-  baseURL: '/api',
+  baseURL: import.meta.env.VITE_API_URL ?? '/api',
 });
 
 // Request interceptor: attach the access token and a fresh correlation id (D1) to every request.

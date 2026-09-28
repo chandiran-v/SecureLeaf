@@ -14,6 +14,44 @@
 
 ---
 
+## MVP1 — the 60-second tour (Phase 9 finish line)
+
+> Use this when someone asks "so is it actually production-ready?" — it's the tour of everything
+> that makes MVP1 more than "the features work on my machine."
+
+- **Trace any request:** every response carries `X-Correlation-Id`; every log line it produced —
+  even from a background `@Async` job — carries the same id, via SLF4J MDC propagated onto pool
+  threads by a `TaskDecorator`.
+- **Logs are structured JSON in production** (`logstash-logback-encoder`, since this project pins
+  Spring Boot 3.3.2, before Boot's own built-in structured-logging property existed), and a test
+  fails the build if a log line ever hands SLF4J a raw password/token/secret by name.
+- **Real security headers:** CSP, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`,
+  `Permissions-Policy`, HSTS — on both the API (`SecurityConfig`) and the Vercel-hosted frontend
+  (`vercel.json`).
+- **GraphQL can't be turned into a DoS vector:** max query depth 10, max complexity 200 (aliasing
+  the same field hundreds of times doesn't dodge the complexity cap), introspection off in prod.
+- **Credential stuffing is throttled:** 5 failed logins per email+IP per 15 minutes, Redis
+  `INCR`+`EXPIRE`, same recipe as Phase 7's password-reset limiter.
+- **The app refuses to boot in prod with a leaked default:** JWT/DRM/Razorpay/MinIO secrets are all
+  checked against their known dev values at startup; a match crashes the app immediately, naming
+  every offender at once.
+- **Liveness ≠ readiness:** `/actuator/health/readiness` checks DB+Redis specifically (not every
+  auto-configured indicator — a broken SMTP connection doesn't pull a healthy instance out of
+  rotation); `/actuator/health/liveness` just answers "is the process alive."
+- **One test drives the whole system for real:** a Playwright test registers a creator, uploads a
+  real PDF through the real async pipeline to LIVE, has a buyer buy it through the mock gateway,
+  and asserts the viewer paints real, non-blank pixels on a real `<canvas>` — no mocked layer,
+  anywhere, below the browser.
+- **Every MVP1 requirement has a receipt:** `docs/release-mvp1.md` maps every requirement id from
+  `docs/requirements.md` to the specific test or file:line proving it, honestly marking anything
+  Partial or Deferred.
+
+**The one-line honest gap:** the logging-hygiene test is a name-based check, not a type-aware one —
+a secret in a variable spelled unexpectedly still slips through. Say this unprompted; it's the same
+"know your own weak spot" signal as the DRM framing above.
+
+---
+
 ## Phase 1 — Auth · [full note](../phase-01-auth.md)
 
 | Concept | The one-line answer |
@@ -218,6 +256,28 @@
 | One `navItems` list | Desktop and mobile menus render from the same role-based list, so they can't drift |
 
 **Weakest point to volunteer:** no focus management (focus isn't moved into the panel or returned to the button).
+
+---
+
+## Phase 9 — Hardening & release readiness · [full note](../phase-09-hardening-release.md)
+
+| Concept | The one-line answer |
+|---|---|
+| MDC across `@Async` | A `TaskDecorator` copies the calling thread's MDC onto the pool thread before the task runs, and restores it after — otherwise every async log line has no correlation id |
+| Why JSON logs need an extra dependency here | Boot 3.4+ has `logging.structured.format.console: ecs` built in; this project pins 3.3.2, so `logstash-logback-encoder` does the same job directly |
+| Complexity counts aliases separately | `{ a1: title a2: title ... }` 200 times doesn't dodge the complexity cap — each alias is its own field to graphql-java's default calculator |
+| Introspection off, the built-in way | `spring.graphql.schema.introspection.enabled: false` — a real Boot property, no custom `GraphQlSourceBuilderCustomizer` bean needed |
+| Why email+IP, not email alone, for login throttling | Email alone lets an attacker lock out a *victim* on purpose from a different IP — the anti-abuse feature becomes the weapon |
+| Fail-fast naming every offender at once | `ProdSecretsConfig` collects every dev-default secret still set into one exception message, not one failed deploy per secret |
+| Readiness scoped to `db`+`redis`, not everything | Boot auto-registers a `mail` health indicator too; a broken SMTP connection shouldn't pull a healthy instance out of rotation for *read* traffic |
+| Proven live, not just configured | Manual verification actually saw plain `/actuator/health` report DOWN (broken mail) while the scoped `readiness` group correctly stayed UP — direct evidence the narrower scoping was the right call |
+| `ReadinessIT` doesn't share the suite's Redis | It needs to permanently kill Redis mid-test — using the shared, never-stopped singleton container would break every later test in the run |
+| The E2E bug that was in the test, not the app | Canvas defaults to 300×150 before anything is drawn — polling "width/height > 0" as a readiness signal is always true immediately; poll for a real non-blank pixel instead |
+| Frontend Dockerfile bug found by trying to build it | `COPY ../nginx/nginx.conf` reached outside its `frontend/`-scoped build context — Docker can never do that; fixed by building from the repo root with prefixed COPY paths |
+| `restClient`'s hardcoded `/api` | Works behind Vite's dev proxy or nginx's Docker-Compose proxy; breaks on Vercel+Render, genuinely different origins — needed a `VITE_API_URL` override, found only by trying to run the real E2E journey |
+| `.github/workflows/` is off-limits to this phase | The E2E CI workflow ships as `docs/ci/e2e.yml.example` for the owner to copy in, not a live workflow |
+
+**Weakest point to volunteer:** `LoggingHygieneTest` is a name-based static scan, not type-aware — a secret held in a variable spelled unexpectedly (not `password`/`token`/`secret` or a listed variant) slips through silently. The test's own doc comment says so.
 
 ---
 

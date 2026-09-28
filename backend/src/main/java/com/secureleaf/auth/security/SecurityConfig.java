@@ -1,5 +1,6 @@
 package com.secureleaf.auth.security;
 
+import com.secureleaf.common.config.AppProperties;
 import com.secureleaf.common.web.CorrelationIdFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -45,6 +46,7 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final CorrelationIdFilter correlationIdFilter;
+    private final AppProperties appProperties;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -135,7 +137,10 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:3000"));
+        // D3/D9 (Phase 9) — configurable via CORS_ALLOWED_ORIGINS so a real deployment (Vercel
+        // frontend, Render backend — genuinely different origins) can allow its actual domain
+        // without a code change. Defaults to the two local dev ports.
+        config.setAllowedOrigins(appProperties.corsAllowedOriginsList());
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
