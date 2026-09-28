@@ -206,6 +206,21 @@ Note we list exact origins rather than using a wildcard. That is required: `allo
 
 ---
 
+### 3.10 When a login expires: 401 + one shared refresh + telling the user (addendum)
+
+**What it is:** Three pieces that turn "the token expired" into a smooth experience:
+1. **The server says so, properly.** An expired or invalid bearer token gets **HTTP 401** with `WWW-Authenticate: Bearer error="invalid_token"` (the OAuth 2.0 Bearer Token standard, RFC 6750) and a JSON body `{"code": "TOKEN_EXPIRED" | "INVALID_TOKEN"}`.
+2. **The client refreshes once, then retries.** `frontend/src/lib/session.ts` exchanges the refresh token for a new access token, and every caller (Apollo, the upload client, the reader's tile fetch) retries its request once.
+3. **If that fails, the user is told.** `SessionExpiredModal` explains what happened ("expired" vs "no longer valid") and offers *Log in again* (returning to the same page afterwards) or *Continue browsing*.
+
+**The analogy:** A hotel key card that stops working. A good hotel re-encodes it at the door without a fuss (the refresh). If your booking has actually ended, someone tells you so politely, instead of the door just not opening.
+
+**Single-flight refresh:** a page often fires several queries at once. If they all find the token expired, they must **share one refresh**, not start three: refresh tokens rotate, and reuse outside the 30-second grace window (§3.3) is treated as theft. `refreshSession()` keeps the in-flight promise and hands it to every caller.
+
+**In our code:** `JwtAuthenticationFilter.writeUnauthorized` (backend); `frontend/src/lib/session.ts`, the `errorLink` in `graphql/apolloClient.ts`, the response interceptor in `lib/restClient.ts`, `components/auth/SessionExpiredModal.tsx` on top of the reusable `components/ui/Modal.tsx`.
+
+**What breaks without it:** exactly what happened (see §8): users saw broken pages and cryptic errors, never a refresh and never an explanation.
+
 ## 4. Best practices applied
 
 | Practice | What we did | Why it matters | Where |
@@ -303,6 +318,10 @@ Note we list exact origins rather than using a wildcard. That is required: `allo
 
 ---
 
+### Decision (addendum): expired/invalid token → stop with 401; suspended user → continue anonymous
+- **Why the difference:** a bad token is a *client* problem the client can fix (refresh, or log in), so it needs a clear 401 and a reason. A *valid* token for a suspended account (Phase 8) keeps flowing as anonymous, so protected operations fail normally and the refresh is what revokes the session. Changing that would have broken Phase 8's contract and tests.
+- **What we gave up:** a suspended user sees the generic "no longer valid" modal only once their refresh fails (TOKEN_REUSE after Phase 8 revoked their tokens), not an explicit "you were suspended".
+
 ## 7. Interview questions
 
 ### Beginner
@@ -361,6 +380,17 @@ I found it reading the code rather than from a bug report. The fix was small —
 
 ---
 
+### Addendum — session expiry questions
+
+**Q (Beginner): What should an API return for an expired token?**
+A: 401 Unauthorized, with `WWW-Authenticate: Bearer error="invalid_token"` per RFC 6750, and ideally a machine-readable code like `TOKEN_EXPIRED` so the client knows it can refresh.
+
+**Q (Intermediate): Five requests fail with 401 at the same moment. How many refresh calls should the client make?**
+A: One. Keep the in-flight refresh promise and give it to every caller, then each retries once. With rotating refresh tokens, parallel refreshes waste rotations and can look like token theft.
+
+**Q (Advanced): Why was the session-expiry bug invisible in the tests?**
+A: Every integration test used freshly issued tokens, so nothing ever sent an *expired* one, and the frontend tests mocked the network. The filter's failure mode (an empty 200) only appeared end to end. The regression test now signs genuinely expired, malformed and wrong-key tokens and checks the real HTTP response.
+
 ## 8. Gotchas and bugs we hit
 
 | Symptom | Root cause | Fix | Lesson |
@@ -370,6 +400,8 @@ I found it reading the code rather than from a bug report. The fix was small —
 | `hasRole('CREATOR')` never matches | Spring expects the authority string `ROLE_CREATOR` | `SecureLeafUserDetails` prefixes `"ROLE_"` | `hasRole(X)` checks `ROLE_X`; `hasAuthority(X)` checks `X` exactly |
 | Duplicate users possible under load | `existsByEmail` then `save` is check-then-act — two requests can both pass the check | `UNIQUE` constraint + catch `DataIntegrityViolationException` | Only the database can enforce uniqueness under concurrency |
 | Concurrent tabs logging the user out | Parallel refreshes look like token reuse | Pessimistic lock + 30-second grace window | Design for concurrent clients, not a single tab |
+| (manual testing) An expired login broke pages with cryptic errors; the silent refresh never ran and nothing told the user | `JwtAuthenticationFilter` passed JWT exceptions to the MVC `HandlerExceptionResolver`, which had no handler for them and wrote **nothing**: an empty **HTTP 200**. Apollo failed to parse it as JSON, and its refresh logic only looked for a GraphQL error | The filter answers `401` + `WWW-Authenticate: Bearer error="invalid_token"` + `{"code":"TOKEN_EXPIRED" or "INVALID_TOKEN"}`; the frontend refreshes once (single-flight) or shows `SessionExpiredModal`. Regression test `JwtAuthenticationFilterIT` (real HTTP) | "Handled" isn't handled unless something writes a response; probe failure paths end to end (`curl` with a bad token) |
+| The same filter's `try` also wrapped `filterChain.doFilter(...)` | Any exception from a controller further down the chain would have been routed into the same empty-response path | Only token parsing sits inside the `try` now | Keep a `try` as narrow as the failure it's for |
 
 ---
 

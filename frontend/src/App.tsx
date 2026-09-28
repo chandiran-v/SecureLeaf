@@ -7,6 +7,7 @@ import RegisterPage from './pages/auth/RegisterPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import ResetPasswordPage from './pages/auth/ResetPasswordPage';
 import ProtectedRoute from './components/layout/ProtectedRoute';
+import SessionExpiredModal from './components/auth/SessionExpiredModal';
 import BecomeCreatorPage from './pages/creator/BecomeCreatorPage';
 import CreatorDashboardPage from './pages/creator/CreatorDashboardPage';
 import UploadProductPage from './pages/creator/UploadProductPage';
@@ -129,6 +130,8 @@ function App() {
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        {/* Explains an unexpected sign-out (expired / invalid session) on any page. */}
+        <SessionExpiredModal />
       </GoogleOAuthProvider>
     </ApolloProvider>
   );
