@@ -13,6 +13,9 @@ import java.util.Optional;
 
 public interface EntitlementRepository extends JpaRepository<Entitlement, Long> {
 
+    /** The entitlement a given order granted — what a refund revokes (Phase 09B D6). */
+    Optional<Entitlement> findByOrderId(Long orderId);
+
     boolean existsByBuyerIdAndProductIdAndStatus(Long buyerId, Long productId, EntitlementStatus status);
 
     /**

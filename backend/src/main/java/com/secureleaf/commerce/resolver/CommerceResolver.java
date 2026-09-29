@@ -6,13 +6,17 @@ import com.secureleaf.commerce.dto.EntitlementDto;
 import com.secureleaf.commerce.dto.InitiateOrderPayload;
 import com.secureleaf.commerce.dto.OrderDto;
 import com.secureleaf.commerce.dto.VerifyPaymentInput;
+import com.secureleaf.commerce.dto.PlatformInfoDto;
+import com.secureleaf.commerce.gateway.PaymentGateway;
 import com.secureleaf.commerce.service.EntitlementService;
+import com.secureleaf.commerce.service.PlatformInfoService;
 import com.secureleaf.commerce.service.OrderService;
 import com.secureleaf.commerce.service.PaymentCompletionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
+import org.springframework.graphql.data.method.annotation.SchemaMapping;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
@@ -31,6 +35,8 @@ public class CommerceResolver {
     private final OrderService orderService;
     private final PaymentCompletionService paymentCompletionService;
     private final EntitlementService entitlementService;
+    private final PlatformInfoService platformInfoService;
+    private final PaymentGateway paymentGateway;
 
     @MutationMapping
     @PreAuthorize("isAuthenticated()")
@@ -42,6 +48,25 @@ public class CommerceResolver {
     @PreAuthorize("isAuthenticated()")
     public OrderDto verifyPayment(@Argument VerifyPaymentInput input) {
         return paymentCompletionService.verifyCheckout(getCurrentUserId(), input);
+    }
+
+    /** D8 — public on purpose: the demo banner shows to logged-out visitors too. Nothing secret in it. */
+    @QueryMapping
+    public PlatformInfoDto platformInfo() {
+        return platformInfoService.platformInfo();
+    }
+
+    /** D3 — which checkout the browser should open for this order: {@code MOCK} or {@code RAZORPAY}. */
+    @SchemaMapping(typeName = "Order", field = "paymentProvider")
+    public String paymentProvider(OrderDto order) {
+        return paymentGateway.provider();
+    }
+
+    /** D3 — the public key id checkout.js needs; only while there is something left to pay. */
+    @SchemaMapping(typeName = "Order", field = "gatewayKeyId")
+    public String gatewayKeyId(OrderDto order) {
+        boolean payable = order.gatewayOrderId() != null && "PENDING".equals(order.status());
+        return payable ? paymentGateway.keyId() : null;
     }
 
     @QueryMapping

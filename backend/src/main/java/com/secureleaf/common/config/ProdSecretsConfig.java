@@ -39,6 +39,7 @@ public class ProdSecretsConfig {
     static final String DEV_JWT_SECRET = "CHANGE_ME_IN_PRODUCTION_USE_256BIT_SECRET_KEY";
     static final String DEV_RAZORPAY_KEY_SECRET = "mock_key_secret_change_me";
     static final String DEV_RAZORPAY_WEBHOOK_SECRET = "mock_webhook_secret_change_me";
+    static final String DEV_RAZORPAY_KEY_ID = "rzp_test_mock_key";
     static final String DEV_MINIO_ACCESS_KEY = "secureleaf_minio_user";
     static final String DEV_MINIO_SECRET_KEY = "secureleaf_minio_pass";
 
@@ -60,12 +61,36 @@ public class ProdSecretsConfig {
         putIfDevDefault(devDefaultsStillInUse, "MINIO_ACCESS_KEY", minioProperties.getAccessKey(), DEV_MINIO_ACCESS_KEY);
         putIfDevDefault(devDefaultsStillInUse, "MINIO_SECRET_KEY", minioProperties.getSecretKey(), DEV_MINIO_SECRET_KEY);
 
+        // Phase 09B D10 — with the real gateway, a blank credential would boot fine and then fail on
+        // the first checkout. Catch it at startup instead.
+        Map<String, String> blankRazorpay = new LinkedHashMap<>();
+        if ("razorpay".equals(paymentGatewayProperties.provider())) {
+            putIfBlank(blankRazorpay, "RAZORPAY_KEY_ID", paymentGatewayProperties.keyId());
+            putIfBlank(blankRazorpay, "RAZORPAY_KEY_SECRET", paymentGatewayProperties.keySecret());
+            putIfBlank(blankRazorpay, "RAZORPAY_WEBHOOK_SECRET", paymentGatewayProperties.webhookSecret());
+            if (DEV_RAZORPAY_KEY_ID.equals(paymentGatewayProperties.keyId())) {
+                blankRazorpay.put("RAZORPAY_KEY_ID", DEV_RAZORPAY_KEY_ID);
+            }
+        }
+        if (!blankRazorpay.isEmpty()) {
+            throw new IllegalStateException(
+                    "Refusing to start in the 'prod' profile with payment.gateway.provider=razorpay: "
+                            + blankRazorpay.keySet() + " must be set to real Razorpay credentials "
+                            + "(blank, or the mock placeholder key id).");
+        }
+
         if (!devDefaultsStillInUse.isEmpty()) {
             throw new IllegalStateException(
                     "Refusing to start in the 'prod' profile: the following environment variable(s) "
                             + "still have their dev-only default value, which is publicly known (it's in "
                             + "this repo's application.yml): " + devDefaultsStillInUse.keySet()
                             + ". Set a real, unique value for each before deploying.");
+        }
+    }
+
+    private static void putIfBlank(Map<String, String> violations, String envVarName, String actualValue) {
+        if (actualValue == null || actualValue.isBlank()) {
+            violations.put(envVarName, "");
         }
     }
 

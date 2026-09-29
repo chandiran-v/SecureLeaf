@@ -102,10 +102,11 @@ public class SecurityConfig {
                         .referrerPolicy(referrer -> referrer.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER))
                         .contentSecurityPolicy(csp -> csp.policyDirectives(
                                 "default-src 'self'; "
-                                        + "script-src 'self'; "
+                                        + "script-src 'self' https://checkout.razorpay.com; "
                                         + "style-src 'self' 'unsafe-inline'; "
                                         + "img-src 'self' data:; "
-                                        + "connect-src 'self'; "
+                                        + "connect-src 'self' https://api.razorpay.com; "
+                                        + "frame-src https://checkout.razorpay.com https://api.razorpay.com; "
                                         + "frame-ancestors 'none'; "
                                         + "base-uri 'self'"))
                         .addHeaderWriter(new StaticHeadersWriter("Permissions-Policy",

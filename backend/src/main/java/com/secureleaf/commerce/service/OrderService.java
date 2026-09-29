@@ -189,7 +189,8 @@ public class OrderService {
                 toOrderDto(order),
                 order.getGatewayOrderId(),
                 needsCheckout ? paymentGateway.keyId() : null,
-                commerceProperties.currency());
+                commerceProperties.currency(),
+                paymentGateway.provider());
     }
 
     private OrderDto toOrderDto(Order order) {

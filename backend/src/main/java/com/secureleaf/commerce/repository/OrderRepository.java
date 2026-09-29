@@ -53,6 +53,32 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @Query("select o from Order o where o.gatewayOrderId = :gatewayOrderId")
     Optional<Order> findByGatewayOrderIdForUpdate(@Param("gatewayOrderId") String gatewayOrderId);
 
+    /** Plain (unlocked) lookup for read-only decisions, e.g. "is this authorized payment worth capturing?". */
+    Optional<Order> findByGatewayOrderId(String gatewayOrderId);
+
+    /**
+     * {@code SELECT … FOR UPDATE} by our own order id — the refund path (Phase 09B D6). A refund
+     * and a late capture webhook, or two admins clicking Refund together, serialise here.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select o from Order o where o.id = :id")
+    Optional<Order> findByIdForUpdate(@Param("id") Long id);
+
+    /**
+     * D7 — orders the reconciliation job should look at: still PENDING, have a gateway order, and
+     * are older than {@code createdBefore}. Status is a parameter for the reason in findOpenOrders.
+     */
+    @Query("""
+            select o from Order o
+            where o.status = :status
+              and o.gatewayOrderId is not null
+              and o.createdAt < :createdBefore
+            order by o.id asc
+            """)
+    List<Order> findStaleByStatus(@Param("status") OrderStatus status,
+                                  @Param("createdBefore") java.time.Instant createdBefore,
+                                  org.springframework.data.domain.Pageable page);
+
     /**
      * Buyer-scoped lookup: the buyer id is part of the WHERE clause, so another buyer's
      * order id simply isn't found (BOLA → NOT_FOUND, D12). `items.product.tags` is left

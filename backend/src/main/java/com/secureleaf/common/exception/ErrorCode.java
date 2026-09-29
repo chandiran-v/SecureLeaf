@@ -29,6 +29,8 @@ public enum ErrorCode {
     INVALID_PAYMENT_SIGNATURE(ErrorType.BAD_REQUEST),
     PAYMENT_AMOUNT_MISMATCH(ErrorType.BAD_REQUEST),
     ORDER_NOT_PAYABLE(ErrorType.BAD_REQUEST),
+    // Phase 09B — the payment gateway (Razorpay) couldn't be reached or rejected our call.
+    PAYMENT_GATEWAY_UNAVAILABLE(ErrorType.INTERNAL_ERROR),
 
     // ── Secure viewer (Phase 5, D12) ─────────────────────────────────────────
     /** No ACTIVE entitlement for this buyer+product (startViewerSession, and the tile

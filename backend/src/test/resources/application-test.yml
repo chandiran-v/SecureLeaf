@@ -18,6 +18,10 @@ spring:
 payment:
   mock:
     webhooks-enabled: false
+  # Phase 09B D7 — the reconciliation timer would race with tests that stage PENDING orders;
+  # PaymentReconciliationIT calls PaymentReconciliationJob.reconcile() directly instead.
+  reconciliation:
+    enabled: false
 notifications:
   email:
     enabled: false

@@ -164,6 +164,9 @@ type Order {
     totalAmountPaise: Int!
     product: Product!
     gatewayOrderId: String   # Razorpay "order_XXXX"; null for free products
+    # Phase 09B D3 — which checkout to open. gatewayKeyId is the PUBLIC key id, only while PENDING.
+    paymentProvider: String!
+    gatewayKeyId: String
     failureReason: String    # latest declined attempt, if any
     createdAt: DateTime!
 }
@@ -286,6 +289,9 @@ type Query {
     # Auth
     me: User
 
+    # Phase 09B D8 — public: the demo banner needs it before login.
+    platformInfo: PlatformInfo!
+
     # Marketplace
     products(filter: ProductFilterInput, page: Int = 0, size: Int = 20): ProductPage!
     product(id: ID!): Product
@@ -371,4 +377,17 @@ type InitiateOrderPayload {
     gatewayOrderId: String
     gatewayKeyId: String     # public key id (Razorpay "key"); never a secret
     currency: String!
+    provider: String!        # MOCK | RAZORPAY (Phase 09B D3) — which checkout the browser opens
+}
+
+# Phase 09B D8 — MOCK: our simulator. TEST: real Razorpay, test keys, no money moves. LIVE: real money.
+enum PaymentMode {
+    MOCK
+    TEST
+    LIVE
+}
+
+type PlatformInfo {
+    paymentMode: PaymentMode!
+    supportEmail: String!
 }

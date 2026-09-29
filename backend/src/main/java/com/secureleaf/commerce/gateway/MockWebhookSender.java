@@ -44,6 +44,8 @@ public class MockWebhookSender {
 
     public static final String EVENT_CAPTURED = "payment.captured";
     public static final String EVENT_FAILED = "payment.failed";
+    public static final String EVENT_AUTHORIZED = "payment.authorized";
+    public static final String EVENT_REFUND_PROCESSED = "refund.processed";
 
     private final PaymentGatewayProperties properties;
     private final ObjectMapper objectMapper;
@@ -99,7 +101,11 @@ public class MockWebhookSender {
         payment.put("entity", "payment");
         payment.put("amount", amountPaise);
         payment.put("currency", currency);
-        payment.put("status", EVENT_CAPTURED.equals(event) ? "captured" : "failed");
+        payment.put("status", switch (event) {
+            case EVENT_CAPTURED -> "captured";
+            case EVENT_AUTHORIZED -> "authorized";
+            default -> "failed";
+        });
         payment.put("order_id", gatewayOrderId);
         payment.put("method", "card");
         payment.put("error_code", errorDescription == null ? null : "BAD_REQUEST_ERROR");
@@ -111,6 +117,36 @@ public class MockWebhookSender {
         root.put("event", event);
         root.put("contains", List.of("payment"));
         root.put("payload", Map.of("payment", Map.of("entity", payment)));
+        root.put("created_at", Instant.now().getEpochSecond());
+        try {
+            return objectMapper.writeValueAsString(root);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /** A {@code refund.processed} body — Razorpay nests the refund AND the payment it belongs to. */
+    public String buildRefundEventBody(String gatewayOrderId, String paymentId, String refundId, long amountPaise) {
+        Map<String, Object> refund = new LinkedHashMap<>();
+        refund.put("id", refundId);
+        refund.put("entity", "refund");
+        refund.put("amount", amountPaise);
+        refund.put("currency", "INR");
+        refund.put("payment_id", paymentId);
+        refund.put("status", "processed");
+
+        Map<String, Object> payment = new LinkedHashMap<>();
+        payment.put("id", paymentId);
+        payment.put("entity", "payment");
+        payment.put("amount", amountPaise);
+        payment.put("order_id", gatewayOrderId);
+        payment.put("status", "refunded");
+
+        Map<String, Object> root = new LinkedHashMap<>();
+        root.put("entity", "event");
+        root.put("event", EVENT_REFUND_PROCESSED);
+        root.put("contains", List.of("refund", "payment"));
+        root.put("payload", Map.of("refund", Map.of("entity", refund), "payment", Map.of("entity", payment)));
         root.put("created_at", Instant.now().getEpochSecond());
         try {
             return objectMapper.writeValueAsString(root);
