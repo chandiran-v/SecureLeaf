@@ -53,6 +53,8 @@ a clear error message is safer than starting with a known secret.
 | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` | Basic-auth credentials for Razorpay's API; signs/verifies checkout responses and webhooks | Razorpay dashboard → Settings → API Keys / Webhooks (**test mode** for now) | Must be set and must not be the dev defaults — fails fast otherwise (D6, Phase 09B D10). Never logged |
 | `PAYMENT_LIVE_ENABLED` | Allows a `rzp_live_` key | — | Leave unset/`false` until Phase 18; with a live key and this off the app refuses to start |
 | `SUPPORT_EMAIL` | Shown in the UI via `platformInfo` | Your support mailbox | Optional |
+| `PAYOUT_HOLD_DAYS`, `PAYOUT_MIN_PAISE` | Days before earnings can be withdrawn; smallest payout in paise | — | Optional; defaults 7 and 10000 (₹100). Keep the hold equal to the refund window quoted in the Refund Policy (Phase 09C) |
+| `VITE_LEGAL_REVIEWED` (frontend build) | Hides the "Draft template" banner on the legal pages | — | Leave unset until the Terms/Privacy/Refund text has been reviewed (Phase 18) |
 | `ADMIN_EMAILS` | Comma-separated emails granted ADMIN at startup/registration | You decide | Empty by default — nobody is an admin until set |
 | `FRONTEND_BASE_URL` | Builds emailed links (e.g. password reset) | Your Vercel URL | e.g. `https://secureleaf.vercel.app` |
 | `CORS_ALLOWED_ORIGINS` | Which browser origins may call this API | Your Vercel URL(s), comma-separated | See §3 — this is new in Phase 9 |
