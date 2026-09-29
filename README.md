@@ -66,9 +66,12 @@ SecureLeaf/
 ├── infra/                    # Infrastructure & DevOps
 │   ├── docker-compose.yml    # Local dev: all services in one command
 │   ├── docker/
-│   │   ├── backend.Dockerfile
-│   │   └── frontend.Dockerfile
-│   └── nginx/nginx.conf
+│   │   ├── backend.Dockerfile    # fonts + healthcheck + JVM flags (Phase 09D)
+│   │   └── frontend.Dockerfile   # local/CI nginx image (self-contained)
+│   └── prod/                     # Production on one Oracle server (Phase 09D)
+│       ├── docker-compose.prod.yml, Caddyfile, caddy.Dockerfile, .env.example
+│       ├── scripts/              # setup-server, generate-env, deploy (rollback), backup, restore
+│       └── test/                 # stack, backup→restore and env-file tests
 │
 ├── .github/workflows/
 │   ├── backend-ci.yml        # Maven build + test (Postgres + Redis in CI)

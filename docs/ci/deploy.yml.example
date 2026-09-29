@@ -9,6 +9,7 @@ name: Deploy to Oracle server
 #   DEPLOY_USER      ubuntu
 #   DEPLOY_SSH_KEY   a private key whose PUBLIC half is in ~/.ssh/authorized_keys on the server
 #                    (use a dedicated deploy key, not your personal one)
+#   SITE_HOST        the public hostname (e.g. secureleaf.duckdns.org), for the post-deploy check
 #   DEPLOY_KNOWN_HOSTS  output of:  ssh-keyscan -t ed25519 <host>   (pins the host key)
 # Optionally create a GitHub Environment named `production` with required reviewers.
 
@@ -39,4 +40,4 @@ jobs:
         # deploy.sh exits non-zero after rolling back, which fails this job (and notifies you).
 
       - name: Post-deploy check
-        run: curl -fsS "https://${{ secrets.DEPLOY_HOST }}/actuator/health" | grep -q '"status":"UP"'
+        run: curl -fsS "https://${{ secrets.SITE_HOST }}/actuator/health" | grep -q '"status":"UP"'
