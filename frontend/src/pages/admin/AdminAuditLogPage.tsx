@@ -8,6 +8,10 @@ const ACTION_LABELS: Record<string, string> = {
   REACTIVATE_USER: 'Reactivated user',
   TAKE_DOWN_PRODUCT: 'Took down product',
   RESTORE_PRODUCT: 'Restored product',
+  REFUND_ORDER: 'Refunded order',
+  APPROVE_PAYOUT: 'Approved payout',
+  MARK_PAYOUT_PAID: 'Marked payout paid',
+  REJECT_PAYOUT: 'Rejected payout',
 };
 
 /** D7 — a paginated, read-only view of the append-only admin_actions audit log. */

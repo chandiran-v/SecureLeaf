@@ -4,6 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useAuthStore } from '../../store/authStore';
 import NotificationBell from './NotificationBell';
 import DemoBanner from './DemoBanner';
+import SiteFooter from './SiteFooter';
 
 interface NavItem {
   to: string;
@@ -92,10 +93,12 @@ export default function AppLayout({ children, alwaysShowDemoBanner = false }: {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      <DemoBanner alwaysShow={alwaysShowDemoBanner} />
+      <div className="no-print">
+        <DemoBanner alwaysShow={alwaysShowDemoBanner} />
+      </div>
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
+      <header className="no-print sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 group">
@@ -211,6 +214,8 @@ export default function AppLayout({ children, alwaysShowDemoBanner = false }: {
       <main className="flex-1">
         {children}
       </main>
+
+      <SiteFooter />
     </div>
   );
 }

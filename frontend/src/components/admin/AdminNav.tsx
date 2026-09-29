@@ -4,6 +4,7 @@ const TABS: { to: string; label: string; end?: boolean }[] = [
   { to: '/admin', label: 'Dashboard', end: true },
   { to: '/admin/users', label: 'Users' },
   { to: '/admin/products', label: 'Products' },
+  { to: '/admin/payouts', label: 'Payouts' },
   { to: '/admin/audit-log', label: 'Audit Log' },
 ];
 

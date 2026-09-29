@@ -14,6 +14,8 @@ export default function ReasonPromptDialog({
   onConfirm,
   onCancel,
   submitting,
+  fieldLabel = 'Reason',
+  danger = true,
 }: {
   title: string;
   message: string;
@@ -21,6 +23,9 @@ export default function ReasonPromptDialog({
   onConfirm: (reason: string) => void;
   onCancel: () => void;
   submitting?: boolean;
+  /** Label/placeholder of the required text field (Phase 09C reuses this for a transfer reference). */
+  fieldLabel?: string;
+  danger?: boolean;
 }) {
   const [reason, setReason] = useState('');
   const trimmedReason = reason.trim();
@@ -41,8 +46,8 @@ export default function ReasonPromptDialog({
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           rows={3}
-          placeholder="Reason (required)"
-          aria-label="Reason"
+          placeholder={`${fieldLabel} (required)`}
+          aria-label={fieldLabel}
           className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder-gray-400
                      focus:outline-none focus:ring-2 focus:ring-red-500/30"
         />
@@ -58,8 +63,8 @@ export default function ReasonPromptDialog({
             type="button"
             disabled={!trimmedReason || submitting}
             onClick={() => onConfirm(trimmedReason)}
-            className="px-3 py-2 text-sm font-semibold rounded-lg text-white bg-red-600 hover:bg-red-700
-                       disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className={`px-3 py-2 text-sm font-semibold rounded-lg text-white ${danger ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700'}
+                       disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
           >
             {submitting ? 'Saving…' : confirmLabel}
           </button>

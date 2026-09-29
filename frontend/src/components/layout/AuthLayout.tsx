@@ -1,3 +1,6 @@
+import { Link } from 'react-router-dom';
+import { FOOTER_LINKS } from '../../content/legal/footerLinks';
+
 interface AuthLayoutProps {
   children: React.ReactNode;
   title: string;
@@ -89,6 +92,15 @@ export default function AuthLayout({ children, title, subtitle }: AuthLayoutProp
           <p className="mt-2 text-sm text-gray-500">{subtitle}</p>
 
           <div className="mt-8">{children}</div>
+
+          {/* Phase 09C D6 — legal links on every page, including sign-in/sign-up. */}
+          <nav aria-label="Legal" className="mt-10 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400">
+            {FOOTER_LINKS.map((link) => (
+              <Link key={link.to} to={link.to} className="hover:text-gray-700 hover:underline">
+                {link.label}
+              </Link>
+            ))}
+          </nav>
         </div>
       </div>
     </div>
