@@ -46,6 +46,10 @@ public class CreatorPayout {
     @Column(name = "payout_method", length = 50)
     private String payoutMethod;
 
+    /** Where to send the money (UPI id or email), snapshotted at request time (V10). */
+    @Column(name = "payout_destination")
+    private String payoutDestination;
+
     @Column(name = "payout_reference")
     private String payoutReference;
 

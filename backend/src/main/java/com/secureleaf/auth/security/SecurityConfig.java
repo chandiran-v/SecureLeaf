@@ -84,6 +84,10 @@ public class SecurityConfig {
                         // it ever reaches the controller.
                         .requestMatchers(HttpMethod.GET, "/api/viewer/**").authenticated()
                         .requestMatchers("/api/viewer/**").denyAll()
+                        // Phase 09C D4 — creator statements (CSV). CREATOR-only at the HTTP layer; the
+                        // controller then reads the creator id from the JWT, never from the URL, so
+                        // a creator can only ever download their OWN statement.
+                        .requestMatchers(HttpMethod.GET, "/api/creator/**").hasRole("CREATOR")
                         // Everything else requires authentication
                         .anyRequest().authenticated()
                 )

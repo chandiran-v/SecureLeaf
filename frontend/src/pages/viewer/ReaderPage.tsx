@@ -8,6 +8,7 @@ import { useDevToolsHeuristic } from '../../hooks/viewer/useDevToolsHeuristic';
 import { useBlockPrintAndSaveShortcuts } from '../../hooks/viewer/useBlockPrintAndSaveShortcuts';
 import { usePrintScreenBlank } from '../../hooks/viewer/usePrintScreenBlank';
 import { useZoomShortcuts } from '../../hooks/viewer/useZoomShortcuts';
+import { useReadingMode } from '../../hooks/useReadingMode';
 import { useViewerStore } from '../../stores/viewerStore';
 import ReaderSkeleton from '../../components/viewer/ReaderSkeleton';
 import NotEntitledPanel from '../../components/viewer/NotEntitledPanel';
@@ -31,6 +32,7 @@ export default function ReaderPage() {
   const { productId } = useParams<{ productId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  useReadingMode();   // Phase 09C D5 — scopes the print-blocking CSS to the reader only
 
   const { status, session, restart, notifySuperseded } = useViewerSession(productId ?? '');
   const pageCount = session?.pageCount ?? null;

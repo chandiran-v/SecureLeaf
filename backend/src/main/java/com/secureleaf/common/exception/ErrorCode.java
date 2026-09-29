@@ -32,6 +32,12 @@ public enum ErrorCode {
     // Phase 09B — the payment gateway (Razorpay) couldn't be reached or rejected our call.
     PAYMENT_GATEWAY_UNAVAILABLE(ErrorType.INTERNAL_ERROR),
 
+    // ── Creator payouts (Phase 09C) ────────────────────────────────────────────
+    PAYOUT_BELOW_MINIMUM(ErrorType.BAD_REQUEST),
+    INSUFFICIENT_BALANCE(ErrorType.BAD_REQUEST),
+    PAYOUT_ALREADY_OPEN(ErrorType.BAD_REQUEST),
+    PAYOUT_DETAILS_MISSING(ErrorType.BAD_REQUEST),
+
     // ── Secure viewer (Phase 5, D12) ─────────────────────────────────────────
     /** No ACTIVE entitlement for this buyer+product (startViewerSession, and the tile
      *  endpoint's D6 step 6). REST maps FORBIDDEN -> 403; GraphQL surfaces it as FORBIDDEN. */

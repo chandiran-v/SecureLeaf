@@ -29,6 +29,11 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByGoogleSub(String googleSub);
 
+    /** Phase 09C D3 — every ACTIVE user holding {@code role}; who to tell about a new payout request. */
+    @Query("select u from User u join u.roles r where r.role = :role and u.accountStatus = :status and u.deletedAt is null")
+    List<User> findByRoleAndStatus(@Param("role") com.secureleaf.auth.entity.Role role,
+                                   @Param("status") com.secureleaf.auth.entity.AccountStatus status);
+
     boolean existsByEmail(String email);
 
     /** Eagerly fetches roles to avoid LazyInitializationException in GraphQL field resolvers. */
