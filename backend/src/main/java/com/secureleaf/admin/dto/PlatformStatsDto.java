@@ -15,5 +15,9 @@ public record PlatformStatsDto(
         int completedOrdersWindow,
         long grossSalesPaiseWindow,
         long platformFeePaiseWindow,
+        long gatewayFeesPaise,
+        long platformNetPaise,
+        long gatewayFeesPaiseWindow,
+        long platformNetPaiseWindow,
         List<TopProductDto> topProducts
 ) {}

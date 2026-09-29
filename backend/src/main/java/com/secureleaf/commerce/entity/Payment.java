@@ -51,6 +51,24 @@ public class Payment extends BaseEntity {
     @Column(name = "failure_reason")
     private String failureReason;
 
+    /** D5 — what the gateway charged us (paise). Null until known. The platform absorbs it. */
+    @Column(name = "gateway_fee_paise")
+    private Long gatewayFeePaise;
+
+    /** D5 — GST on the gateway fee (paise). Null until known. */
+    @Column(name = "gateway_tax_paise")
+    private Long gatewayTaxPaise;
+
+    /** D6 — the gateway's refund id ("rfnd_XXXX"). */
+    @Column(name = "refund_id")
+    private String refundId;
+
+    @Column(name = "refund_reason", columnDefinition = "TEXT")
+    private String refundReason;
+
+    @Column(name = "refunded_at")
+    private java.time.Instant refundedAt;
+
     public void transitionTo(PaymentStatus next) {
         if (!status.canTransitionTo(next)) {
             throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION,

@@ -1,6 +1,7 @@
 import { Link, useParams } from 'react-router-dom';
 import AppLayout from '../../components/layout/AppLayout';
 import { useCheckout } from '../../hooks/useCheckout';
+import { usePlatformInfo } from '../../hooks/usePlatformInfo';
 import { formatPrice } from '../../lib/formatPrice';
 import type { MockOutcome } from '../../lib/mockGateway';
 
@@ -23,7 +24,8 @@ function Spinner() {
  */
 export default function CheckoutPage() {
   const { orderId = '' } = useParams<{ orderId: string }>();
-  const { order, loading, error, phase, message, isCompleted, pay } = useCheckout(orderId);
+  const { order, loading, error, phase, message, isCompleted, pay, payWithRazorpay } = useCheckout(orderId);
+  const { info } = usePlatformInfo();
 
   if (loading && !order) {
     return (
@@ -46,8 +48,11 @@ export default function CheckoutPage() {
 
   const busy = phase === 'paying' || phase === 'verifying' || phase === 'confirming';
 
+  const useRazorpay = order.paymentProvider === 'RAZORPAY';
+  const showTestHints = useRazorpay && info !== null && info.paymentMode !== 'LIVE';
+
   return (
-    <AppLayout>
+    <AppLayout alwaysShowDemoBanner>
       <div className="max-w-md mx-auto px-4 py-12">
         {/* ── Order summary ── */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
@@ -87,13 +92,23 @@ export default function CheckoutPage() {
               </div>
             ) : (
               <>
-                {/* Mock gateway panel — stands in for Razorpay's checkout popup. */}
-                <div className="rounded-xl border border-dashed border-indigo-200 bg-indigo-50/40 p-4 mb-4">
-                  <p className="text-xs font-semibold text-indigo-700 mb-1">Mock Razorpay checkout</p>
-                  <p className="text-xs text-indigo-600/80">
-                    No real money moves. Pick what the payment gateway should do.
-                  </p>
-                </div>
+                {useRazorpay ? (
+                  showTestHints && <TestPaymentHints />
+                ) : (
+                  /* Mock gateway panel — stands in for Razorpay's checkout popup. */
+                  <div className="rounded-xl border border-dashed border-indigo-200 bg-indigo-50/40 p-4 mb-4">
+                    <p className="text-xs font-semibold text-indigo-700 mb-1">Mock Razorpay checkout</p>
+                    <p className="text-xs text-indigo-600/80">
+                      No real money moves. Pick what the payment gateway should do.
+                    </p>
+                  </div>
+                )}
+
+                {phase === 'cancelled' && message && (
+                  <div className="rounded-lg bg-gray-100 border border-gray-200 px-4 py-3 text-sm text-gray-700 mb-4" role="status">
+                    {message}. Your order is still open — you can pay whenever you're ready.
+                  </div>
+                )}
 
                 {phase === 'declined' && message && (
                   <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 mb-4" role="alert">
@@ -121,21 +136,51 @@ export default function CheckoutPage() {
                   </div>
                 )}
 
-                <div className="space-y-2">
-                  <PayButton outcome="SUCCESS" onPay={pay} disabled={busy} primary>
-                    {phase === 'paying' ? 'Processing…' : phase === 'verifying' ? 'Verifying…' : `Pay ${formatPrice(order.totalAmountPaise)}`}
-                  </PayButton>
-                  <div className="grid grid-cols-2 gap-2">
-                    <PayButton outcome="DECLINE" onPay={pay} disabled={busy}>Simulate decline</PayButton>
-                    <PayButton outcome="TIMEOUT" onPay={pay} disabled={busy}>Simulate timeout</PayButton>
+                {useRazorpay ? (
+                  <button
+                    type="button"
+                    onClick={() => { void payWithRazorpay(); }}
+                    disabled={busy}
+                    className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-semibold shadow-sm hover:from-emerald-700 hover:to-teal-700 rounded-lg text-sm transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {phase === 'paying' ? 'Waiting for payment…' : phase === 'verifying' ? 'Verifying…' : `Pay ${formatPrice(order.totalAmountPaise)}`}
+                  </button>
+                ) : (
+                  <div className="space-y-2">
+                    <PayButton outcome="SUCCESS" onPay={pay} disabled={busy} primary>
+                      {phase === 'paying' ? 'Processing…' : phase === 'verifying' ? 'Verifying…' : `Pay ${formatPrice(order.totalAmountPaise)}`}
+                    </PayButton>
+                    <div className="grid grid-cols-2 gap-2">
+                      <PayButton outcome="DECLINE" onPay={pay} disabled={busy}>Simulate decline</PayButton>
+                      <PayButton outcome="TIMEOUT" onPay={pay} disabled={busy}>Simulate timeout</PayButton>
+                    </div>
                   </div>
-                </div>
+                )}
               </>
             )}
           </div>
         </div>
       </div>
     </AppLayout>
+  );
+}
+
+const RAZORPAY_TEST_DOCS_URL = 'https://razorpay.com/docs/payments/payments/test-card-upi-details/';
+
+/** Phase 09B D9 — what a visitor needs to complete a test-mode payment without real money. */
+function TestPaymentHints() {
+  return (
+    <div className="rounded-xl border border-dashed border-amber-300 bg-amber-50 p-4 mb-4" data-testid="test-hints">
+      <p className="text-xs font-semibold text-amber-800 mb-1">Test mode — no real money moves</p>
+      <p className="text-xs text-amber-900/80 mb-2">
+        Don't enter a real card. Use Razorpay's{' '}
+        <a href={RAZORPAY_TEST_DOCS_URL} target="_blank" rel="noopener noreferrer" className="underline font-medium">
+          official test cards and UPI details
+        </a>
+        , or pay with the test UPI id{' '}
+        <code className="px-1 py-0.5 rounded bg-amber-100 font-mono text-amber-950">success@razorpay</code>.
+      </p>
+    </div>
   );
 }
 

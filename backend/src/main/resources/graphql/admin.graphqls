@@ -91,6 +91,13 @@ type PlatformStats {
     completedOrdersWindow: Int!
     grossSalesPaiseWindow: Long!
     platformFeePaiseWindow: Long!
+    # Phase 09B D5 — what the gateway charged us (fee + GST). The platform absorbs it; creators
+    # keep a clean 90%. Counted for COMPLETED and REFUNDED orders (a refund does not return the fee).
+    gatewayFeesPaise: Long!
+    # platformFeePaiseAllTime − gatewayFeesPaise
+    platformNetPaise: Long!
+    gatewayFeesPaiseWindow: Long!
+    platformNetPaiseWindow: Long!
     topProducts: [TopProduct!]!
 }
 
@@ -135,4 +142,8 @@ extend type Mutation {
     # viewer access; only marketplace visibility and the creator's republish path change.
     takeDownProduct(productId: ID!, reason: String!): AdminProduct!
     restoreProduct(productId: ID!): AdminProduct!
+
+    # Phase 09B D6 — full refund via the gateway: order + payment REFUNDED, entitlement REVOKED,
+    # buyer notified, audit row written. Idempotent against a replayed refund.processed webhook.
+    refundOrder(orderId: ID!, reason: String!): Order!
 }

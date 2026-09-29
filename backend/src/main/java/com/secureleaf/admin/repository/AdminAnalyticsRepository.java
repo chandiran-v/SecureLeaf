@@ -58,6 +58,24 @@ public class AdminAnalyticsRepository {
                 ((Number) row[2]).longValue());
     }
 
+    /**
+     * Phase 09B D5 — fee + GST the gateway charged us, over COMPLETED and REFUNDED orders (a refund
+     * does not give the processing fee back, so the platform still paid it). Payments whose fee is
+     * unknown (NULL) count as zero.
+     */
+    public long gatewayFees(Instant since) {
+        String sql = """
+                SELECT COALESCE(SUM(COALESCE(p.gateway_fee_paise, 0) + COALESCE(p.gateway_tax_paise, 0)), 0)
+                FROM payments p JOIN orders o ON o.id = p.order_id
+                WHERE o.status IN ('COMPLETED', 'REFUNDED')
+                """ + (since != null ? " AND o.created_at >= :since" : "");
+        Query query = entityManager.createNativeQuery(sql);
+        if (since != null) {
+            query.setParameter("since", Timestamp.from(since));
+        }
+        return ((Number) query.getSingleResult()).longValue();
+    }
+
     @SuppressWarnings("unchecked")
     public List<TopProductDto> topProductsSince(Instant since, int limit) {
         Query query = entityManager.createNativeQuery("""

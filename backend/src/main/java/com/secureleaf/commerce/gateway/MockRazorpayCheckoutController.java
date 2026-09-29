@@ -82,6 +82,8 @@ public class MockRazorpayCheckoutController {
                     "description", "Order has already been paid.")));
         }
 
+        gateway.registerPayment(gatewayOrderId, paymentId, "captured");
+
         if (outcome == Outcome.TIMEOUT) {
             webhookSender.schedule(MockWebhookSender.EVENT_CAPTURED, order, paymentId, null,
                     Duration.ofMillis(timeoutWebhookDelayMs));

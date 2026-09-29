@@ -24,6 +24,8 @@ public class PaymentAuditService {
     public static final String SOURCE_CHECKOUT = "CHECKOUT";                   // initiateOrder created it
     public static final String SOURCE_CHECKOUT_CALLBACK = "CHECKOUT_CALLBACK"; // browser verifyPayment
     public static final String SOURCE_WEBHOOK = "WEBHOOK";                     // gateway → us
+    public static final String SOURCE_RECONCILIATION = "RECONCILIATION";       // the sweeper found it at the gateway
+    public static final String SOURCE_ADMIN_REFUND = "ADMIN_REFUND";           // an admin pressed Refund
     public static final String SOURCE_SYSTEM = "SYSTEM";                       // our own housekeeping
 
     private final PaymentEventRepository paymentEventRepository;

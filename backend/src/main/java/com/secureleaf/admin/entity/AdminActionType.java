@@ -5,5 +5,6 @@ public enum AdminActionType {
     SUSPEND_USER,
     REACTIVATE_USER,
     TAKE_DOWN_PRODUCT,
-    RESTORE_PRODUCT
+    RESTORE_PRODUCT,
+    REFUND_ORDER
 }

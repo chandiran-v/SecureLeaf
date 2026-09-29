@@ -62,6 +62,11 @@ public interface ProductRepository extends JpaRepository<Product, Long>, Product
     @Query("update Product p set p.totalSales = p.totalSales + 1 where p.id = :id")
     int incrementTotalSales(@Param("id") Long id);
 
+    /** Phase 09B D6 — a refunded sale no longer counts. Floors at zero rather than going negative. */
+    @Modifying(flushAutomatically = true)
+    @Query("update Product p set p.totalSales = case when p.totalSales > 0 then p.totalSales - 1 else 0 end where p.id = :id")
+    int decrementTotalSales(@Param("id") Long id);
+
     /**
      * Review aggregate correctness under concurrency (REV-04, D4, step 1) — locks the
      * product row for the rest of the caller's transaction. Every submitReview/deleteMyReview

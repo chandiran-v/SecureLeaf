@@ -58,7 +58,7 @@
 | ID | Status | Evidence | Notes |
 |----|--------|----------|-------|
 | PAY-01 | Done | `frontend/.../ProductDetailPage.test.tsx` (Buy button states) | |
-| PAY-02 | Done | `CommerceIT` mock-gateway success/decline/timeout scenarios | |
+| PAY-02 | Done | `CommerceIT` mock-gateway success/decline/timeout scenarios; Phase 09B adds the real provider: `RazorpayGatewayTest`, `RazorpayFlowIT`, `RazorpayProviderStartupIT` | Real Razorpay (test mode) behind the same port since Phase 09B |
 | PAY-03 | Done | `CommerceIT.buy_payAtGateway_verify_grantsEntitlementAndRecordsEverything` | |
 | PAY-04 | Done | `CommerceIT` idempotency-key tests (`sameKey_returnsSameOrder_andCreatesOnlyOne`) | |
 | PAY-05 | Done | `CommerceIT.buy_payAtGateway_verify_grantsEntitlementAndRecordsEverything`; `secondActiveEntitlement_isImpossible_evenBypassingTheApp` | |
@@ -159,9 +159,9 @@
 
 ## Known limitations (MVP1, honestly)
 
-1. **No real payment gateway.** `payment.gateway.provider` must be `mock` even in production — see
-   `docs/deployment.md` §0. This is the single biggest MVP1 limitation and the reason "don't process
-   real transactions yet" is stated up front in the runbook.
+1. **~~No real payment gateway.~~ (Superseded by Phase 09B.)** A real Razorpay gateway now exists,
+   in **test mode only** — the app refuses live keys until Phase 18. See `docs/deployment.md` §0.
+   No real money moves on this deployment.
 2. **Google OAuth (AUTH-02) has no test coverage.** The implementation exists and has shipped since
    Phase 1; nobody has written `GoogleOAuthServiceTest` or an IT exercising the `googleLogin`
    mutation. Recommend a `fix`-labeled follow-up.

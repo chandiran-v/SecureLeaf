@@ -95,7 +95,19 @@ export interface Order {
   product: Product;
   gatewayOrderId?: string | null;  // Razorpay "order_XXXX"; null for free products
   failureReason?: string | null;   // latest declined attempt
+  paymentProvider?: PaymentProvider;   // which checkout to open (Phase 09B D3)
+  gatewayKeyId?: string | null;    // PUBLIC key id for checkout.js; only while PENDING
   createdAt: string;
+}
+
+export type PaymentProvider = 'MOCK' | 'RAZORPAY';
+
+// Phase 09B D8. MOCK = our simulator; TEST = real Razorpay, test keys, no money moves; LIVE = real money.
+export type PaymentMode = 'MOCK' | 'TEST' | 'LIVE';
+
+export interface PlatformInfo {
+  paymentMode: PaymentMode;
+  supportEmail: string;
 }
 
 export interface InitiateOrderPayload {
@@ -103,6 +115,7 @@ export interface InitiateOrderPayload {
   gatewayOrderId: string | null;   // null → free product, already COMPLETED
   gatewayKeyId: string | null;     // public Razorpay key id — never a secret
   currency: string;
+  provider: PaymentProvider;
 }
 
 // Exactly what Razorpay's checkout.js hands its success `handler` (snake_case is Razorpay's).
@@ -214,7 +227,8 @@ export type NotificationType =
   | 'SALE_RECEIVED'
   | 'PROCESSING_COMPLETE'
   | 'PROCESSING_FAILED'
-  | 'PAYOUT_STATUS_UPDATE';
+  | 'PAYOUT_STATUS_UPDATE'
+  | 'REFUND_PROCESSED';
 
 export interface Notification {
   id: UUID;

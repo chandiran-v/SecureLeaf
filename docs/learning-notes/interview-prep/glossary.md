@@ -138,3 +138,14 @@
 | **Requirements traceability matrix** | A document mapping every requirement id to the specific evidence (test or code) proving it's implemented | [Phase 9](../phase-09-hardening-release.md) |
 | **HSTS (HTTP Strict Transport Security)** | A response header telling the browser to only ever connect to this origin over HTTPS from now on | [Phase 9](../phase-09-hardening-release.md) |
 | **Permissions-Policy** | A response header disabling specific browser APIs (camera, microphone, geolocation, payment) for the page | [Phase 9](../phase-09-hardening-release.md) |
+| **Port / adapter (hexagonal architecture)** | An interface the core logic depends on (`PaymentGateway`), plus the implementations that connect it to the outside world (mock, Razorpay) | [Phase 9B](../phase-09b-razorpay.md) |
+| **Test mode / live mode** | Razorpay's two environments: fake money with `rzp_test_` keys, real money with `rzp_live_` keys | [Phase 9B](../phase-09b-razorpay.md) |
+| **Authorize vs capture** | Authorize = the bank reserves the money; capture = we claim it. An uncaptured authorization is released after a few days | [Phase 9B](../phase-09b-razorpay.md) |
+| **Auto-capture** | A Razorpay account setting that captures every authorized payment immediately | [Phase 9B](../phase-09b-razorpay.md) |
+| **Reconciliation** | Comparing our records with the provider's to find and repair disagreements (a paid order we never heard about) | [Phase 9B](../phase-09b-razorpay.md) |
+| **Refund (as a state transition)** | Order/payment move to `REFUNDED` and the entitlement to `REVOKED`; nothing is deleted | [Phase 9B](../phase-09b-razorpay.md) |
+| **Gateway fee (MDR)** | What the payment provider charges the merchant per payment (about 2% plus GST on that fee) | [Phase 9B](../phase-09b-razorpay.md) |
+| **`MockRestServiceServer`** | Spring test utility that replaces a remote HTTP server so a test can assert the exact requests sent and return canned responses | [Phase 9B](../phase-09b-razorpay.md) |
+| **HTTP Basic auth** | An `Authorization` header carrying `base64(user:password)` — for Razorpay, `key_id:key_secret` | [Phase 9B](../phase-09b-razorpay.md) |
+| **Receipt (gateway)** | Our own reference (`sl_order_42`) sent to the gateway and echoed back — a gateway-side idempotency handle | [Phase 9B](../phase-09b-razorpay.md) |
+| **checkout.js / `frame-src`** | Razorpay's browser script that opens the payment popup in an iframe; the CSP must allow its script, frame and API hosts explicitly | [Phase 9B](../phase-09b-razorpay.md) |

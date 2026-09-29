@@ -8,6 +8,8 @@ import com.secureleaf.commerce.entity.Order;
 import com.secureleaf.commerce.entity.OrderStatus;
 import com.secureleaf.commerce.entity.Payment;
 import com.secureleaf.commerce.entity.PaymentStatus;
+import com.secureleaf.commerce.gateway.GatewayPayment;
+import com.secureleaf.commerce.gateway.PaymentGateway;
 import com.secureleaf.commerce.gateway.PaymentGatewayProperties;
 import com.secureleaf.commerce.gateway.RazorpaySignatures;
 import com.secureleaf.commerce.repository.OrderRepository;
@@ -30,7 +32,9 @@ import java.util.Map;
  * For every successful payment, Razorpay tells us twice:
  *   1. the browser relays checkout.js's signed response → {@link #verifyCheckout}
  *   2. Razorpay's servers POST a signed webhook          → {@link #recordCapture}
- * Either can arrive first, both can arrive at the same moment, the browser one may never
+ * (Phase 09B adds a third: the reconciliation sweeper, {@link #recordReconciledCapture}, which
+ * asks the gateway what happened to orders whose other two messengers never showed up.)
+ * Any can arrive first, several can arrive at the same moment, the browser one may never
  * arrive (tab closed, network drop — D13), and the webhook may arrive more than once.
  * Correctness therefore cannot depend on order or on count. Both paths funnel into
  * {@link #applyCapture}, which:
@@ -49,6 +53,7 @@ public class PaymentCompletionService {
     private final PaymentAuditService paymentAuditService;
     private final FulfillmentService fulfillmentService;
     private final PaymentGatewayProperties gatewayProperties;
+    private final PaymentGateway paymentGateway;
     private final ObjectMapper objectMapper;
 
     /**
@@ -97,6 +102,68 @@ public class PaymentCompletionService {
                               String providerEventId, String rawPayload) {
         applyCapture(gatewayOrderId, gatewayPaymentId, amountPaise,
                 PaymentAuditService.SOURCE_WEBHOOK, providerEventId, rawPayload);
+    }
+
+    /**
+     * Messenger 3 (Phase 09B D7) — the reconciliation job found a captured payment at the gateway
+     * for an order still PENDING here. Same idempotent path as the other two; the amount comes
+     * from the gateway, so the amount check applies.
+     */
+    @Transactional
+    public void recordReconciledCapture(String gatewayOrderId, String gatewayPaymentId, long amountPaise) {
+        String payload = json(Map.of(
+                "razorpay_order_id", gatewayOrderId,
+                "razorpay_payment_id", gatewayPaymentId,
+                "source", "reconciliation"));
+        applyCapture(gatewayOrderId, gatewayPaymentId, amountPaise,
+                PaymentAuditService.SOURCE_RECONCILIATION, null, payload);
+    }
+
+    /**
+     * Webhook {@code payment.authorized} (Phase 09B D4). On accounts without auto-capture, Razorpay
+     * only RESERVES the money; nothing is ours until we capture it (and an uncaptured
+     * authorization is auto-refunded after a few days). So: capture it. That produces a
+     * {@code payment.captured} webhook, which completes the order through the normal path.
+     *
+     * Deliberately NOT @Transactional: this makes an HTTP call, and holding a database
+     * transaction (or a row lock) open across the network is how a slow gateway takes down a
+     * connection pool. It only reads, and the capture itself is idempotent at Razorpay.
+     */
+    public void recordAuthorization(String gatewayOrderId, String gatewayPaymentId, long amountPaise) {
+        Order order = orderRepository.findByGatewayOrderId(gatewayOrderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "gatewayOrderId", gatewayOrderId));
+        if (order.getStatus() != OrderStatus.PENDING) {
+            log.info("Authorized payment {} for {} order {} — not capturing", gatewayPaymentId, order.getStatus(), order.getId());
+            return;
+        }
+        if (amountPaise != order.getTotalAmountPaise()) {
+            log.error("ALERT: authorized amount {} paise != order {} amount {} paise — not capturing",
+                    amountPaise, order.getId(), order.getTotalAmountPaise());
+            throw new BusinessException(ErrorCode.PAYMENT_AMOUNT_MISMATCH, "Authorized amount does not match the order.");
+        }
+        paymentGateway.capture(gatewayPaymentId, amountPaise);
+        log.info("Captured authorized payment {} for order {}", gatewayPaymentId, order.getId());
+    }
+
+    /**
+     * Reconciliation (D7): a PENDING order nothing was ever captured for, past the expiry window.
+     * Locks first and re-checks, because a capture may have landed since the job looked.
+     *
+     * @return true if the order was expired by this call
+     */
+    @Transactional
+    public boolean expireOrder(String gatewayOrderId) {
+        Order order = lockOrder(gatewayOrderId);
+        if (order.getStatus() != OrderStatus.PENDING) return false;
+        Payment payment = paymentFor(order);
+        payment.setFailureReason("expired");
+        if (payment.getStatus() != PaymentStatus.FAILED) {
+            paymentAuditService.transition(payment, PaymentStatus.FAILED,
+                    PaymentAuditService.SOURCE_RECONCILIATION, null, null);
+        }
+        order.transitionTo(OrderStatus.FAILED);
+        log.info("Order {} expired: nothing captured at the gateway", order.getId());
+        return true;
     }
 
     /**
@@ -158,6 +225,7 @@ public class PaymentCompletionService {
         Payment payment = paymentFor(order);
         payment.setProviderPaymentId(gatewayPaymentId);
         payment.setFailureReason(null);
+        recordGatewayFees(payment, gatewayPaymentId);
         paymentAuditService.transition(payment, PaymentStatus.COMPLETED, source, providerEventId, rawPayload);
 
         order.transitionTo(OrderStatus.COMPLETED);
@@ -165,6 +233,24 @@ public class PaymentCompletionService {
 
         log.info("Order {} COMPLETED via {} (payment {})", order.getId(), source, gatewayPaymentId);
         return order;
+    }
+
+    /**
+     * D5 — remember what the gateway charged us for this payment. Best effort: a failed lookup must
+     * never block a buyer who has already paid from getting their entitlement, so on any failure
+     * the fee columns stay NULL ("unknown") and we log it.
+     *
+     * Runs inside the order's row lock, so it is bounded by the gateway client's timeouts
+     * (3 s connect / 10 s read) and only ever runs on the ONE call that actually completes the order.
+     */
+    private void recordGatewayFees(Payment payment, String gatewayPaymentId) {
+        try {
+            GatewayPayment fetched = paymentGateway.fetchPayment(gatewayPaymentId);
+            payment.setGatewayFeePaise(fetched.feePaise());
+            payment.setGatewayTaxPaise(fetched.taxPaise());
+        } catch (RuntimeException e) {
+            log.warn("Could not fetch gateway fee for payment {}: {}", gatewayPaymentId, e.getMessage());
+        }
     }
 
     private Order lockOrder(String gatewayOrderId) {

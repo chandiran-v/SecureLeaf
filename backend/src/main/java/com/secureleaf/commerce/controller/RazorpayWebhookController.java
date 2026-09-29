@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.secureleaf.commerce.gateway.PaymentGatewayProperties;
 import com.secureleaf.commerce.gateway.RazorpaySignatures;
 import com.secureleaf.commerce.service.PaymentCompletionService;
+import com.secureleaf.commerce.service.RefundService;
+import com.secureleaf.common.exception.ErrorCode;
 import com.secureleaf.common.exception.BusinessException;
 import com.secureleaf.common.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +38,8 @@ import java.nio.charset.StandardCharsets;
  *   - 2xx for business rejections (unknown order, amount mismatch) — retrying can't fix them,
  *     they're logged as alerts for a human;
  *   - 400 for a bad signature / unreadable body;
+ *   - 503 when WE couldn't reach Razorpay while handling it (payment.authorized → capture) —
+ *     a retry can succeed;
  *   - 5xx (an unexpected exception) for OUR failures, e.g. database down — those SHOULD be
  *     retried, and idempotent processing makes the retry safe.
  */
@@ -47,9 +51,12 @@ public class RazorpayWebhookController {
 
     static final String EVENT_CAPTURED = "payment.captured";
     static final String EVENT_FAILED = "payment.failed";
+    static final String EVENT_AUTHORIZED = "payment.authorized";   // Phase 09B D4
+    static final String EVENT_REFUND_PROCESSED = "refund.processed";   // Phase 09B D6
 
     private final PaymentGatewayProperties gatewayProperties;
     private final PaymentCompletionService paymentCompletionService;
+    private final RefundService refundService;
     private final ObjectMapper objectMapper;
 
     @PostMapping("/razorpay")
@@ -82,11 +89,24 @@ public class RazorpayWebhookController {
                 case EVENT_FAILED -> paymentCompletionService.recordFailure(
                         gatewayOrderId, gatewayPaymentId,
                         payment.path("error_description").asText("Payment failed"), eventId, body);
+                case EVENT_AUTHORIZED -> paymentCompletionService.recordAuthorization(
+                        gatewayOrderId, gatewayPaymentId, payment.path("amount").asLong());
+                case EVENT_REFUND_PROCESSED -> {
+                    JsonNode refund = root.path("payload").path("refund").path("entity");
+                    refundService.recordRefundProcessed(refund.path("payment_id").asText(null),
+                            refund.path("id").asText(null), eventId, body);
+                }
                 default -> log.info("Ignoring webhook event type '{}'", event);
             }
         } catch (ResourceNotFoundException e) {
             log.warn("Webhook {} for unknown order {} — acknowledged, not retried", eventId, gatewayOrderId);
         } catch (BusinessException e) {
+            if (e.getErrorCode() == ErrorCode.PAYMENT_GATEWAY_UNAVAILABLE) {
+                // OUR failure to reach Razorpay (e.g. the capture call): retrying CAN fix it, so
+                // answer 5xx and let Razorpay redeliver — the capture is idempotent.
+                log.warn("Webhook {} could not be processed, gateway unavailable — asking for a retry", eventId);
+                return ResponseEntity.status(503).build();
+            }
             log.error("Webhook {} rejected ({}): {}", eventId, e.getErrorCode(), e.getMessage());
         } catch (DataIntegrityViolationException e) {
             // Final backstop: the UNIQUE provider_event_id (or the active-entitlement index)

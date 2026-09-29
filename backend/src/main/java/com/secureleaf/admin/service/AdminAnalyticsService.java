@@ -31,6 +31,9 @@ public class AdminAnalyticsService {
         OrderAggregate allTime = adminAnalyticsRepository.ordersAggregate(null);
         OrderAggregate window = adminAnalyticsRepository.ordersAggregate(since);
 
+        long allTimeFees = adminAnalyticsRepository.gatewayFees(null);
+        long windowFees = adminAnalyticsRepository.gatewayFees(since);
+
         return new PlatformStatsDto(
                 Math.toIntExact(totalUsers),
                 Math.toIntExact(totalCreators),
@@ -42,6 +45,10 @@ public class AdminAnalyticsService {
                 Math.toIntExact(window.completedOrders()),
                 window.grossSalesPaise(),
                 window.platformFeePaise(),
+                allTimeFees,
+                allTime.platformFeePaise() - allTimeFees,
+                windowFees,
+                window.platformFeePaise() - windowFees,
                 adminAnalyticsRepository.topProductsSince(since, TOP_PRODUCTS_LIMIT)
         );
     }

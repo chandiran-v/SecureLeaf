@@ -3,6 +3,7 @@ import { useNavigate, Link, NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useAuthStore } from '../../store/authStore';
 import NotificationBell from './NotificationBell';
+import DemoBanner from './DemoBanner';
 
 interface NavItem {
   to: string;
@@ -24,7 +25,11 @@ interface NavItem {
  * a menu button into a drop-down panel (with the user's name and Log out), so a phone can still
  * reach My Library and the Creator Dashboard. The notification bell stays visible in the header.
  */
-export default function AppLayout({ children }: { children: React.ReactNode }) {
+export default function AppLayout({ children, alwaysShowDemoBanner = false }: {
+  children: React.ReactNode;
+  /** The checkout page passes true: the demo warning there can't be dismissed (Phase 09B D9). */
+  alwaysShowDemoBanner?: boolean;
+}) {
   const { logout } = useAuth();
   const { user, isAuthenticated } = useAuthStore();
   const navigate = useNavigate();
@@ -87,6 +92,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
+      <DemoBanner alwaysShow={alwaysShowDemoBanner} />
+
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">

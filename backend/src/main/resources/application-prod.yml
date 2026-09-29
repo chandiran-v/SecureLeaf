@@ -16,8 +16,9 @@ server:
   forward-headers-strategy: framework
 
 
-# Phase 4 (D12): production must name a real gateway. There is no RazorpayGateway yet, so
-# CommerceConfig refuses to start — deliberately. Never set this to "mock" in production.
+# Phase 4 (D12) / Phase 09B (D8): production uses the real Razorpay gateway (test keys until
+# Phase 18). CommerceConfig refuses to start with provider=mock in prod, and refuses a rzp_live_
+# key unless PAYMENT_LIVE_ENABLED=true. ProdSecretsConfig refuses blank Razorpay credentials.
 payment:
   gateway:
     provider: ${PAYMENT_GATEWAY:razorpay}

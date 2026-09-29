@@ -51,6 +51,20 @@ public class NotificationService {
     }
 
     /**
+     * Phase 09B D6 — tell the buyer their purchase was refunded and access has ended. Same
+     * MANDATORY contract as {@link #notifyPurchase}: the row commits with the refund or not at all.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void notifyRefund(Order order, Product product, String reason) {
+        String price = formatRupees(order.getTotalAmountPaise());
+        create(order.getBuyer(), NotificationType.REFUND_PROCESSED, order, product,
+                "Refund processed: " + product.getTitle(),
+                "We refunded " + price + " for \"" + product.getTitle() + "\" (" + reason
+                        + "). Your access to it has ended. The money returns to your original payment method "
+                        + "within a few business days.");
+    }
+
+    /**
      * NOTIF-03 (D6) — the pipeline just marked the product LIVE. Called from
      * {@code DocumentProcessingService.markLive}, inside the same transaction as the rest of the
      * pipeline's writes, so the notification only ever goes out for a completion that actually
