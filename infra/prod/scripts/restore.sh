@@ -5,6 +5,7 @@
 # (Flyway sees the restored schema history and applies only newer migrations).
 # Run this on a new server after setup-server.sh + generate-env.sh (see docs/ops/runbook.md).
 set -eu
+# shellcheck source=lib.sh
 . "$(dirname "$0")/lib.sh"
 load_env
 
@@ -28,28 +29,32 @@ until [ "$(docker inspect -f '{{.State.Health.Status}}' "$(compose ps -q postgre
     sleep 3; waited=$((waited + 3)); [ "$waited" -lt 180 ] || die "postgres did not become healthy"
 done
 
-log "Fetching the dump from Object Storage and restoring buckets"
+if [ -z "$DUMP_NAME" ]; then
+    # Newest dump = last in sorted order (ISO dates). Processed on the host: the mc image has no awk/sort.
+    # shellcheck disable=SC2016  # $OCI_S3_BUCKET expands inside the mc container
+    DUMP_NAME=$({ printf '%s\n' "$MC_ALIASES"; echo 'mc ls "dest/$OCI_S3_BUCKET/db/daily/"'; } | run_mc |
+        awk '{print $NF}' | sort | tail -n 1)
+fi
+[ -n "$DUMP_NAME" ] || die "no dump found in $OCI_S3_BUCKET/db/daily/"
+export DUMP_NAME
+
+log "Fetching $DUMP_NAME from Object Storage and restoring buckets"
 {
     printf '%s\n' "$MC_ALIASES"
     cat <<'MCSCRIPT'
-if [ -z "$DUMP_NAME" ]; then
-    DUMP_NAME=$(mc ls "dest/$OCI_S3_BUCKET/db/daily/" | awk '{print $NF}' | sort | tail -n 1)
-fi
-[ -n "$DUMP_NAME" ] || { echo "no dump found in dest/$OCI_S3_BUCKET/db/daily/" >&2; exit 1; }
-mc cp "dest/$OCI_S3_BUCKET/db/daily/$DUMP_NAME" "/backup/restore.dump"
-echo "$DUMP_NAME" > /backup/restore.dump.name
+mc cp "dest/$OCI_S3_BUCKET/db/daily/$DUMP_NAME" "/backup/restore.dump" >/dev/null
 for b in $BACKUP_BUCKETS; do
     mc mb --ignore-existing "local/$b" >/dev/null
-    mc mirror --overwrite --quiet "dest/$OCI_S3_BUCKET/mirror/$b" "local/$b"
+    mc mirror --overwrite "dest/$OCI_S3_BUCKET/mirror/$b" "local/$b" >/dev/null
 done
 MCSCRIPT
 } | run_mc
 
-log "Restoring database from $(cat "$BACKUP_DIR/restore.dump.name")"
+log "Restoring database from $DUMP_NAME"
 # --clean --if-exists drops objects first, so this also works over a half-initialised database.
 compose exec -T postgres pg_restore --clean --if-exists --no-owner --no-privileges \
     -U secureleaf_user -d secureleaf < "$BACKUP_DIR/restore.dump"
-rm -f "$BACKUP_DIR/restore.dump" "$BACKUP_DIR/restore.dump.name"
+rm -f "$BACKUP_DIR/restore.dump"
 
 log "Bringing the whole stack up"
 compose up -d --no-build

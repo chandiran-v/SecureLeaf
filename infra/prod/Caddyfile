@@ -2,7 +2,7 @@
 # https://{$SITE_HOST}, so there is no CORS in production.
 {
 	# Admin API stays inside the container (used by the healthcheck only).
-	admin localhost:2019
+	admin 127.0.0.1:2019
 }
 
 {$SITE_HOST} {

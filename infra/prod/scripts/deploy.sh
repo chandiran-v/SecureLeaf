@@ -13,12 +13,16 @@
 # Test/automation knobs (env):  SKIP_GIT=1  DEPLOY_TAG=<tag>  NO_BUILD=1  HEALTH_TIMEOUT=<s>
 #                               HEALTH_URL=<url>  HEALTH_CURL_ARGS=-k
 set -eu
+# shellcheck source=lib.sh
 . "$(dirname "$0")/lib.sh"
 load_env
 
 REF=${1:-main}
 HEALTH_TIMEOUT=${HEALTH_TIMEOUT:-300}
-HEALTH_URL=${HEALTH_URL:-https://${SITE_HOST}/actuator/health}
+# The public URL through Caddy; a non-default HTTPS_PORT (local tests) is included.
+PORT_SUFFIX=""
+if [ -n "${HTTPS_PORT:-}" ] && [ "$HTTPS_PORT" != "443" ]; then PORT_SUFFIX=":$HTTPS_PORT"; fi
+HEALTH_URL=${HEALTH_URL:-https://${SITE_HOST}${PORT_SUFFIX}/actuator/health}
 KEEP_IMAGES=${KEEP_IMAGES:-3}
 
 cd "$REPO_DIR"
@@ -39,7 +43,12 @@ current_tag() {
     [ -n "$cid" ] || return 0
     docker inspect -f '{{.Config.Image}}' "$cid" 2>/dev/null | sed 's/.*://'
 }
-PREV_TAG=$(current_tag || true)
+# Rollback target = the last version that PASSED the health gate (state file), not merely "what is
+# running": after a failed deploy the running version is the broken one.
+STATE_FILE="$PROD_DIR/.last-good-tag"
+PREV_TAG=""
+[ -s "$STATE_FILE" ] && PREV_TAG=$(cat "$STATE_FILE")
+[ -n "$PREV_TAG" ] || PREV_TAG=$(current_tag || true)
 log "Deploying tag $NEW_TAG (currently running: ${PREV_TAG:-nothing})"
 
 # ── 2. build ─────────────────────────────────────────────────────────────────
@@ -50,7 +59,10 @@ fi
 
 # ── 3. start ─────────────────────────────────────────────────────────────────
 log "Starting the stack"
-IMAGE_TAG=$NEW_TAG compose up -d --remove-orphans --no-build
+# `up -d` itself waits on depends_on health and exits non-zero when the backend never becomes
+# healthy (caddy depends on it) - that is exactly the case the health gate below must handle, so
+# a failure here must not abort the script before it can roll back.
+IMAGE_TAG=$NEW_TAG compose up -d --remove-orphans --no-build || log "compose up reported a failure - checking health"
 
 # ── 4. wait for health ───────────────────────────────────────────────────────
 healthy() {
@@ -73,13 +85,14 @@ wait_healthy() {
 
 if wait_healthy; then
     log "Healthy. Deployed $NEW_TAG."
+    echo "$NEW_TAG" > "$STATE_FILE"
 else
     log "Health check FAILED after ${HEALTH_TIMEOUT}s for $NEW_TAG"
     compose logs --tail 40 backend || true
     # ── 5. roll back ─────────────────────────────────────────────────────────
     if [ -n "$PREV_TAG" ] && [ "$PREV_TAG" != "$NEW_TAG" ]; then
         log "Rolling back to $PREV_TAG"
-        IMAGE_TAG=$PREV_TAG compose up -d --remove-orphans --no-build
+        IMAGE_TAG=$PREV_TAG compose up -d --remove-orphans --no-build || true
         if wait_healthy; then
             log "Rollback complete: $PREV_TAG is serving again."
         else

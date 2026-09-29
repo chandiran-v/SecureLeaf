@@ -27,10 +27,11 @@ load_env() {
 compose() { docker compose --env-file "$ENV_FILE" "$@"; }
 
 # Run mc (the MinIO client) once, on the compose network, with the given shell script on stdin.
-# $BACKUP_DIR is mounted at /backup. Extra `docker run` args (e.g. --add-host) via MC_DOCKER_ARGS.
+# $BACKUP_DIR is mounted at /backup; the container runs as OUR uid so it can read the 0600 dump. Extra `docker run` args (e.g. --add-host) via MC_DOCKER_ARGS.
 run_mc() {
     # shellcheck disable=SC2086
     docker run --rm -i --network "$NETWORK" ${MC_DOCKER_ARGS:-} \
+        --user "$(id -u):$(id -g)" -e HOME=/tmp \
         -v "$BACKUP_DIR:/backup" \
         -e MINIO_ROOT_USER -e MINIO_ROOT_PASSWORD \
         -e OCI_S3_ENDPOINT -e OCI_S3_BUCKET -e OCI_S3_ACCESS_KEY -e OCI_S3_SECRET_KEY \

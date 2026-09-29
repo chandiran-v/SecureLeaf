@@ -5,6 +5,7 @@
 #     read from environment variables of the same name (used by CI and rebuild automation).
 # Refuses to overwrite an existing .env unless --force is given (rotating secrets logs everyone out).
 set -eu
+# shellcheck source=lib.sh
 . "$(dirname "$0")/lib.sh"
 
 INTERACTIVE=1

@@ -6,6 +6,7 @@
 #   * Retention: 7 daily + 4 weekly dumps. The bucket mirror is kept current (`--remove`).
 # Object-Storage request maths is in docs/deployment.md (it stays inside 20 GB / 50k requests).
 set -eu
+# shellcheck source=lib.sh
 . "$(dirname "$0")/lib.sh"
 load_env
 
@@ -31,29 +32,35 @@ compose exec -T postgres pg_dump -Fc -U secureleaf_user -d secureleaf > "$BACKUP
 [ -s "$BACKUP_DIR/$DUMP_NAME.tmp" ] || die "pg_dump produced an empty file"
 mv "$BACKUP_DIR/$DUMP_NAME.tmp" "$BACKUP_DIR/$DUMP_NAME"
 
-log "Uploading dump, mirroring buckets, applying retention"
+log "Uploading dump and mirroring buckets"
 {
     printf '%s\n' "$MC_ALIASES"
     cat <<'MCSCRIPT'
-mc cp "/backup/$DUMP_NAME" "dest/$OCI_S3_BUCKET/db/daily/$DUMP_NAME"
+mc cp "/backup/$DUMP_NAME" "dest/$OCI_S3_BUCKET/db/daily/$DUMP_NAME" >/dev/null
 if [ "$WEEKDAY" = "7" ]; then
-    mc cp "/backup/$DUMP_NAME" "dest/$OCI_S3_BUCKET/db/weekly/$DUMP_NAME"
+    mc cp "/backup/$DUMP_NAME" "dest/$OCI_S3_BUCKET/db/weekly/$DUMP_NAME" >/dev/null
 fi
 for b in $BACKUP_BUCKETS; do
     mc mb --ignore-existing "dest/$OCI_S3_BUCKET/mirror/$b" >/dev/null 2>&1 || true
-    mc mirror --remove --quiet "local/$b" "dest/$OCI_S3_BUCKET/mirror/$b"
+    # Incremental: only new/changed objects are sent; --remove deletes what was deleted here.
+    mc mirror --remove "local/$b" "dest/$OCI_S3_BUCKET/mirror/$b" >/dev/null
 done
-# Retention: names sort chronologically (ISO dates), so drop everything but the newest N.
+MCSCRIPT
+} | run_mc
+
+# Retention. The mc image is minimal (no awk/sort), so the listing is processed HERE, on the host:
+# ISO-dated names sort chronologically, so everything but the newest N is deleted.
 prune() {  # $1 = prefix, $2 = keep
-    mc ls "dest/$OCI_S3_BUCKET/$1/" | awk '{print $NF}' | sort -r | tail -n +$(($2 + 1)) |
-    while read -r old; do
-        [ -n "$old" ] && mc rm "dest/$OCI_S3_BUCKET/$1/$old"
-    done
+    old=$({ printf '%s\n' "$MC_ALIASES"; echo "mc ls \"dest/\$OCI_S3_BUCKET/$1/\""; } | run_mc |
+        awk '{print $NF}' | sort -r | tail -n +$(($2 + 1)))
+    [ -n "$old" ] || return 0
+    { printf '%s\n' "$MC_ALIASES"
+      for f in $old; do echo "mc rm \"dest/\$OCI_S3_BUCKET/$1/$f\" >/dev/null"; done
+    } | run_mc
+    log "Pruned from $1: $(echo "$old" | tr '\n' ' ')"
 }
 prune db/daily "$KEEP_DAILY"
 prune db/weekly "$KEEP_WEEKLY"
-MCSCRIPT
-} | run_mc
 
 # Local staging copy: keep only the latest dump on the server (the real copies are off-box).
 # shellcheck disable=SC2012  # our own ISO-dated names, no odd characters

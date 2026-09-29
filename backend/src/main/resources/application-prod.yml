@@ -40,3 +40,12 @@ processing:
   thread-pool:
     core-size: 1
     max-size: 1
+
+# Phase 09D D7/D13 — /actuator/health is the public uptime probe AND the deploy health gate. The
+# SMTP health indicator would turn it DOWN whenever Brevo is slow or down, failing deploys and
+# paging the owner for something that must never break the business flow. Mail failures are
+# counted in the secureleaf.mail.send.failures metric instead.
+management:
+  health:
+    mail:
+      enabled: false
