@@ -1,0 +1,211 @@
+# =============================================================================
+# SecureLeaf — PRODUCTION stack for one Oracle Always Free ARM server (Phase 09D D1–D3)
+# =============================================================================
+#   caddy    — the ONLY service that publishes ports (80/443). TLS + the React app + reverse proxy.
+#   backend  — Spring Boot, profile `prod`
+#   postgres — PostgreSQL 16          redis — Redis 7 (locks, signed-URL tokens, Pub/Sub)
+#   minio    — S3-compatible object store;  minio-init — one-shot bucket creation
+#
+# Usage (normally via scripts/deploy.sh):   docker compose -f infra/prod/docker-compose.prod.yml up -d
+# Every image has a linux/arm64 variant; images are built ON the server (no registry).
+#
+# MEMORY BUDGET on the 12 GB box (D2), enforced by mem_limit:
+#   backend 4 GB + postgres 1.5 GB + minio 1 GB + redis 384 MB + caddy 256 MB  ≈ 7.1 GB
+#   The rest is OS + page cache, plus a 2 GB swap file (setup-server.sh).
+# =============================================================================
+name: secureleaf
+
+networks:
+  # One internal network. Nothing but Caddy publishes a port, so Postgres/Redis/MinIO are
+  # unreachable from the internet even if a host firewall rule is wrong.
+  internal:
+    name: secureleaf_internal
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:
+  caddy_data:      # Let's Encrypt certificates + account key — losing it means re-issuing
+  caddy_config:
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+
+  caddy:
+    build:
+      context: ../..
+      dockerfile: infra/prod/caddy.Dockerfile
+      args:
+        VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+        VITE_SENTRY_DSN: ${VITE_SENTRY_DSN:-}
+        VITE_LEGAL_REVIEWED: ${VITE_LEGAL_REVIEWED:-}
+    image: secureleaf/caddy:${IMAGE_TAG:-local}
+    restart: unless-stopped
+    networks: [internal]
+    ports:
+      - "${HTTP_PORT:-80}:80"        # ACME HTTP challenge + redirect to HTTPS
+      - "${HTTPS_PORT:-443}:443"
+    environment:
+      SITE_HOST: ${SITE_HOST:?SITE_HOST must be set (run scripts/generate-env.sh)}
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    mem_limit: 256m
+    logging: *logging
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:2019/config/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  backend:
+    build:
+      context: ../../backend
+      dockerfile: ../infra/docker/backend.Dockerfile
+    image: secureleaf/backend:${IMAGE_TAG:-local}
+    restart: unless-stopped
+    networks: [internal]
+    mem_limit: 4g
+    logging: *logging
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      # JVM flags live in the Dockerfile (MaxRAMPercentage=70, G1, ExitOnOutOfMemoryError).
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: secureleaf
+      DB_USER: secureleaf_user
+      DB_PASSWORD: ${DB_PASSWORD:?}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?}
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:?}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?}
+      JWT_SECRET: ${JWT_SECRET:?}
+      DRM_SIGNING_SECRET: ${DRM_SIGNING_SECRET:?}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      SUPPORT_EMAIL: ${SUPPORT_EMAIL:-}
+      # Same-origin behind Caddy: emailed links use the public URL, and no other origin is allowed.
+      FRONTEND_BASE_URL: https://${SITE_HOST}
+      CORS_ALLOWED_ORIGINS: https://${SITE_HOST}
+      PAYMENT_GATEWAY: ${PAYMENT_GATEWAY:-razorpay}
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-}
+      MAIL_HOST: ${MAIL_HOST:-smtp-relay.brevo.com}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USER: ${MAIL_USER:-}
+      MAIL_PASS: ${MAIL_PASS:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      NOTIFICATION_EMAIL_ENABLED: "true"
+      SENTRY_DSN: ${SENTRY_DSN:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health/readiness || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    networks: [internal]
+    command: ["postgres", "-c", "shared_buffers=384MB"]
+    environment:
+      POSTGRES_DB: secureleaf
+      POSTGRES_USER: secureleaf_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    mem_limit: 1536m
+    logging: *logging
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U secureleaf_user -d secureleaf"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    networks: [internal]
+    # noeviction: Redis holds locks and single-use tile signatures — silently evicting one would be
+    # a correctness bug, so a full Redis must fail loudly instead.
+    command:
+      - sh
+      - -c
+      - exec redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy noeviction --requirepass "$$REDIS_PASSWORD"
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?}
+    volumes:
+      - redisdata:/data
+    mem_limit: 384m
+    logging: *logging
+    healthcheck:
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  minio:
+    image: ${MINIO_IMAGE:-quay.io/minio/minio:latest}
+    restart: unless-stopped
+    networks: [internal]
+    # The web console (:9001) is served by the process but NOT published anywhere.
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?}
+    volumes:
+      - miniodata:/data
+    mem_limit: 1g
+    logging: *logging
+    healthcheck:
+      # `curl` where the image has it, otherwise the bundled `mc ready`.
+      test: ["CMD-SHELL", "curl -fs http://localhost:9000/minio/health/live || mc ready local"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # One-shot: creates the private buckets, then exits 0 (backend waits for that).
+  minio-init:
+    image: ${MC_IMAGE:-quay.io/minio/mc:latest}
+    networks: [internal]
+    restart: "no"
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"
+        for b in secureleaf-raw secureleaf-tiles secureleaf-thumbnails; do
+          mc mb --ignore-existing "local/$$b"
+          mc anonymous set none "local/$$b"
+        done
+        echo "buckets ready"

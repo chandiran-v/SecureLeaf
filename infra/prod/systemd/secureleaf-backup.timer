@@ -1,0 +1,11 @@
+[Unit]
+Description=Run the SecureLeaf backup every night
+
+[Timer]
+# 02:30 UTC (08:00 IST) - quiet hours. Persistent: if the server was off, run at next boot.
+OnCalendar=*-*-* 02:30:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

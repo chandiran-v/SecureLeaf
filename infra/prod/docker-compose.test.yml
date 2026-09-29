@@ -1,0 +1,8 @@
+# Local/CI test override for the production stack (Phase 09D acceptance #2).
+# Caddy uses its own internal CA (`tls internal`) instead of Let's Encrypt, so
+# SITE_HOST=localhost works with no DNS and no internet. Layer it on top:
+#   COMPOSE_FILE=infra/prod/docker-compose.prod.yml:infra/prod/docker-compose.test.yml
+services:
+  caddy:
+    volumes:
+      - ./test-tls.caddy:/etc/caddy/tls.d/tls.caddy:ro
