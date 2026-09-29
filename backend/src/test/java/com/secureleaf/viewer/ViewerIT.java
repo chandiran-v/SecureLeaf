@@ -22,6 +22,10 @@ import com.secureleaf.marketplace.entity.Product;
 import com.secureleaf.marketplace.entity.ProductStatus;
 import com.secureleaf.marketplace.repository.CategoryRepository;
 import com.secureleaf.marketplace.repository.ProductRepository;
+import com.secureleaf.ratelimit.RateLimitBucket;
+import com.secureleaf.ratelimit.RateLimitDecision;
+import com.secureleaf.ratelimit.RateLimiter;
+import com.secureleaf.ratelimit.ScraperSignalService;
 import com.secureleaf.viewer.entity.ViewerSessionEndReason;
 import com.secureleaf.viewer.metrics.ViewerMetrics;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -68,6 +72,8 @@ class ViewerIT extends AbstractIntegrationTest {
     @Autowired private JdbcTemplate jdbcTemplate;
     @Autowired private ViewerSessionService viewerSessionService;
     @Autowired private MeterRegistry meterRegistry;
+    @Autowired private RateLimiter rateLimiter;
+    @Autowired private ScraperSignalService scraperSignalService;
 
     private User creator;
     private User buyer;
@@ -314,6 +320,96 @@ class ViewerIT extends AbstractIntegrationTest {
         String url = (String) pageUrl(asBuyer, session.token(), 1).get("url");
 
         mockMvc.perform(get(url)).andExpect(status().isUnauthorized());
+    }
+
+    // ═══ Phase 11 — per-buyer rate limiting (acceptance criteria 1, 2, 5) ═══
+    @Test
+    void rateLimit_sixthImmediateTileGets429WithRetryAfter_andRejectionNeverTouchesStorage() throws Exception {
+        Session session = startSession(asBuyer, "device-1");
+        String auth = "Bearer " + jwtService.generateAccessToken(buyer);
+        String[] urls = new String[6];
+        for (int i = 0; i < 6; i++) {
+            urls[i] = (String) pageUrl(asBuyer, session.token(), (i % 5) + 1).get("url");
+        }
+        for (int i = 0; i < 5; i++) {
+            mockMvc.perform(get(urls[i]).header("Authorization", auth)).andExpect(status().isOk());
+        }
+        int storageReads = storage.getCallCount();
+        long rejectedBefore = rejectedCount();
+
+        mockMvc.perform(get(urls[5]).header("Authorization", auth))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(header().exists("Retry-After"))
+                .andExpect(header().string("X-RateLimit-Remaining", "0"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .jsonPath("$.code").value("RATE_LIMITED"));
+
+        assertThat(storage.getCallCount()).isEqualTo(storageReads);   // criterion 5
+        assertThat(accessLogCount()).isEqualTo(5);
+        assertThat(rejectedCount()).isEqualTo(rejectedBefore + 1);
+    }
+
+    @Test
+    void rateLimit_isPerUser_aThrottledBuyerDoesNotAffectAnother() throws Exception {
+        grantEntitlement(otherBuyer, product, documentVersion);
+        Session mine = startSession(asBuyer, "device-1");
+        Session theirs = startSession(asOtherBuyer, "device-2");
+        String myAuth = "Bearer " + jwtService.generateAccessToken(buyer);
+        String theirAuth = "Bearer " + jwtService.generateAccessToken(otherBuyer);
+
+        for (int i = 0; i < 5; i++) {
+            String url = (String) pageUrl(asBuyer, mine.token(), i + 1).get("url");
+            mockMvc.perform(get(url).header("Authorization", myAuth)).andExpect(status().isOk());
+        }
+        String blockedUrl = (String) pageUrl(asBuyer, mine.token(), 1).get("url");
+        mockMvc.perform(get(blockedUrl).header("Authorization", myAuth)).andExpect(status().isTooManyRequests());
+
+        String theirUrl = (String) pageUrl(asOtherBuyer, theirs.token(), 1).get("url");
+        mockMvc.perform(get(theirUrl).header("Authorization", theirAuth)).andExpect(status().isOk());
+    }
+
+    @Test
+    void rateLimit_viewerPageUrlOverTheLimitReturnsRateLimitedWithRetryAfterSeconds() {
+        Session session = startSession(asBuyer, "device-1");
+        // Drain the bucket directly (fast, deterministic) rather than firing 11 GraphQL calls,
+        // during which the 4/s refill could hand a token back.
+        RateLimitDecision decision;
+        do {
+            decision = rateLimiter.tryConsume(RateLimitBucket.PAGE_URL, String.valueOf(buyer.getId()));
+        } while (decision.allowed());
+
+        asBuyer.document(PAGE_URL).variable("token", session.token()).variable("page", 1)
+                .execute().errors().expect(e -> "RATE_LIMITED".equals(e.getExtensions().get("code"))
+                        && ((Number) e.getExtensions().get("retryAfterSeconds")).longValue() >= 1).verify();
+    }
+
+    @Test
+    void suspectedScrapers_flagsOnlyUsersAboveTheSuccessfulTileRateThreshold() throws Exception {
+        Session session = startSession(asBuyer, "device-1");
+        String url = (String) pageUrl(asBuyer, session.token(), 1).get("url");
+        mockMvc.perform(get(url).header("Authorization", "Bearer " + jwtService.generateAccessToken(buyer)))
+                .andExpect(status().isOk());
+        assertThat(scraperSignalService.suspectedScrapers(1)).isEmpty();   // one honest tile
+
+        for (int i = 0; i < 6; i++) {   // doubles the rows: 1 -> 64, above 30 tiles/min x 1 min
+            jdbcTemplate.update("""
+                    INSERT INTO viewer_access_logs (viewer_session_id, user_id, product_id, document_version_id,
+                                                    content_page_id, page_number, viewed_at)
+                    SELECT viewer_session_id, user_id, product_id, document_version_id, content_page_id, page_number, viewed_at
+                    FROM viewer_access_logs""");
+        }
+
+        assertThat(scraperSignalService.suspectedScrapers(1))
+                .singleElement()
+                .satisfies(row -> {
+                    assertThat(row.userId()).isEqualTo(buyer.getId());
+                    assertThat(row.tileCount()).isEqualTo(64);
+                });
+    }
+
+    private long rejectedCount() {
+        io.micrometer.core.instrument.Counter counter = meterRegistry.find(RateLimiter.REJECTED).tag("bucket", "tile").counter();
+        return counter == null ? 0 : (long) counter.count();
     }
 
     // ═══ Helpers ═════════════════════════════════════════════════════════════

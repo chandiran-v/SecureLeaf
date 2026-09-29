@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * In-memory implementation of StorageService for integration tests.
@@ -23,6 +24,13 @@ public class InMemoryStorageService implements StorageService {
 
     private final Map<String, byte[]> store = new ConcurrentHashMap<>();
 
+    private final AtomicInteger getCalls = new AtomicInteger();
+
+    /** How many times {@link #get} was called — lets a test prove a rejected request never reached storage. */
+    public int getCallCount() {
+        return getCalls.get();
+    }
+
     @Override
     public void put(String bucket, String key, byte[] content, String contentType) {
         String fullKey = bucket + "/" + key;
@@ -32,6 +40,7 @@ public class InMemoryStorageService implements StorageService {
 
     @Override
     public byte[] get(String bucket, String key) {
+        getCalls.incrementAndGet();
         String fullKey = bucket + "/" + key;
         byte[] content = store.get(fullKey);
         if (content == null) {

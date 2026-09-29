@@ -4,6 +4,13 @@ import { useApolloClient } from '@apollo/client';
 import { VIEWER_PAGE_URL } from '../../graphql/queries/viewer.queries';
 import { useAuthStore } from '../../store/authStore';
 import { recoverFromUnauthorized } from '../../lib/session';
+import {
+  RateLimitedError,
+  RequestBudget,
+  parseRetryAfterSeconds,
+  rateLimitedFromGraphQlError,
+  retryOnceOnRateLimit,
+} from '../../lib/rateLimit';
 import type { PageLink, SignedPageUrl, ViewerSession } from '../../types';
 
 /** Most bytes a browser can decode this way, kept small for smooth page turns. */
@@ -43,6 +50,8 @@ export interface UseSecureTileResult {
   retry: () => void;
   /** The drawn page's clickable links (V8). Empty while a page is loading. */
   links: PageLink[];
+  /** True while waiting out a 429 (Phase 11, D7) — the viewer shows a subtle "Slow down…" hint. */
+  slowDown: boolean;
 }
 
 function drawBitmapToCanvas(canvas: HTMLCanvasElement, bitmap: ImageBitmap): void {
@@ -87,10 +96,13 @@ export function useSecureTile({
   const [error, setError] = useState<{ code: string | null; status: number | null } | null>(null);
   const [retryNonce, setRetryNonce] = useState(0);
   const [links, setLinks] = useState<PageLink[]>([]);
+  const [slowDown, setSlowDown] = useState(false);
   const retry = () => setRetryNonce((n) => n + 1);
 
   // Undrawn, prefetched bitmaps only — see the module comment above.
   const cacheRef = useRef(new Map<number, LoadedPage>());
+  // Phase 11, D7 — recent tile requests, so prefetch can stand down near the server's budget.
+  const budgetRef = useRef(new RequestBudget());
   const sessionTokenRef = useRef<string | null>(null);
   sessionTokenRef.current = session?.sessionToken ?? null;
 
@@ -107,11 +119,17 @@ export function useSecureTile({
     let cancelled = false;
 
     async function fetchAndDecode(page: number): Promise<LoadedPage> {
-      const { data } = await apolloClient.query<{ viewerPageUrl: SignedPageUrl }>({
-        query: VIEWER_PAGE_URL,
-        variables: { sessionToken: sessionTokenRef.current, pageNumber: page },
-        fetchPolicy: 'network-only',
-      });
+      budgetRef.current.record();
+      let data: { viewerPageUrl: SignedPageUrl };
+      try {
+        ({ data } = await apolloClient.query<{ viewerPageUrl: SignedPageUrl }>({
+          query: VIEWER_PAGE_URL,
+          variables: { sessionToken: sessionTokenRef.current, pageNumber: page },
+          fetchPolicy: 'network-only',
+        }));
+      } catch (err) {
+        throw rateLimitedFromGraphQlError(err) ?? err;
+      }
       const url = data.viewerPageUrl.url;
       const fetchTile = () => {
         const accessToken = useAuthStore.getState().accessToken;
@@ -133,6 +151,10 @@ export function useSecureTile({
           // no JSON body
         }
         if (await recoverFromUnauthorized(code)) response = await fetchTile();
+      }
+
+      if (response.status === 429) {
+        throw new RateLimitedError(parseRetryAfterSeconds(response.headers.get('Retry-After')));
       }
 
       if (!response.ok) {
@@ -164,7 +186,10 @@ export function useSecureTile({
       setError(null);
       setLinks([]); // never leave the previous page's links over the next page
       try {
-        const loaded = await loadPage(pageNumber);
+        // D7 — a 429 on the page the reader asked for: wait Retry-After, try once more, hint meanwhile.
+        const loaded = await retryOnceOnRateLimit(() => loadPage(pageNumber), (active) => {
+          if (!cancelled) setSlowDown(active);
+        });
         if (cancelled) {
           loaded.bitmap.close();
           return;
@@ -177,7 +202,7 @@ export function useSecureTile({
         // D5 — prefetch the next page into the cache; failures here are silent, the real
         // fetch on navigation will simply try again.
         const hasNextPage = pageCount == null || pageNumber < pageCount;
-        if (hasNextPage && !cacheRef.current.has(pageNumber + 1)) {
+        if (hasNextPage && !cacheRef.current.has(pageNumber + 1) && budgetRef.current.canSpend()) {
           fetchAndDecode(pageNumber + 1)
             .then((prefetched) => {
               if (cancelled) {
@@ -191,7 +216,10 @@ export function useSecureTile({
         }
       } catch (err) {
         if (cancelled) return;
-        if (err instanceof TileFetchError) {
+        if (err instanceof RateLimitedError) {
+          // Still limited after the one retry: an ordinary, retryable error (no 403/409/410 meaning).
+          setError({ code: 'RATE_LIMITED', status: 429 });
+        } else if (err instanceof TileFetchError) {
           if (err.status === 409) {
             onSuperseded();
             return;
@@ -214,5 +242,5 @@ export function useSecureTile({
     };
   }, [session, pageNumber, pageCount, canvasRef, onSuperseded, onExpired, apolloClient, retryNonce]);
 
-  return { loading, error, retry, links };
+  return { loading, error, retry, links, slowDown };
 }

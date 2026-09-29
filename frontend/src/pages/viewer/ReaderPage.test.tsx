@@ -146,6 +146,33 @@ describe('ReaderPage', () => {
     expect(container.querySelectorAll('img')).toHaveLength(0);
   });
 
+  // Phase 11, D7 / criterion 7 — a 429 is retried once after Retry-After, with a "Slow down…" hint.
+  it('waits Retry-After after a 429 tile response, shows the hint, then draws the page on the retry', async () => {
+    let tileCalls = 0;
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.startsWith('/api/viewer/tiles/')) {
+        tileCalls += 1;
+        if (tileCalls === 1) {
+          return new Response('{"code":"RATE_LIMITED"}', { status: 429, headers: { 'Retry-After': '1' } });
+        }
+        return new Response(new Blob(['png-bytes'], { type: 'image/png' }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ data: {} }), { status: 200 });
+    });
+
+    renderReader([
+      startSessionMock({ pageCount: 1 }),
+      pageUrlMockRepeatable('tok-1', 1),
+    ]);
+
+    expect(await screen.findByText('Slow down…')).toBeInTheDocument();
+    expect(drawImageSpy).not.toHaveBeenCalled();
+    await waitFor(() => expect(drawImageSpy).toHaveBeenCalled(), { timeout: 4000 });
+    expect(tileCalls).toBe(2);
+    expect(screen.queryByText('Slow down…')).not.toBeInTheDocument();
+  });
+
   // Phase 09C D5 — VIEW-07 regression: print is blocked ONLY while the reader is mounted.
   it('adds body.sl-reading while mounted (print blanks the page) and removes it on unmount', async () => {
     expect(document.body).not.toHaveClass('sl-reading');

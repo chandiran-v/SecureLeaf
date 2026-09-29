@@ -3,6 +3,7 @@ package com.secureleaf.common.exception;
 import graphql.GraphQLError;
 import graphql.GraphqlErrorBuilder;
 import graphql.schema.DataFetchingEnvironment;
+import com.secureleaf.ratelimit.RateLimitedException;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.graphql.data.method.annotation.GraphQlExceptionHandler;
@@ -38,6 +39,16 @@ public class GlobalGraphQlExceptionHandler {
                 .message(ex.getMessage())
                 .errorType(ErrorType.BAD_REQUEST)
                 .extensions(Map.of("code", "DUPLICATE_RESOURCE"))
+                .build();
+    }
+
+    /** Phase 11, D3 — code RATE_LIMITED plus how long the client should wait before retrying. */
+    @GraphQlExceptionHandler(RateLimitedException.class)
+    public GraphQLError handleRateLimited(RateLimitedException ex, DataFetchingEnvironment env) {
+        return GraphqlErrorBuilder.newError(env)
+                .message(ex.getMessage())
+                .errorType(ex.getErrorCode().getErrorType())
+                .extensions(Map.of("code", ex.getErrorCode().name(), "retryAfterSeconds", ex.getRetryAfterSeconds()))
                 .build();
     }
 
