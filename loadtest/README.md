@@ -81,3 +81,32 @@ k6's `ramping-vus` is a *closed* workload — a VU waits for its response before
 when the server slows down, the test automatically sends fewer requests (**coordinated omission**).
 Reader behaviour is closed anyway (people wait for the page), which is why this executor fits;
 for a raw request-rate test use `ramping-arrival-rate`. See the learning note.
+
+## Scraper scenario (Phase 11): `scraper.js`
+
+`viewer.js` models honest readers, who must never see a 429. `scraper.js` is the opposite: **one**
+buyer with a valid entitlement asks for pages in a tight loop, no think time — the bulk-ripping
+attack the per-buyer limit (`ratelimit.*`, see the [learning note](../docs/learning-notes/phase-11-rate-limiting.md))
+exists to slow down.
+
+```bash
+docker run --rm -i --add-host=host.docker.internal:host-gateway -v "$PWD/loadtest:/loadtest" \
+  -e DURATION=60s grafana/k6 run /loadtest/scraper.js
+```
+
+| Metric | Meaning |
+|---|---|
+| `tile_ok` | tiles actually delivered (200) |
+| `tile_limited` | tile requests answered 429 |
+| `pageurl_limited` | `viewerPageUrl` calls answered `RATE_LIMITED` |
+
+**Expected result** with the default limits (tile: burst 5, refill 2/s; page-url: burst 10, refill 4/s):
+the vast majority of requests are 429, and `tile_ok` grows at about **2 per second** (about
+`5 + 2 × seconds` in total) however fast the script loops. The threshold `tile_ok: rate<3` encodes that.
+Watch `secureleaf_ratelimit_rejected_total{bucket="tile"}` climb on `/actuator/prometheus`, and after
+10 minutes of it the backend logs `possible scraper userId=…`; `suspectedScrapers` (admin GraphQL)
+lists the user.
+
+> **Not yet measured on real hardware.** The figures above follow from the configured limits and are
+> asserted by `RateLimiterTest` / `ViewerIT`; the k6 run itself has not been executed in CI. Record a
+> real run in `docs/perf/` when you do one.

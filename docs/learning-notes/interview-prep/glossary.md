@@ -191,3 +191,10 @@
 | **Grafana provisioning** | Loading datasources and dashboard JSON from files at start-up (dashboards as code) | [Phase 10](../phase-10-observability-load-testing.md) |
 | **Management port** | `management.server.port`: actuator on a separate, unpublished port | [Phase 10](../phase-10-observability-load-testing.md) |
 | **Idempotent seeder** | Test-data loader that finds-or-creates by natural key, safe to rerun even after a half-finished run | [Phase 10](../phase-10-observability-load-testing.md) |
+| **Token bucket** | Counter of permits refilled at a fixed rate up to a cap; allows a burst, limits the average | [Phase 11](../phase-11-rate-limiting.md) |
+| **Fixed window / sliding log / leaky bucket** | Rate-limit alternatives: boundary bursts / exact but memory-hungry / smooth but no burst | [Phase 11](../phase-11-rate-limiting.md) |
+| **429 / Retry-After** | HTTP "too many requests" and the seconds a client should wait before retrying | [Phase 11](../phase-11-rate-limiting.md) |
+| **Compare-and-swap (CAS)** | Atomic update that only writes if the value is unchanged since it was read; how Bucket4j stays correct in Redis | [Phase 11](../phase-11-rate-limiting.md) |
+| **Fail open / fail closed** | Allow / deny when the protective check itself is unavailable | [Phase 11](../phase-11-rate-limiting.md) |
+| **X-Forwarded-For trust** | Believing the client-IP header only from a known proxy CIDR, since anyone can forge it | [Phase 11](../phase-11-rate-limiting.md) |
+| **Scraper signal** | Repeated rate-limit rejections or an abnormal successful-tile rate, surfaced for an admin to review | [Phase 11](../phase-11-rate-limiting.md) |
