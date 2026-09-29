@@ -8,8 +8,19 @@ spring:
       introspection:
         enabled: false
 
-# D3 (Phase 9) — Render terminates TLS in front of this app; without this, every request arrives
-# over plain HTTP from Render's proxy and request.isSecure() is always false, so Spring Security's
+# Phase 09D D7 — Brevo SMTP relay: port 587 with STARTTLS. MAIL_HOST/PORT/USER/PASS come from the
+# env file; MAIL_FROM (notifications.email.from) must be a sender verified in Brevo.
+  mail:
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.smtp.starttls.required: true
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 10000
+      mail.smtp.writetimeout: 10000
+
+# D3 (Phase 9) — Caddy (Phase 09D) terminates TLS in front of this app; without this, every request arrives
+# over plain HTTP from the proxy and request.isSecure() is always false, so Spring Security's
 # HSTS header writer (which only fires on secure requests) would never fire in production. This
 # tells Spring Boot to trust the X-Forwarded-Proto/X-Forwarded-For headers the proxy sets.
 server:
@@ -22,3 +33,10 @@ server:
 payment:
   gateway:
     provider: ${PAYMENT_GATEWAY:razorpay}
+
+
+# Phase 09D D3 — 2-core server: one upload is processed at a time so readers keep a core.
+processing:
+  thread-pool:
+    core-size: 1
+    max-size: 1

@@ -30,6 +30,7 @@ import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.time.Duration;
 import java.time.Instant;
 
 /**
@@ -86,6 +87,11 @@ public class DocumentProcessingService {
         ProcessingJob job = processingJobRepository.findById(jobId)
                 .orElseThrow(() -> new IllegalStateException("Job not found: " + jobId));
 
+        // Phase 09D D13 — ProcessingJobWorker stamps started_at when it claims the job; this covers
+        // a direct call (tests, manual re-run) so the duration below is always measurable.
+        if (job.getStartedAt() == null) {
+            job.setStartedAt(Instant.now());
+        }
         log.info("[job-{}] Processing started", jobId);
 
         try {
@@ -250,8 +256,10 @@ public class DocumentProcessingService {
         // side effects (Redis publish, email) never fire for a pipeline run that later rolls back.
         notificationService.notifyProcessingComplete(product);
 
-        log.info("[job-{}] Pipeline complete: product {} is now LIVE ({} pages)",
-                job.getId(), product.getId(), pageCount);
+        long durationMs = job.getStartedAt() == null ? -1
+                : Duration.between(job.getStartedAt(), job.getCompletedAt()).toMillis();
+        log.info("[job-{}] Pipeline complete: product {} is now LIVE ({} pages) in {} ms",
+                job.getId(), product.getId(), pageCount, durationMs);
     }
 
     // ── Failure handling ─────────────────────────────────────────────────────
