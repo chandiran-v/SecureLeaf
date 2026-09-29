@@ -5,6 +5,7 @@
 > **Requirement IDs covered:** PAY-01 … PAY-10 (`docs/requirements.md` Module 4), plus the first slice of LIB-01/02 (My Library)
 > **Design doc:** [`docs/phase4_implementation_prompt.md`](../phase4_implementation_prompt.md) — decisions D1–D13 are referenced throughout
 > **Commits:** *(uncommitted at time of writing)*
+> **Addendum:** the real Razorpay gateway, refunds, reconciliation and fee accounting — the fixes for this note's "weakest point" — are in [phase-09b-razorpay.md](phase-09b-razorpay.md).
 
 ---
 

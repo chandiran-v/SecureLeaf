@@ -8,13 +8,27 @@
 
 ## 0. Before you start — read this
 
-**MVP1 ships with no real payment gateway.** `CommerceConfig` (`backend/src/main/java/com/secureleaf/commerce/CommerceConfig.java`)
-refuses to start with any `payment.gateway.provider` other than `mock` — there is no `RazorpayGateway`
-implementation yet. To deploy MVP1 at all today you must set `PAYMENT_GATEWAY=mock` in production,
-which means **every checkout can be marked "paid" for free**. The app logs a loud `WARN` on every
-startup while this is true. This is a deliberate, documented MVP1 limitation (see
-`docs/release-mvp1.md`), not an oversight — do not process real transactions against this
-deployment until a real gateway exists.
+**Payments run through Razorpay in TEST mode (Phase 09B).** Set `PAYMENT_GATEWAY=razorpay` and
+put your `rzp_test_…` key id, key secret and webhook secret in the environment. In the `prod`
+profile the app **refuses to start** with `PAYMENT_GATEWAY=mock` (the mock marks any order paid for
+free), with blank Razorpay credentials, or with a `rzp_live_…` key while `PAYMENT_LIVE_ENABLED` is
+not `true` — live payments are switched on in Phase 18, not here. While the mode is not LIVE the site
+shows a "Demo mode — no real money is charged" banner.
+
+**Razorpay dashboard setup (test mode):**
+1. *Settings → API Keys* (test mode): generate a key pair → `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET`.
+2. *Settings → Webhooks*: URL `https://<your-host>/api/webhooks/razorpay`, choose a webhook secret →
+   `RAZORPAY_WEBHOOK_SECRET`, and tick the events `payment.authorized`, `payment.captured`,
+   `payment.failed` and `refund.processed`.
+3. *Settings → Payment Capture*: **turn auto-capture ON** (recommended). If it is off, the app still
+   works — on `payment.authorized` it calls Razorpay's capture API itself — but auto-capture removes
+   one moving part.
+4. Reconciliation runs every 10 minutes by default (`payment.reconciliation.*`); it completes paid
+   orders whose webhook was lost and expires unpaid ones after 24 hours.
+
+> The hosting sections below still describe the original Render/Supabase/Vercel/Upstash plan.
+> [ADR 0001](adr/0001-hosting-oracle-always-free.md) moved production to one Oracle server;
+> Phase 09D rewrites those sections. The payment settings above apply to either.
 
 ---
 
@@ -35,8 +49,10 @@ a clear error message is safer than starting with a known secret.
 | `JWT_SECRET` | Signs every access/refresh token | Generate: `openssl rand -base64 32` | **Must** differ from the dev default — fails fast otherwise (D6) |
 | `DRM_SIGNING_SECRET` | HMAC-signs every tile URL (`TileUrlSigner`) | Generate: `openssl rand -base64 32` | **Must** differ from the dev default — fails fast otherwise (already enforced pre-Phase-9 by `DrmConfig`) |
 | `GOOGLE_CLIENT_ID` | Verifies Google Sign-In tokens | Google Cloud Console → APIs & Services → Credentials → OAuth client ID | Leave empty to disable Google sign-in entirely |
-| `PAYMENT_GATEWAY` | Which `PaymentGateway` bean loads | — | **Must be `mock`** until a real gateway ships — see §0 |
-| `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` | Mock gateway's signature shapes | Any value while `PAYMENT_GATEWAY=mock` | `KEY_SECRET`/`WEBHOOK_SECRET` **must** differ from the dev defaults — fails fast otherwise (D6) |
+| `PAYMENT_GATEWAY` | Which `PaymentGateway` bean loads | — | `razorpay` in prod (the mock is refused in the `prod` profile) — see §0 |
+| `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` | Basic-auth credentials for Razorpay's API; signs/verifies checkout responses and webhooks | Razorpay dashboard → Settings → API Keys / Webhooks (**test mode** for now) | Must be set and must not be the dev defaults — fails fast otherwise (D6, Phase 09B D10). Never logged |
+| `PAYMENT_LIVE_ENABLED` | Allows a `rzp_live_` key | — | Leave unset/`false` until Phase 18; with a live key and this off the app refuses to start |
+| `SUPPORT_EMAIL` | Shown in the UI via `platformInfo` | Your support mailbox | Optional |
 | `ADMIN_EMAILS` | Comma-separated emails granted ADMIN at startup/registration | You decide | Empty by default — nobody is an admin until set |
 | `FRONTEND_BASE_URL` | Builds emailed links (e.g. password reset) | Your Vercel URL | e.g. `https://secureleaf.vercel.app` |
 | `CORS_ALLOWED_ORIGINS` | Which browser origins may call this API | Your Vercel URL(s), comma-separated | See §3 — this is new in Phase 9 |
@@ -131,8 +147,10 @@ browser's console and the Network tab.
    - `DRM_SIGNING_SECRET`: every signed tile URL issued in the last 30 seconds (its TTL) stops
      validating — at most a handful of in-flight page loads see one failed tile fetch, which the
      viewer's own retry button recovers from.
-   - `RAZORPAY_KEY_SECRET` / `RAZORPAY_WEBHOOK_SECRET`: not used at all while `PAYMENT_GATEWAY=mock`
-     — rotate freely.
+   - `RAZORPAY_KEY_SECRET` / `RAZORPAY_WEBHOOK_SECRET`: rotate in the Razorpay dashboard first, update the
+     environment, redeploy. Between the two steps checkout signatures and webhooks fail verification
+     (safe — they are rejected, not accepted); the reconciliation job recovers any payment whose
+     webhook was rejected in that window.
    - `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` (Supabase Storage credentials): rotate in Supabase
      first, update Render's env vars, then redeploy — there's no fallback if these are wrong, every
      upload/tile request fails until fixed.
@@ -167,7 +185,7 @@ Run through this after every production deploy, in order:
 3. `docs/ci/e2e.yml.example`'s journey, run manually against production once (register → become
    creator → upload → LIVE → buy → view) — the single strongest signal that every layer is wired
    correctly, since it's the same test Phase 9 (D8) wrote for exactly this purpose. Use disposable
-   test accounts; don't leave real payment records lying around even under the mock gateway.
+   test accounts; don't leave stray test payment records lying around.
 4. Open the browser's Network tab on the real frontend origin and confirm: no CORS errors, the
    CSP/`X-Frame-Options`/`Referrer-Policy`/`Permissions-Policy` headers are present on API
    responses (`curl -I` also works), and `Strict-Transport-Security` is present (confirms
@@ -175,5 +193,6 @@ Run through this after every production deploy, in order:
 5. Check the backend's log stream for the very first few lines — confirm JSON structured logs
    (Phase 9, D2) are showing up correctly for whatever log aggregator you've pointed at Render's
    log stream, not plain text.
-6. Confirm the loud `PAYMENT_GATEWAY=mock` warning is present in the startup log — if it's
-   *missing*, something is misconfigured (or a real gateway shipped and this document is stale).
+6. Confirm the startup log says `Payment gateway is RAZORPAY in TEST mode` and that the site shows the
+   "Demo mode" banner. If you see the loud `Payment gateway is MOCK` warning instead, the environment
+   is misconfigured (the `prod` profile refuses to start with the mock, so this should be impossible).

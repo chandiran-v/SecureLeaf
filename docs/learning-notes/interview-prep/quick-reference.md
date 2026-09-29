@@ -281,6 +281,29 @@ a secret in a variable spelled unexpectedly still slips through. Say this unprom
 
 ---
 
+## Phase 9B — Real Razorpay (test mode) · [full note](../phase-09b-razorpay.md)
+
+| Concept | The one-line answer |
+|---|---|
+| Mock → real swap | A second implementation of the `PaymentGateway` port; order/entitlement logic gained features but needed no rewrite — ports & adapters paying off |
+| Why no Razorpay SDK | Five endpoints, fewer dependencies on a small ARM box, and the exact HTTP request is assertable with `MockRestServiceServer` |
+| Gateway errors | Every 4xx/5xx/timeout → one `PAYMENT_GATEWAY_UNAVAILABLE`; thrown inside the order transaction so no half-created order; 3 s connect / 10 s read timeouts |
+| Test vs live | `rzp_test_` vs `rzp_live_` prefix; app refuses to start with a live key unless `payment.live-enabled=true`; mock refused in prod; blank secrets refused |
+| Payment mode in the UI | Derived from provider + key prefix (`MOCK`/`TEST`/`LIVE`), so the banner can't disagree with the server |
+| Authorize vs capture | `payment.authorized` → we call `capture` → `payment.captured` completes the order; works with or without auto-capture |
+| Never HTTP inside a DB transaction | `recordAuthorization` is non-transactional so a slow gateway can't drain the connection pool |
+| Three messengers, one path | Browser handler, webhook, reconciliation job all → `applyCapture` under the order row lock + "already COMPLETED?" check |
+| Reconciliation | Every 10 min: PENDING orders > 15 min old → ask gateway; captured → complete; > 24 h with nothing → FAILED ("expired") |
+| Refund = state transition | Order/payment `REFUNDED`, entitlement `REVOKED`, notification + email, `payment_events` + `admin_actions` rows; nothing deleted |
+| Refund two entrances | Admin mutation and `refund.processed` webhook both go through `applyRefund`; replay is a no-op because the order is already `REFUNDED` |
+| Gateway fees | Platform absorbs them; stored per payment; creators keep price − 10%; platform net = fee − gateway fee − GST; refunds don't return the fee |
+| CSP for checkout | Name exact hosts: `checkout.razorpay.com` (script + frame), `api.razorpay.com` (connect) — no `unsafe-inline` |
+| Known-answer crypto tests | Signature test vectors computed independently in Python so the code can't validate itself |
+
+**Weakest point to volunteer:** fee lookup and refunds hold the order row lock across a gateway call (bounded by timeouts, deliberate for refunds); the fix is after-commit fee capture and an async `REFUND_PENDING` state. Also: nothing here has run against real Razorpay test mode from CI — only against request-shape tests and the mock.
+
+---
+
 ## Cross-cutting themes to weave into any answer
 
 1. **Threat-model each decision.** Every security choice here has a "what attack does this stop" answer. Say it.
