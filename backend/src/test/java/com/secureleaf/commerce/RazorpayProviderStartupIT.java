@@ -25,7 +25,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "payment.gateway.provider=razorpay",
         "payment.gateway.key-id=rzp_test_startup123",
         "payment.gateway.key-secret=startup-secret",
-        "payment.gateway.webhook-secret=startup-webhook-secret"
+        "payment.gateway.webhook-secret=startup-webhook-secret",
+        "processing.worker.enabled=false"
 })
 class RazorpayProviderStartupIT extends AbstractIntegrationTest {
 
