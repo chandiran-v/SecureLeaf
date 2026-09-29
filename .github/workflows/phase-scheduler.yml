@@ -37,9 +37,9 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # Switch both to mvp2 / feature/secure-leaf-mvp2 when MVP1 is released.
-  TARGET_BRANCH: feature/secure-leaf-mvp1
-  MILESTONE_LABEL: mvp1
+  # MVP1 phases are done (09E go-live is manual). The scheduler now builds MVP2.
+  TARGET_BRANCH: feature/secure-leaf-mvp2 # MVP2 since 2026-09-29
+  MILESTONE_LABEL: mvp2
   MAX_REVISIONS: "3"
   RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 

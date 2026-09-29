@@ -33,7 +33,9 @@ Hosting decision and measured numbers: [ADR 0001: one Oracle Always Free server]
 
 ## MVP2 — target branch `feature/secure-leaf-mvp2` (scale to 5,000 concurrent viewers)
 
-MVP2 starts after MVP1 is released. The scheduler only picks `mvp2` Issues once you switch it over (see "Switching to MVP2" below).
+**Status (2026-09-29): active.** `feature/secure-leaf-mvp2` was cut from MVP1 after 09D and is now the default branch; the scheduler builds `mvp2` Issues. MVP1's go-live (09E) is still pending and is done manually, deploying MVP1 code. Fixes found after that go in as `fix` + `mvp2` Issues.
+
+**Phase 14 (libvips) is parked** (label `manual`) until there's benchmark data from Phases 10 and 13 to justify a Java 25 upgrade. The scheduler skips it; Phase 15 runs straight after 13.
 
 | # | Spec | Requirement IDs | Learning note |
 |---|---|---|---|
@@ -41,7 +43,7 @@ MVP2 starts after MVP1 is released. The scheduler only picks `mvp2` Issues once 
 | 11 | [Per-buyer rate limiting](phase-11-rate-limiting.md) | MVP2-04 | `phase-11-rate-limiting.md` |
 | 12 | [Decoupled rendering pool + backpressure](phase-12-render-pool-backpressure.md) | MVP2-03 | `phase-12-render-pool-backpressure.md` |
 | 13 | [Watermarked tile cache](phase-13-watermarked-tile-cache.md) | MVP2-02 | `phase-13-watermarked-tile-cache.md` |
-| 14 | [libvips watermark renderer](phase-14-libvips-renderer.md) ⚠️ needs your decision first | MVP2-01 | `phase-14-libvips-renderer.md` |
+| 14 | [libvips watermark renderer](phase-14-libvips-renderer.md) ⏸ *parked (`manual`) until benchmarks justify Java 25* | MVP2-01 | `phase-14-libvips-renderer.md` |
 | 15 | [Full document versioning](phase-15-document-versioning.md) | MVP2-05 | `phase-15-document-versioning.md` |
 | 16 | [Adaptive tile resolution](phase-16-adaptive-tile-resolution.md) | MVP2-06 | `phase-16-adaptive-tile-resolution.md` |
 | 17 | [5,000-viewer capacity verification](phase-17-capacity-verification.md) | MVP2-07 | `phase-17-capacity-verification.md` |
