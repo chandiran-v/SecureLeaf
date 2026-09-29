@@ -174,3 +174,20 @@
 | **ARM64 (aarch64)** | The CPU architecture of Oracle Ampere servers; container images must have a `linux/arm64` variant | [Phase 9D](../phase-09d-production-single-server.md) |
 | **Fontconfig / Java2D fonts** | Linux font lookup the JDK needs to draw text; missing in slim images, breaking watermarks only in prod | [Phase 9D](../phase-09d-production-single-server.md) |
 | **`flush_interval -1`** | Caddy reverse-proxy setting that stops response buffering so SSE events arrive immediately | [Phase 9D](../phase-09d-production-single-server.md) |
+| **Observability** | Answering "what is the system doing and why" from metrics, logs and traces | [Phase 10](../phase-10-observability-load-testing.md) |
+| **Micrometer** | Spring Boot's metrics facade (like SLF4J for logs); Timer/Gauge/DistributionSummary | [Phase 10](../phase-10-observability-load-testing.md) |
+| **Prometheus scrape** | Prometheus *pulling* `/actuator/prometheus` on an interval and storing the series | [Phase 10](../phase-10-observability-load-testing.md) |
+| **PromQL / `histogram_quantile`** | Prometheus queries; estimates p50/p95/p99 from histogram buckets | [Phase 10](../phase-10-observability-load-testing.md) |
+| **Percentile (p95/p99)** | Value below which that % of requests fall; exposes the tail an average hides | [Phase 10](../phase-10-observability-load-testing.md) |
+| **Histogram bucket** | Counter of observations ≤ a boundary; summable across instances, unlike precomputed percentiles | [Phase 10](../phase-10-observability-load-testing.md) |
+| **Metric cardinality** | Distinct tag-value combinations, each a stored series; never tag by user/session id | [Phase 10](../phase-10-observability-load-testing.md) |
+| **`Timer.Sample`** | Start a timer now, choose its tags (e.g. outcome) only when stopping | [Phase 10](../phase-10-observability-load-testing.md) |
+| **RED / USE methods** | Rate-Errors-Duration for services; Utilisation-Saturation-Errors for resources | [Phase 10](../phase-10-observability-load-testing.md) |
+| **Little's Law** | Concurrency = throughput × latency; explains busy threads vs requests/s | [Phase 10](../phase-10-observability-load-testing.md) |
+| **Coordinated omission** | A closed-loop load tester recording fewer slow requests because it waits for the server | [Phase 10](../phase-10-observability-load-testing.md) |
+| **Load / stress / soak test** | Expected peak / beyond it until failure / long duration for leaks | [Phase 10](../phase-10-observability-load-testing.md) |
+| **k6 VU, stage, threshold** | Virtual user / ramp step / pass-fail rule that fails the run | [Phase 10](../phase-10-observability-load-testing.md) |
+| **Think time** | Deliberate pause modelling a human reading between requests | [Phase 10](../phase-10-observability-load-testing.md) |
+| **Grafana provisioning** | Loading datasources and dashboard JSON from files at start-up (dashboards as code) | [Phase 10](../phase-10-observability-load-testing.md) |
+| **Management port** | `management.server.port`: actuator on a separate, unpublished port | [Phase 10](../phase-10-observability-load-testing.md) |
+| **Idempotent seeder** | Test-data loader that finds-or-creates by natural key, safe to rerun even after a half-finished run | [Phase 10](../phase-10-observability-load-testing.md) |

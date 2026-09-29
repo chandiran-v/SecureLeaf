@@ -354,6 +354,17 @@ a secret in a variable spelled unexpectedly still slips through. Say this unprom
 
 ---
 
+## Phase 10 — Observability & load-test harness · [full note](../phase-10-observability-load-testing.md)
+
+- **Measure before you optimise:** MVP2 phases are judged against a recorded baseline (`docs/perf/baseline-mvp1.md`), not opinion.
+- **Percentiles, not averages:** p95/p99 show the tail; histograms (`publishPercentileHistogram`) make `histogram_quantile` possible and aggregate across instances.
+- **RED for the endpoint, USE for the resources:** requests/s by outcome + duration; Tomcat threads busy vs max, heap, GC.
+- **Little's Law:** busy threads ≈ throughput × latency — but a CPU-bound tile saturates cores long before 200 threads.
+- **`Timer.Sample`** when the tag (`outcome`) is only known at the end; keep tags low-cardinality.
+- **Actuator on a private port** (8081 in prod): network position, not a shared secret, protects the metrics; Caddy forwards only `/actuator/health`.
+- **Load test hygiene:** think time + heartbeats model real readers, thresholds make it pass/fail, closed model under-reports at saturation (coordinated omission), label smoke runs "not a capacity result".
+- **Seeders:** guard against prod, find-or-create by natural key, survive half-finished previous runs.
+
 ## Cross-cutting themes to weave into any answer
 
 1. **Threat-model each decision.** Every security choice here has a "what attack does this stop" answer. Say it.

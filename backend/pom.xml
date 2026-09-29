@@ -136,6 +136,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
+        <!-- Phase 10 D1 — Prometheus text format for /actuator/prometheus (version managed by Boot). -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
         <!-- D2 (Phase 9) — structured JSON logs in prod. Spring Boot's own built-in structured
              logging (logging.structured.format.console=ecs) needs Boot 3.4+; this project pins
              3.3.2, so logback-spring.xml wires this encoder directly for the 'prod' profile

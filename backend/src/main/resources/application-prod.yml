@@ -49,3 +49,8 @@ management:
   health:
     mail:
       enabled: false
+  # Phase 10 D1 — actuator (incl. /actuator/prometheus) moves to its own port, 8081. Only Caddy
+  # publishes ports and it proxies only /actuator/health (to 8081), so metrics stay on the Docker
+  # network. The container healthcheck and Caddy target 8081 (see docker-compose.prod.yml).
+  server:
+    port: 8081

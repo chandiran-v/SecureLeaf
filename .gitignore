@@ -42,3 +42,4 @@ logs/
 infra/prod/.env
 
 infra/prod/.last-good-tag
+loadtest/users.csv

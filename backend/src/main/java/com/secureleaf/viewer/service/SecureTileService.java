@@ -12,9 +12,11 @@ import com.secureleaf.content.entity.DocumentVersion;
 import com.secureleaf.content.repository.ContentPageRepository;
 import com.secureleaf.content.watermark.WatermarkRenderer;
 import com.secureleaf.viewer.entity.ViewerSession;
+import com.secureleaf.viewer.metrics.ViewerMetrics;
 import com.secureleaf.viewer.entity.ViewerSessionEndReason;
 import com.secureleaf.viewer.repository.ViewerSessionRepository;
 import com.secureleaf.viewer.security.TileUrlSigner;
+import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -53,6 +55,7 @@ public class SecureTileService {
     private final ViewerAccessLogService viewerAccessLogService;
     private final StringRedisTemplate redisTemplate;
     private final Clock clock;
+    private final ViewerMetrics metrics;
 
     public record TileRequest(Long sessionId, int pageNumber, long exp, String signature,
                                Long callerUserId, String ipAddress, String userAgent, String correlationId) {
@@ -60,6 +63,21 @@ public class SecureTileService {
 
     @Transactional
     public byte[] getTile(TileRequest request) {
+        // Phase 10 D2 — one timer around the whole method, tagged by how it ended. The outcome is
+        // only known at the end, hence Timer.Sample (start now, pick the tag when stopping).
+        Timer.Sample sample = metrics.startTileRequest();
+        try {
+            byte[] tile = serveTile(request);
+            metrics.recordTileBytes(tile.length);
+            metrics.recordTileRequest(sample, ViewerMetrics.OUTCOME_OK);
+            return tile;
+        } catch (RuntimeException e) {
+            metrics.recordTileRequest(sample, ViewerMetrics.outcomeOf(e));
+            throw e;
+        }
+    }
+
+    private byte[] serveTile(TileRequest request) {
         // D6 steps 2 & 4 — the signature is computed over (sessionId|pageNumber|userId|exp), so
         // verifying it with the CALLER's own userId does double duty: it proves the URL wasn't
         // tampered with (2) AND that it was issued to this exact caller (4) in one comparison —
@@ -110,8 +128,10 @@ public class SecureTileService {
                 .findByDocumentVersionIdAndPageNumber(documentVersion.getId(), request.pageNumber())
                 .orElseThrow(() -> new ResourceNotFoundException("ViewerPage", "pageNumber", request.pageNumber()));
 
-        byte[] cleanBytes = storageService.get(contentPage.getBucketName(), contentPage.getMinioObjectKey());
-        byte[] watermarked = watermarkRenderer.applyWatermark(cleanBytes, watermarkLabel(session));
+        byte[] cleanBytes = metrics.timeStorageFetch(
+                () -> storageService.get(contentPage.getBucketName(), contentPage.getMinioObjectKey()));
+        String label = watermarkLabel(session);
+        byte[] watermarked = metrics.timeWatermark(() -> watermarkRenderer.applyWatermark(cleanBytes, label));
 
         // D9 — only successful responses reach here; every throw above logs nothing.
         viewerAccessLogService.record(session, documentVersion, contentPage, request.pageNumber(),

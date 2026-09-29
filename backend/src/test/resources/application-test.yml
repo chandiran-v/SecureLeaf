@@ -40,3 +40,12 @@ content:
   links:
     backfill:
       enabled: false
+
+# Phase 10 — @SpringBootTest switches metric exporters off by default; the tile-metrics tests
+# scrape /actuator/prometheus, so switch this one back on (an explicit per-exporter property
+# beats the test default, and needs no @AutoConfigureObservability => no extra context).
+management:
+  prometheus:
+    metrics:
+      export:
+        enabled: true

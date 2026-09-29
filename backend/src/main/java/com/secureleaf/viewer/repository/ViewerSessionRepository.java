@@ -21,4 +21,8 @@ public interface ViewerSessionRepository extends JpaRepository<ViewerSession, Lo
      *  every product, so all of them can be ended with reason REVOKED. */
     @Query("select s from ViewerSession s where s.user.id = :userId and s.endedAt is null")
     List<ViewerSession> findActiveByUserId(@Param("userId") Long userId);
+
+    /** Phase 10 D2 — feeds the secureleaf.viewer.sessions.active gauge. Leases that lapsed but
+     *  are not yet swept (up to 60s, ViewerSessionService.sweepExpiredLeases) still count. */
+    long countByEndedAtIsNull();
 }

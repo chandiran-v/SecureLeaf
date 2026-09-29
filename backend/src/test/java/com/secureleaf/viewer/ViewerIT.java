@@ -23,6 +23,9 @@ import com.secureleaf.marketplace.entity.ProductStatus;
 import com.secureleaf.marketplace.repository.CategoryRepository;
 import com.secureleaf.marketplace.repository.ProductRepository;
 import com.secureleaf.viewer.entity.ViewerSessionEndReason;
+import com.secureleaf.viewer.metrics.ViewerMetrics;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import com.secureleaf.viewer.service.ViewerSessionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -64,6 +67,7 @@ class ViewerIT extends AbstractIntegrationTest {
     @Autowired private MockMvc mockMvc;
     @Autowired private JdbcTemplate jdbcTemplate;
     @Autowired private ViewerSessionService viewerSessionService;
+    @Autowired private MeterRegistry meterRegistry;
 
     private User creator;
     private User buyer;
@@ -327,6 +331,53 @@ class ViewerIT extends AbstractIntegrationTest {
               viewerHeartbeat(sessionToken: $token) { status expiresAt }
             }
             """;
+
+    // ═══ Phase 10 (D2) — metrics on the tile path ══════════════════════════
+    @Test
+    void metrics_prometheusEndpointExposesEveryViewerMeterAfterOneTile() throws Exception {
+        Session session = startSession(asBuyer, "device-1");
+        String url = (String) pageUrl(asBuyer, session.token(), 1).get("url");
+        mockMvc.perform(get(url).header("Authorization", "Bearer " + jwtService.generateAccessToken(buyer)))
+                .andExpect(status().isOk());
+
+        String scrape = mockMvc.perform(get("/actuator/prometheus"))   // no JWT: Prometheus has none
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(scrape)
+                .contains("secureleaf_tile_request_seconds_bucket{outcome=\"ok\"")   // percentile histogram
+                .contains("secureleaf_watermark_render_seconds_count{renderer=\"java2d\"")
+                .contains("secureleaf_storage_fetch_seconds_count")
+                .contains("secureleaf_viewer_sessions_active")
+                .contains("secureleaf_tile_bytes_count")
+                .contains("tomcat_threads_busy")
+                .contains("tomcat_threads_config_max");
+    }
+
+    @Test
+    void metrics_tileOutcomeTagsAreOkForbiddenAndSuperseded() throws Exception {
+        String auth = "Bearer " + jwtService.generateAccessToken(buyer);
+        long ok = tileCount("ok");
+        long forbidden = tileCount("forbidden");
+        long superseded = tileCount("superseded");
+
+        Session first = startSession(asBuyer, "device-1");
+        String firstUrl = (String) pageUrl(asBuyer, first.token(), 1).get("url");
+        String supersededUrl = (String) pageUrl(asBuyer, first.token(), 2).get("url");
+        mockMvc.perform(get(firstUrl).header("Authorization", auth)).andExpect(status().isOk());
+        mockMvc.perform(get(firstUrl).header("Authorization", auth)).andExpect(status().isForbidden());  // reuse
+        startSession(asBuyer, "device-2");                                                          // supersedes
+        mockMvc.perform(get(supersededUrl).header("Authorization", auth)).andExpect(status().isConflict());
+
+        assertThat(tileCount("ok")).isEqualTo(ok + 1);
+        assertThat(tileCount("forbidden")).isEqualTo(forbidden + 1);
+        assertThat(tileCount("superseded")).isEqualTo(superseded + 1);
+    }
+
+    private long tileCount(String outcome) {
+        Timer timer = meterRegistry.find(ViewerMetrics.TILE_REQUEST).tag("outcome", outcome).timer();
+        return timer == null ? 0 : timer.count();
+    }
 
     private static final String PAGE_URL = """
             query($token: String!, $page: Int!) {

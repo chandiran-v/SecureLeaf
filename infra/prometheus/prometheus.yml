@@ -1,0 +1,13 @@
+# Phase 10 D3 — local Prometheus. The backend runs on the HOST during development
+# (./mvnw spring-boot:run), so the container reaches it through host.docker.internal
+# (mapped to the host gateway in docker-compose.yml). If you run the backend as a container on
+# the secureleaf-net network instead, change the target to backend:8080.
+global:
+  scrape_interval: 5s       # short on purpose: load tests last minutes; production would use 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: secureleaf-backend
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["host.docker.internal:8080"]

@@ -14,7 +14,7 @@
 | Last deploys | `docker image ls secureleaf/backend` (tags are git SHAs) · `cat infra/prod/.last-good-tag` |
 | Backup timer | `systemctl list-timers secureleaf-backup.timer` · `journalctl -u secureleaf-backup.service -e` |
 | Processing time | backend log line `Pipeline complete … in N ms`; `processing_jobs.started_at`/`completed_at` |
-| Mail failures | metric `secureleaf.mail.send.failures` (`dc exec backend curl -s localhost:8080/actuator/metrics/secureleaf.mail.send.failures`) |
+| Mail failures | metric `secureleaf.mail.send.failures` (`dc exec backend curl -s localhost:8081/actuator/metrics/secureleaf.mail.send.failures`) |
 
 ## Restart
 
