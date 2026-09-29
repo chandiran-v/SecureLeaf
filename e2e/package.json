@@ -1,0 +1,17 @@
+{
+  "name": "secureleaf-e2e",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Phase 9, D8 — end-to-end smoke test for the MVP1 golden path. Own package.json, deliberately not a workspace of frontend/backend: it drives the whole stack as a black box over HTTP, the same way a real browser would, and has no business importing either app's source.",
+  "scripts": {
+    "e2e": "playwright test",
+    "test": "playwright test",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0",
+    "@types/node": "^20.14.0",
+    "typescript": "^5.5.0"
+  }
+}

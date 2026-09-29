@@ -1,9 +1,11 @@
 package com.secureleaf.viewer.controller;
 
 import com.secureleaf.auth.service.SecureLeafUserDetails;
+import com.secureleaf.common.web.CorrelationIdFilter;
 import com.secureleaf.viewer.service.SecureTileService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.MDC;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -14,9 +16,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
 /**
  * REST endpoint serving one signed, single-use, watermarked DRM tile (D1, D5, D6).
@@ -31,8 +30,6 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 public class SecureTileController {
 
-    private static final String CORRELATION_ID_HEADER = "X-Correlation-Id";
-
     private final SecureTileService secureTileService;
 
     @GetMapping(value = "/tiles/{sessionId}/{pageNumber}", produces = MediaType.IMAGE_PNG_VALUE)
@@ -43,7 +40,11 @@ public class SecureTileController {
             @RequestParam String sig,
             HttpServletRequest request) {
 
-        String correlationId = firstNonBlank(request.getHeader(CORRELATION_ID_HEADER), UUID.randomUUID().toString());
+        // Phase 9, D1 — CorrelationIdFilter (the first filter in the chain) has already put an id
+        // in the MDC and echoed it on the response header; this endpoint just reads it, rather
+        // than generating and setting its own, so the viewer access log uses the exact same id
+        // every other log line for this request does.
+        String correlationId = MDC.get(CorrelationIdFilter.MDC_KEY);
 
         byte[] watermarked = secureTileService.getTile(new SecureTileService.TileRequest(
                 sessionId, pageNumber, exp, sig, currentUserId(),
@@ -56,12 +57,7 @@ public class SecureTileController {
                 .cacheControl(CacheControl.noStore().cachePrivate())
                 .header(HttpHeaders.PRAGMA, "no-cache")
                 .header("X-Content-Type-Options", "nosniff")
-                .header(CORRELATION_ID_HEADER, correlationId)
                 .body(watermarked);
-    }
-
-    private static String firstNonBlank(String value, String fallback) {
-        return (value == null || value.isBlank()) ? fallback : value;
     }
 
     private Long currentUserId() {

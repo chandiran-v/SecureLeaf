@@ -255,3 +255,40 @@ the full write-up: RBAC vs. object-level authorization, why admin bootstrap is c
 a stateless JWT immediately (a Redis deny-list vs. the alternatives), fail-open vs. fail-closed and
 why this project's usual "fail closed" instinct doesn't apply here, post- vs. pre-moderation, and
 append-only audit logs enforced in the database.
+
+---
+
+## Hardening & Release Readiness (Phase 9) — MVP1 complete
+
+- **Trace any request end to end**: every response carries `X-Correlation-Id`; every log line it
+  produces — even from a background `@Async` job — carries the same id, via SLF4J MDC propagated
+  onto pool threads by a `TaskDecorator`. Production logs are structured JSON; a test fails the
+  build if a log line ever hands SLF4J a raw password/token/secret.
+- **Real HTTP security headers** on the API (`SecurityConfig`) and the Vercel-hosted frontend
+  (`frontend/vercel.json`): CSP, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`,
+  `Permissions-Policy`, HSTS.
+- **GraphQL can't be turned into a denial-of-service vector**: max query depth 10, max complexity
+  200 (aliasing the same field hundreds of times doesn't dodge it), introspection disabled in prod.
+- **Credential stuffing is throttled**: 5 failed logins per email+IP per 15 minutes (Redis), the
+  6th gets `RATE_LIMITED` outright; a successful login resets the counter.
+- **The app refuses to boot in production with a leaked default secret** — JWT, DRM signing, the
+  two Razorpay secrets, and the two MinIO credentials are all checked against their known dev
+  values at startup.
+- **Liveness and readiness are separate questions**: `/actuator/health/readiness` checks the
+  database and Redis specifically, not every auto-configured health indicator — a broken SMTP
+  connection doesn't pull a healthy instance out of rotation.
+- **One Playwright test drives the entire MVP1 golden path for real** — register a creator, upload
+  a real PDF through the real async pipeline to LIVE, buy it as a buyer through the mock gateway,
+  and read it in the secure viewer — against a real running backend, database, and cache, nothing
+  mocked below the browser. See [`e2e/`](e2e/).
+- **Every MVP1 requirement has a receipt**: [`docs/release-mvp1.md`](docs/release-mvp1.md) maps
+  every requirement id in `docs/requirements.md` to the specific test or file:line proving it.
+- **Deployment is documented, not improvised**: [`docs/deployment.md`](docs/deployment.md) is the
+  Render (backend) / Supabase (Postgres + storage) / Vercel (frontend) / Upstash (Redis) runbook —
+  every env var, build/start commands, secret rotation, rollback, and a post-deploy smoke checklist.
+
+See [`docs/learning-notes/phase-09-hardening-release.md`](docs/learning-notes/phase-09-hardening-release.md)
+for the full write-up: correlation IDs and MDC propagation across threads, structured logging and
+what never to log, what each security header stops, GraphQL DoS (depth/complexity/introspection),
+credential stuffing, fail-fast configuration, liveness vs. readiness, the testing pyramid and where
+end-to-end fits, and requirements traceability.

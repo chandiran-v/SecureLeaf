@@ -40,7 +40,8 @@ class AuthServiceTest {
                 mock(JwtService.class),
                 mock(PasswordEncoder.class),
                 mock(GoogleOAuthService.class),
-                adminBootstrapService);
+                adminBootstrapService,
+                mock(LoginThrottleService.class));
 
         User registered = authService.register("new-user@example.com", "Password123!", "New User");
 

@@ -128,6 +128,9 @@ public class ViewerSessionService {
             endSession(Long.valueOf(previousSessionId), ViewerSessionEndReason.SUPERSEDED);
         }
 
+        // D2 (Phase 9) — one INFO business event per viewer session start, ids only.
+        log.info("Viewer session started: sessionId={}, buyerId={}, productId={}", session.getId(), buyerId, productId);
+
         Integer pageCount = entitlement.getDocumentVersion() != null
                 ? entitlement.getDocumentVersion().getPageCount()
                 : null;

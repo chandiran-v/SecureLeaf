@@ -22,6 +22,17 @@ function fakeAdapter(statuses: number[], seenTokens: (string | undefined)[]): Ax
   };
 }
 
+/** Records the X-Correlation-Id header sent with each request. */
+function correlationIdCapturingAdapter(statuses: number[], seenIds: (string | undefined)[]): AxiosAdapter {
+  return async (config: InternalAxiosRequestConfig) => {
+    seenIds.push(config.headers?.['X-Correlation-Id'] as string | undefined);
+    const status = statuses.shift() ?? 200;
+    const response: AxiosResponse = { data: { ok: true }, status, statusText: String(status), headers: {}, config };
+    if (status >= 400) throw new AxiosError('failed', String(status), config, null, response);
+    return response;
+  };
+}
+
 describe('restClient 401 handling', () => {
   const originalAdapter = restClient.defaults.adapter;
 
@@ -69,5 +80,37 @@ describe('restClient 401 handling', () => {
 
     await expect(restClient.post('/products/1/document')).rejects.toMatchObject({ response: { status: 403 } });
     expect(recover).not.toHaveBeenCalled();
+  });
+});
+
+describe('restClient correlation id (Phase 9, D1)', () => {
+  const originalAdapter = restClient.defaults.adapter;
+
+  afterEach(() => {
+    restClient.defaults.adapter = originalAdapter;
+    vi.restoreAllMocks();
+  });
+
+  it('sends a fresh X-Correlation-Id on every request', async () => {
+    const seenIds: (string | undefined)[] = [];
+    restClient.defaults.adapter = correlationIdCapturingAdapter([200, 200], seenIds);
+
+    await restClient.get('/products');
+    await restClient.get('/products');
+
+    expect(seenIds).toHaveLength(2);
+    expect(seenIds[0]).toBeTruthy();
+    expect(seenIds[1]).toBeTruthy();
+    expect(seenIds[0]).not.toEqual(seenIds[1]);
+  });
+
+  it('appends the reference to a non-401 error message', async () => {
+    const seenIds: (string | undefined)[] = [];
+    restClient.defaults.adapter = correlationIdCapturingAdapter([403], seenIds);
+
+    const error = (await restClient.get('/products').catch((e: Error) => e)) as Error;
+
+    expect(seenIds[0]).toBeTruthy();
+    expect(error.message).toContain(`(Reference: ${seenIds[0]})`);
   });
 });

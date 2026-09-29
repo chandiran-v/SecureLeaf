@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <!--
+      Phase 9, D2 — structured logs.
+
+      WHY TWO DIFFERENT APPENDERS, ONE PER PROFILE
+      A human reads dev/test logs directly in a terminal — a short, aligned text line is faster to
+      scan there. A production log line is read by whatever log aggregator the owner points at
+      Render's log stream, which wants one JSON object per line so it can filter/index fields
+      (level, logger, message, correlationId) instead of parsing free text with regexes. Spring
+      Boot 3.4+ ships a built-in `logging.structured.format.console=ecs` property that does exactly
+      this with zero extra dependencies — but this project pins Boot 3.3.2 (see pom.xml), which
+      predates that feature. `logstash-logback-encoder` is the direct, pre-3.4 way to get the same
+      outcome (see pom.xml's comment on the dependency).
+
+      Whatever key/value pairs are in SLF4J's MDC when a log line is written — currently just
+      `correlationId`, set by CorrelationIdFilter (D1) for the whole lifetime of a request, and
+      propagated onto @Async threads by MdcTaskDecorator — are included in the JSON automatically.
+      That's the entire mechanism that lets someone grep a production log file for one
+      correlation id and see every line, across every layer and every thread, that one request
+      touched.
+    -->
+
+    <!-- Properties only (CONSOLE_LOG_PATTERN etc.) — NOT console-appender.xml, since this file
+         defines its own CONSOLE appender per profile below. -->
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <springProfile name="!prod">
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>${CONSOLE_LOG_PATTERN}</pattern>
+                <charset>UTF-8</charset>
+            </encoder>
+        </appender>
+    </springProfile>
+
+    <springProfile name="prod">
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+                <!-- Only correlationId is ever put in MDC today (D1) — naming it explicitly means
+                     a future, unrelated MDC key added by a library dependency doesn't silently
+                     start appearing in every production log line. -->
+                <includeMdcKeyName>correlationId</includeMdcKeyName>
+                <fieldNames>
+                    <timestamp>@timestamp</timestamp>
+                    <message>message</message>
+                    <logger>logger.name</logger>
+                    <thread>process.thread.name</thread>
+                    <level>log.level</level>
+                    <levelValue>[ignore]</levelValue>
+                    <stackTrace>error.stack_trace</stackTrace>
+                </fieldNames>
+            </encoder>
+        </appender>
+    </springProfile>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+
+</configuration>

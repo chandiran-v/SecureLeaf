@@ -44,6 +44,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final GoogleOAuthService googleOAuthService;
     private final AdminBootstrapService adminBootstrapService;
+    private final LoginThrottleService loginThrottleService;
 
     /** Public so {@link PasswordResetService} (same package) and the admin bootstrap (D1,
      *  {@code com.secureleaf.admin.service.AdminBootstrapService}) share one normalization rule. */
@@ -75,30 +76,51 @@ public class AuthService {
         // D1 — a brand-new registration whose email matches ADMIN_EMAILS gets ADMIN immediately,
         // not just on the next restart (AdminBootstrapRunner handles existing accounts).
         adminBootstrapService.grantAdminRoleIfConfigured(user);
-        log.info("New user registered: id={}, email={}", user.getId(), user.getEmail());
+        log.info("New user registered: id={}", user.getId());
         return user;
     }
 
     // â”€â”€ Login â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+    /** Kept for existing callers that don't have an IP to offer (e.g. tests exercising the
+     *  service directly) — the throttle counter just groups those under "unknown". */
     @Transactional
     public AuthPayload login(String email, String password) {
+        return login(email, password, null);
+    }
+
+    /**
+     * D5 (Phase 9) — {@code loginThrottleService} guards against credential stuffing: the check
+     * runs first, before the DB is even touched, so a caller already over the limit gets
+     * {@code RATE_LIMITED} with no further signal; every rejected attempt below records a failure
+     * against the same email+IP counter, and a successful login clears it.
+     */
+    @Transactional
+    public AuthPayload login(String email, String password, String ipAddress) {
         String normalizedEmail = normalizeEmail(email);
-        User user = userRepository.findWithRolesByEmail(normalizedEmail)
-                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_CREDENTIALS, "Invalid email or password"));
+        loginThrottleService.assertNotRateLimited(normalizedEmail, ipAddress);
+
+        User user = userRepository.findWithRolesByEmail(normalizedEmail).orElse(null);
+        if (user == null) {
+            loginThrottleService.recordFailedAttempt(normalizedEmail, ipAddress);
+            throw new BusinessException(ErrorCode.INVALID_CREDENTIALS, "Invalid email or password");
+        }
 
         if (user.getAuthProvider() != AuthProvider.LOCAL) {
+            loginThrottleService.recordFailedAttempt(normalizedEmail, ipAddress);
             throw new BusinessException(ErrorCode.INVALID_CREDENTIALS,
                     "This account uses Google sign-in. Please sign in with Google.");
         }
 
         if (!passwordEncoder.matches(password, user.getPasswordHash())) {
+            loginThrottleService.recordFailedAttempt(normalizedEmail, ipAddress);
             throw new BusinessException(ErrorCode.INVALID_CREDENTIALS, "Invalid email or password");
         }
 
         validateAccountActive(user);
 
-        log.info("User logged in: id={}, email={}", user.getId(), user.getEmail());
+        loginThrottleService.resetOnSuccess(normalizedEmail, ipAddress);
+        log.info("User logged in: id={}", user.getId());
         return generateTokens(user).payload();
     }
 
@@ -113,7 +135,7 @@ public class AuthService {
 
         validateAccountActive(user);
 
-        log.info("Google login: id={}, email={}", user.getId(), user.getEmail());
+        log.info("Google login: id={}", user.getId());
         return generateTokens(user).payload();
     }
 
@@ -203,7 +225,7 @@ public class AuthService {
         }
 
         assignDefaultRole(user);
-        log.info("New Google user created: id={}, email={}", user.getId(), user.getEmail());
+        log.info("New Google user created: id={}", user.getId());
         return user;
     }
 

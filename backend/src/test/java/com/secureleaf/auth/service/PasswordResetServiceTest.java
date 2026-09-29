@@ -105,7 +105,7 @@ class PasswordResetServiceTest {
                 mock(StringRedisTemplate.class),
                 new BCryptPasswordEncoder(),
                 jwtService,
-                new AppProperties("http://localhost:5173"),
+                new AppProperties("http://localhost:5173", "http://localhost:5173"),
                 mock(ApplicationEventPublisher.class),
                 clock);
     }

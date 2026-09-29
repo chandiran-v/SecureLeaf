@@ -143,7 +143,7 @@ public class PasswordResetService {
 
                 If you didn't request this, you can safely ignore this email — your password will not change.
                 """.formatted(link);
-        return new PasswordResetMailRequestedEvent(user.getEmail(), "Reset your SecureLeaf password", body);
+        return new PasswordResetMailRequestedEvent(user.getId(), user.getEmail(), "Reset your SecureLeaf password", body);
     }
 
     private PasswordResetMailRequestedEvent googleOnlyEmail(User user) {
@@ -155,7 +155,7 @@ public class PasswordResetService {
 
                 If you didn't request this, you can safely ignore this email.
                 """;
-        return new PasswordResetMailRequestedEvent(user.getEmail(), "You sign in with Google", body);
+        return new PasswordResetMailRequestedEvent(user.getId(), user.getEmail(), "You sign in with Google", body);
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────

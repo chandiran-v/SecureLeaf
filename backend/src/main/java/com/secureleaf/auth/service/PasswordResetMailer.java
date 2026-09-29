@@ -45,7 +45,8 @@ public class PasswordResetMailer {
             message.setText(event.body());
             mailSender.send(message);
         } catch (Exception e) {
-            log.warn("Password reset email failed for {}: {}", event.recipientEmail(), e.getMessage());
+            // D2 (Phase 9) — never log the recipient's email address, only their id.
+            log.warn("Password reset email failed for user id={}: {}", event.userId(), e.getMessage());
         }
     }
 }

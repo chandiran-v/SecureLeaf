@@ -25,6 +25,8 @@ They serve a dual purpose:
    - Covers: denormalized aggregates and the lost-update anomaly (pessimistic lock vs. incremental formula vs. nightly recompute vs. `SERIALIZABLE`), upserts, data minimisation (the `Review.buyer`→email leak caught before shipping), user enumeration, reset-token hashing + single use, session revocation on credential change, Redis `INCR`/`EXPIRE` rate limiting, an accessible ARIA `radiogroup` star input.
 8. **[Phase 08 — Admin panel](phase-08-admin-panel.md)**
    - Covers: RBAC vs. object-level authorization, privilege-escalation surface and config-only admin bootstrap, revoking a stateless JWT immediately (a Redis deny-list vs. `jti`-keyed alternatives), fail-open vs. fail-closed, post- vs. pre-moderation, append-only audit logs enforced by a DB trigger, aggregate dashboard queries.
+9. **[Phase 09 — Hardening & release readiness](phase-09-hardening-release.md)** — MVP1 complete
+   - Covers: correlation IDs + MDC propagation across `@Async` threads, structured JSON logs and what never to log, HTTP security headers (CSP/HSTS/Permissions-Policy), GraphQL depth/complexity limiting + introspection, credential-stuffing throttling, fail-fast production config, liveness vs. readiness, the testing pyramid and where E2E fits, requirements traceability.
 
 **Tooling / DevOps**
 
@@ -60,10 +62,20 @@ When a new phase is complete, duplicate `TEMPLATE.md`, name it appropriately, an
 | 6 | [Library, dashboard, live notifications](phase-06-library-dashboard-notifications.md) | ✅ Done | SSE vs WebSocket vs polling, one-time Redis tickets, Pub/Sub fan-out + at-most-once caveat, a named `DataLoader` shared across two fields, guarded state transitions |
 | 7 | [Reviews & ratings + password reset](phase-07-reviews-password-reset.md) | ✅ Done | Denormalized aggregates, the lost-update anomaly, pessimistic locking, upserts, data minimisation, user enumeration, single-use hashed tokens, session revocation, Redis rate limiting |
 | 8 | [Admin panel](phase-08-admin-panel.md) | ✅ Done | RBAC vs. object-level authz, privilege-escalation surface, config-only bootstrap, Redis deny-list for immediate JWT revocation, fail-open vs. fail-closed, post-moderation, append-only audit log (DB trigger), aggregate dashboard queries |
-| 9 | [Hardening](../phases/phase-09-hardening-release.md) | ⏳ Queued | See `docs/phases/README.md` |
+| 9 | [Hardening & release readiness](phase-09-hardening-release.md) | ✅ Done | Correlation IDs + MDC across `@Async` threads, structured JSON logs, security headers, GraphQL depth/complexity limiting + introspection, credential-stuffing throttling, fail-fast prod config, liveness vs. readiness, testing pyramid + E2E, requirements traceability |
 | 10–17 | MVP2 — [roadmap](../phases/README.md) | ⏳ Queued | Observability, rate limiting, bulkheads, caching, libvips, versioning, capacity |
 | UI 1 | [ui-01-responsive-navigation.md](ui-01-responsive-navigation.md) | ✅ Done | Mobile-first breakpoints, accessible disclosure menu (`aria-expanded`), single source of truth for nav |
 | Ops 1 | [ops-01-phase-scheduler.md](ops-01-phase-scheduler.md) | ✅ Done | Cron + event-driven CI, WIP limit of one, reconciliation, privilege separation, `GITHUB_TOKEN` vs PAT, prompt injection, bounded retries |
+
+---
+
+## MVP1 complete
+
+Phase 9 was the last MVP1 phase. Every requirement id in `docs/requirements.md`'s MVP1 scope now
+has a status and evidence entry in **[`docs/release-mvp1.md`](../release-mvp1.md)** — the
+requirements traceability matrix Phase 9 produced (D10) — along with the release checklist the
+owner follows to tag and deploy. `docs/deployment.md` (Phase 9, D9) is the Render/Supabase/Vercel/
+Upstash runbook for actually shipping it.
 
 ---
 
