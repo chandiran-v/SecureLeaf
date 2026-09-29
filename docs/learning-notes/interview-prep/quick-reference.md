@@ -326,6 +326,34 @@ a secret in a variable spelled unexpectedly still slips through. Say this unprom
 
 ---
 
+## Phase 9D — Production on one Oracle server · [full note](../phase-09d-production-single-server.md)
+
+| Concept | The one-line answer |
+|---|---|
+| Why one Oracle box | Measured: JVM peaks ~620 MB, a watermarked page ~0.45 CPU-s. Free managed tiers (512 MB / 0.1 CPU) can't run it; 2 OCPU / 12 GB can, at ₹0 |
+| Memory budget | backend 4 GB, postgres 1.5 GB, minio 1 GB, redis 384 MB, caddy 256 MB ≈ 7.1 GB + 2 GB swap; steady use stays above Oracle's 20% idle-reclaim floor |
+| CPU budget | Processing pool = 1 so one upload at a time and readers keep a core |
+| Heap vs container | `mem_limit` is the suitcase, heap the folder: `MaxRAMPercentage=70`; `ExitOnOutOfMemoryError` so Docker restarts a wedged JVM |
+| Reverse proxy | Caddy is the only published service: TLS, static SPA (fallback to `index.html`), `/graphql` `/api` `/actuator/health` → backend, `flush_interval -1` for SSE, 60 MB body limit |
+| Same-origin | One hostname ⇒ relative URLs ⇒ no CORS in production |
+| Auto-TLS | Caddy gets/renews Let's Encrypt certs; needs 80/443 reachable; tests use `tls internal` |
+| Two-firewall trap | VCN security list **and** host iptables (Oracle images REJECT all but 22): ACCEPT rules must sit above the REJECT, persisted with netfilter-persistent |
+| Hardening layers | Only Caddy publishes ports · iptables · SSH keys only/no root · fail2ban · unattended-upgrades · non-root containers · generated secrets + fail-fast validator · CSP/HSTS |
+| Deploy | build tagged with git SHA → `up -d` → wait backend healthy **and** public `/actuator/health` → on failure `up` with last good tag, exit 1 → keep last 3 images |
+| Rollback target | The last tag that *passed* the gate (state file), not what's running — the running one may be the broken one; can't undo migrations |
+| Backups | `pg_dump -Fc` + incremental `mc mirror` to Oracle Object Storage (S3 API); 7 daily + 4 weekly; nightly systemd timer; laptop copy via `download-backup.sh` |
+| Restore drill | Record counts + object checksum → back up → `down -v` → restore → compare (`backup-restore-test.sh`). Untested backup ≠ backup |
+| Free-limit maths | ~300 requests/month for the dump + one request per *new* object; 100-page doc ≈ 102 PUTs; 20 GB ≈ 75k tiles |
+| ARM64 | Every image needs `linux/arm64`; images are built on the server so architecture always matches |
+| Fonts bug | Slim images lack fonts ⇒ watermark fails or is blank **only in prod**; `WatermarkSmokeCheck` asserts pixels changed inside the built image |
+| Sentry | Optional (DSN-gated); scrub emails/JWTs/`Bearer`/`?sig=` and drop user/cookies/headers before sending |
+| Mail | Brevo STARTTLS 587, `MAIL_FROM` must be a verified sender; failures logged + counted, never break the flow; mail health indicator off so SMTP can't fail the uptime probe |
+| Secrets | `generate-env.sh`: `openssl rand`, mode 600, git-ignored, refuses overwrite; prod refuses empty/<32-char/default values |
+
+**Weakest point to volunteer:** one VM and nightly backups ⇒ up to a day of data loss and ~1 hour down; fix with WAL archiving/hourly dumps. Also root MinIO credentials in the app, images built on the serving box, and `setup-server.sh` only dry-run/shellchecked, never run on a real VM in CI.
+
+---
+
 ## Cross-cutting themes to weave into any answer
 
 1. **Threat-model each decision.** Every security choice here has a "what attack does this stop" answer. Say it.

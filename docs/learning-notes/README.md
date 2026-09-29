@@ -34,6 +34,9 @@ They serve a dual purpose:
 11. **[Phase 09C — Creator payouts, receipts & legal pages](phase-09c-payouts-legal.md)** — Launch track
    - Covers: ledger thinking (balance derived from events, never stored), hold periods vs. the refund window, preventing double payouts with a row lock + partial unique index and a two-thread test, state machines for money, adding a Postgres enum value safely, CSV injection, money as integers down to the form input, why marketplaces need Terms/Privacy/Refund pages, and scoping global CSS (the site-wide print bug).
 
+12. **[Phase 09D — Production on one Oracle server](phase-09d-production-single-server.md)** — Launch track
+   - Covers: capacity planning from measured numbers, the single-server trade-off, reverse proxy + automatic TLS + same-origin (no CORS), container memory limits vs JVM heap, the two-firewall trap on Oracle, defense-in-depth hardening, health-gated deploy with rollback, 3-2-1 backups and restore drills, ARM64 images, and the fonts-in-slim-images production bug.
+
 **Tooling / DevOps**
 
 - **[Ops 01 — Phase Scheduler](ops-01-phase-scheduler.md)**
@@ -71,6 +74,7 @@ When a new phase is complete, duplicate `TEMPLATE.md`, name it appropriately, an
 | 9 | [Hardening & release readiness](phase-09-hardening-release.md) | ✅ Done | Correlation IDs + MDC across `@Async` threads, structured JSON logs, security headers, GraphQL depth/complexity limiting + introspection, credential-stuffing throttling, fail-fast prod config, liveness vs. readiness, testing pyramid + E2E, requirements traceability |
 | 9B | [Real Razorpay (test mode)](phase-09b-razorpay.md) | ✅ Done | Ports & adapters, `RestClient` + `MockRestServiceServer`, test vs live key guard, authorize vs capture, reconciliation as a third idempotent path, refunds as state transitions, gateway-fee accounting, CSP for third-party checkout |
 | 9C | [Creator payouts, receipts & legal pages](phase-09c-payouts-legal.md) | ✅ Done | Ledger/derived balances, hold period vs. refund window, `FOR UPDATE` + partial unique index against double payouts, payout state machine + audit, `ALTER TYPE ADD VALUE` in its own migration, CSV injection, paise-only money, legal pages as data, scoped print CSS |
+| 9D | [Production on one Oracle server](phase-09d-production-single-server.md) | ✅ Done | Capacity planning from measurements, Caddy + auto-TLS + same-origin, `mem_limit` vs `MaxRAMPercentage`, two-firewall trap, hardening layers, health-gated rollback, 3-2-1 backups + restore drill, ARM64, fonts in slim images |
 | 10–17 | MVP2 — [roadmap](../phases/README.md) | ⏳ Queued | Observability, rate limiting, bulkheads, caching, libvips, versioning, capacity |
 | UI 1 | [ui-01-responsive-navigation.md](ui-01-responsive-navigation.md) | ✅ Done | Mobile-first breakpoints, accessible disclosure menu (`aria-expanded`), single source of truth for nav |
 | Ops 1 | [ops-01-phase-scheduler.md](ops-01-phase-scheduler.md) | ✅ Done | Cron + event-driven CI, WIP limit of one, reconciliation, privilege separation, `GITHUB_TOKEN` vs PAT, prompt injection, bounded retries |
@@ -82,8 +86,8 @@ When a new phase is complete, duplicate `TEMPLATE.md`, name it appropriately, an
 Phase 9 was the last MVP1 phase. Every requirement id in `docs/requirements.md`'s MVP1 scope now
 has a status and evidence entry in **[`docs/release-mvp1.md`](../release-mvp1.md)** — the
 requirements traceability matrix Phase 9 produced (D10) — along with the release checklist the
-owner follows to tag and deploy. `docs/deployment.md` (Phase 9, D9) is the Render/Supabase/Vercel/
-Upstash runbook for actually shipping it.
+owner follows to tag and deploy. `docs/deployment.md` (rewritten in Phase 09D) is the Oracle-server
+runbook for actually shipping it.
 
 ---
 

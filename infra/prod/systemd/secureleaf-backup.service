@@ -1,0 +1,11 @@
+[Unit]
+Description=SecureLeaf nightly backup to Oracle Object Storage
+Wants=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+# __APP_DIR__ is replaced by setup-server.sh with the real checkout path.
+WorkingDirectory=__APP_DIR__
+ExecStart=/bin/sh __APP_DIR__/infra/prod/scripts/backup.sh
+Nice=10

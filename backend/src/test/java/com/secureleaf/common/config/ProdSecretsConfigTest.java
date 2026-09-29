@@ -137,4 +137,49 @@ class ProdSecretsConfigTest {
 
         config.checkNoDevDefaultsInProd(); // must not throw
     }
+
+    // ── Phase 09D D10 — infra secrets, blank and short values ─────────────────────────────
+
+    private static ProdSecretsConfig prodConfigWith(MockEnvironment env, String jwt) {
+        env.addActiveProfile("prod");
+        return new ProdSecretsConfig(
+                jwtWith(jwt),
+                new PaymentGatewayProperties("razorpay", "rzp_test_realkey", "real_secret", "real_whsec"),
+                minioWith("real-access-key", "real-secret-key"),
+                env);
+    }
+
+    private static final String STRONG = "generated-strong-secret-value-0123456789abcdef";
+
+    @Test
+    void prodProfile_generatedEnvValues_areAccepted() {
+        MockEnvironment env = new MockEnvironment()
+                .withProperty("spring.datasource.password", STRONG)
+                .withProperty("spring.data.redis.password", STRONG)
+                .withProperty("drm.signing-secret", STRONG);
+        prodConfigWith(env, STRONG).checkNoDevDefaultsInProd(); // must not throw
+    }
+
+    @Test
+    void prodProfile_devDbAndRedisPasswords_areRejected() {
+        MockEnvironment env = new MockEnvironment()
+                .withProperty("spring.datasource.password", ProdSecretsConfig.DEV_DB_PASSWORD)
+                .withProperty("spring.data.redis.password", ProdSecretsConfig.DEV_REDIS_PASSWORD);
+        assertThatThrownBy(() -> prodConfigWith(env, STRONG).checkNoDevDefaultsInProd())
+                .hasMessageContaining("DB_PASSWORD")
+                .hasMessageContaining("REDIS_PASSWORD");
+    }
+
+    @Test
+    void prodProfile_blankOrShortSecrets_areRejected() {
+        MockEnvironment env = new MockEnvironment()
+                .withProperty("spring.datasource.password", "")
+                .withProperty("spring.data.redis.password", " ")
+                .withProperty("drm.signing-secret", "short");
+        assertThatThrownBy(() -> prodConfigWith(env, "").checkNoDevDefaultsInProd())
+                .hasMessageContaining("JWT_SECRET")
+                .hasMessageContaining("DRM_SIGNING_SECRET")
+                .hasMessageContaining("DB_PASSWORD")
+                .hasMessageContaining("REDIS_PASSWORD");
+    }
 }

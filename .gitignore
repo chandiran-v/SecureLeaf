@@ -37,3 +37,8 @@ desktop.ini
 # ── Logs ─────────────────────────────────────────────────────────────────────
 *.log
 logs/
+
+# ── Production stack (Phase 09D) ──────────────────────────────────────────────
+infra/prod/.env
+
+infra/prod/.last-good-tag

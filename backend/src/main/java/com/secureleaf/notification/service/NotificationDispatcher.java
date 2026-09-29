@@ -1,5 +1,6 @@
 package com.secureleaf.notification.service;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -35,6 +36,7 @@ public class NotificationDispatcher {
 
     private final NotificationPublisher publisher;
     private final JavaMailSender mailSender;
+    private final MeterRegistry meterRegistry;
 
     @Value("${notifications.email.enabled:false}")
     private boolean emailEnabled;
@@ -62,6 +64,9 @@ public class NotificationDispatcher {
                 message.setText(event.body());
                 mailSender.send(message);
             } catch (Exception e) {
+                // Phase 09D D7 — Brevo's free tier caps at ~300/day; a failed send is counted and
+                // logged, never rethrown (the business flow has already committed).
+                meterRegistry.counter("secureleaf.mail.send.failures", "kind", "notification").increment();
                 log.warn("Email failed for notification {}: {}", event.notificationId(), e.getMessage());
             }
         }

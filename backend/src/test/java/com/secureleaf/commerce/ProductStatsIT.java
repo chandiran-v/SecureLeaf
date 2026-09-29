@@ -1,5 +1,6 @@
 package com.secureleaf.commerce;
 
+import org.springframework.test.context.TestPropertySource;
 import com.secureleaf.commerce.gateway.MockWebhookSender;
 import com.secureleaf.commerce.repository.OrderItemRepository;
 import org.junit.jupiter.api.Test;
@@ -20,6 +21,7 @@ import static org.mockito.Mockito.verify;
  * Phase 6, D2 — {@code Product.salesCount}/{@code netEarningsPaise}: correct after real
  * purchases, creator-only, and both fields share one aggregate query per request.
  */
+@TestPropertySource(properties = "processing.worker.enabled=false")   // secondary context (SpyBean): keep its poller off the shared DB
 class ProductStatsIT extends AbstractCommerceIT {
 
     @Autowired

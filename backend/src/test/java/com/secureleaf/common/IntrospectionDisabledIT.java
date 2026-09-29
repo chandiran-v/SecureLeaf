@@ -25,7 +25,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  * context — same "a new property value means a new application" cost the Phase 8 learning note's
  * Gotchas table describes — but it doesn't share the main suite's Postgres in a way that races.)
  */
-@TestPropertySource(properties = "spring.graphql.schema.introspection.enabled=false")
+@TestPropertySource(properties = {
+        "spring.graphql.schema.introspection.enabled=false",
+        "processing.worker.enabled=false"   // secondary context: its poller would steal jobs from the main one
+})
 class IntrospectionDisabledIT extends AbstractIntegrationTest {
 
     @LocalServerPort

@@ -159,3 +159,18 @@
 | **`ALTER TYPE … ADD VALUE`** | Adds a Postgres enum value; the value can't be used in the same transaction, so it gets its own migration | [Phase 9C](../phase-09c-payouts-legal.md) |
 | **DPDP Act 2023 / data fiduciary** | India's data-protection law and its term for whoever decides how personal data is processed | [Phase 9C](../phase-09c-payouts-legal.md) |
 | **`body.sl-reading` / `.no-print`** | The CSS hooks for printing: blank the page only while the secure reader is mounted; hide site chrome on paper | [Phase 9C](../phase-09c-payouts-legal.md) |
+| **Reverse proxy** | A front server that terminates HTTPS and forwards requests to internal services (Caddy here) | [Phase 9D](../phase-09d-production-single-server.md) |
+| **Same-origin serving** | Frontend and API under one scheme+host+port, so the browser applies no CORS rules | [Phase 9D](../phase-09d-production-single-server.md) |
+| **ACME / Let's Encrypt** | The protocol / free authority that issues and renews TLS certificates automatically | [Phase 9D](../phase-09d-production-single-server.md) |
+| **`mem_limit` / OOM-kill** | Docker's hard memory ceiling for a container; the kernel kills the process that exceeds it | [Phase 9D](../phase-09d-production-single-server.md) |
+| **`MaxRAMPercentage`** | JVM flag sizing the max heap as a % of the container's memory limit, leaving room for non-heap memory | [Phase 9D](../phase-09d-production-single-server.md) |
+| **Two-firewall trap** | Oracle needs the VCN security list **and** the host iptables opened; the host's ships with a blanket REJECT | [Phase 9D](../phase-09d-production-single-server.md) |
+| **fail2ban / `unattended-upgrades`** | Bans repeated failed logins / applies security patches automatically | [Phase 9D](../phase-09d-production-single-server.md) |
+| **Idempotent script** | Safe to run twice; the second run changes nothing | [Phase 9D](../phase-09d-production-single-server.md) |
+| **Health-gated deploy** | A deploy that only counts as done once a health check passes, else it rolls back | [Phase 9D](../phase-09d-production-single-server.md) |
+| **3-2-1 backups** | Three copies, two media, one off-site; and a backup is only real once restored | [Phase 9D](../phase-09d-production-single-server.md) |
+| **`pg_dump -Fc` / `mc mirror`** | Compressed Postgres logical dump / incremental bucket sync | [Phase 9D](../phase-09d-production-single-server.md) |
+| **S3-compatible storage** | A service speaking Amazon S3's API (Oracle Object Storage) so standard tools work | [Phase 9D](../phase-09d-production-single-server.md) |
+| **ARM64 (aarch64)** | The CPU architecture of Oracle Ampere servers; container images must have a `linux/arm64` variant | [Phase 9D](../phase-09d-production-single-server.md) |
+| **Fontconfig / Java2D fonts** | Linux font lookup the JDK needs to draw text; missing in slim images, breaking watermarks only in prod | [Phase 9D](../phase-09d-production-single-server.md) |
+| **`flush_interval -1`** | Caddy reverse-proxy setting that stops response buffering so SSE events arrive immediately | [Phase 9D](../phase-09d-production-single-server.md) |

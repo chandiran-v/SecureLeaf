@@ -51,6 +51,14 @@ spring:
     username: ${MAIL_USER:}
     password: ${MAIL_PASS:}
 
+# ── Sentry (Phase 09D D8) ─────────────────────────────────────────────────────
+# Optional error monitoring. With SENTRY_DSN unset the SDK is disabled — zero behaviour change.
+# SentryScrubber removes emails/tokens/signed-URL secrets from every event before it is sent.
+sentry:
+  dsn: ${SENTRY_DSN:}
+  send-default-pii: false
+  environment: ${SENTRY_ENVIRONMENT:production}
+
 # ── App-wide (D10) ────────────────────────────────────────────────────────────
 app:
   frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:5173}   # used to build emailed links (e.g. password reset)
@@ -116,7 +124,7 @@ payment:
 notifications:
   email:
     enabled: ${NOTIFICATION_EMAIL_ENABLED:true}   # dev: caught by Mailpit at http://localhost:8025
-    from: no-reply@secureleaf.local
+    from: ${MAIL_FROM:no-reply@secureleaf.local}   # prod: must be a sender verified in Brevo (D7)
 
 # ── DRM / secure viewer (Phase 5) ─────────────────────────────────────────────
 drm:

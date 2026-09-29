@@ -1,5 +1,6 @@
 package com.secureleaf.auth.service;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -30,6 +31,7 @@ import org.springframework.transaction.event.TransactionalEventListener;
 public class PasswordResetMailer {
 
     private final JavaMailSender mailSender;
+    private final MeterRegistry meterRegistry;
 
     @Value("${notifications.email.from:no-reply@secureleaf.local}")
     private String fromAddress;
@@ -45,6 +47,7 @@ public class PasswordResetMailer {
             message.setText(event.body());
             mailSender.send(message);
         } catch (Exception e) {
+            meterRegistry.counter("secureleaf.mail.send.failures", "kind", "password-reset").increment();
             // D2 (Phase 9) — never log the recipient's email address, only their id.
             log.warn("Password reset email failed for user id={}: {}", event.userId(), e.getMessage());
         }

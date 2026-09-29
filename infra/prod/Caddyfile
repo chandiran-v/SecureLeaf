@@ -1,0 +1,73 @@
+# Phase 09D D4 — the ONE public entrypoint. Same-origin: the browser only ever talks to
+# https://{$SITE_HOST}, so there is no CORS in production.
+{
+	# Admin API stays inside the container (used by the healthcheck only).
+	admin 127.0.0.1:2019
+}
+
+{$SITE_HOST} {
+	# Automatic HTTPS: Caddy obtains and renews a Let's Encrypt certificate for {$SITE_HOST}.
+	# A local test override drops a `tls internal` snippet in /etc/caddy/tls.d/ (see
+	# docker-compose.test.yml); in production that directory is empty.
+	import tls.d/*
+
+	log {
+		output stdout
+		format json
+	}
+
+	# Compress text only; PNG page tiles are already compressed (D4).
+	encode {
+		zstd
+		gzip
+		match {
+			header Content-Type text/*
+			header Content-Type application/json*
+			header Content-Type application/javascript*
+			header Content-Type image/svg+xml*
+		}
+	}
+
+	# API: GraphQL, REST (uploads, tiles, SSE, webhooks) and the public health probe only.
+	# Everything else under /actuator is deliberately NOT proxied.
+	@api {
+		path /graphql /graphql/* /api/* /actuator/health /actuator/health/*
+	}
+	handle @api {
+		request_body {
+			max_size 60MB
+		}
+		reverse_proxy backend:8080 {
+			# SSE (/api/notifications/stream): send bytes as they are written, never buffer.
+			flush_interval -1
+			# Long-lived streams must not be cut by the transport.
+			transport http {
+				response_header_timeout 0
+			}
+		}
+	}
+
+	# Everything else: the built React app; unknown paths fall back to index.html (SPA routing).
+	handle {
+		root * /srv
+		encode
+		try_files {path} /index.html
+
+		header {
+			Strict-Transport-Security "max-age=31536000; includeSubDomains"
+			X-Content-Type-Options "nosniff"
+			X-Frame-Options "DENY"
+			Referrer-Policy "no-referrer"
+			Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+			# Razorpay checkout (09B) + Google Identity Services + optional Sentry ingest.
+			Content-Security-Policy "default-src 'self'; script-src 'self' https://checkout.razorpay.com https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' blob: data: https://*.googleusercontent.com; font-src 'self' data:; connect-src 'self' https://api.razorpay.com https://lumberjack.razorpay.com https://accounts.google.com/gsi/ https://*.ingest.sentry.io https://*.ingest.de.sentry.io https://*.ingest.us.sentry.io; frame-src https://checkout.razorpay.com https://api.razorpay.com https://accounts.google.com/gsi/; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+			-Server
+		}
+		@hashed path /assets/*
+		header @hashed Cache-Control "public, max-age=31536000, immutable"
+		@index path / /index.html
+		header @index Cache-Control "no-store"
+
+		file_server
+	}
+}

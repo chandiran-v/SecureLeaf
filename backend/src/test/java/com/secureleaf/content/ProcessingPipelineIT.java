@@ -138,6 +138,9 @@ class ProcessingPipelineIT extends AbstractIntegrationTest {
                 assertThat(jobRepository.findById(jobId).orElseThrow().getStatus()).isEqualTo(JobStatus.COMPLETED));
         ProcessingJob finishedJob = jobRepository.findById(jobId).orElseThrow();
         assertThat(finishedJob.getCurrentStage()).isEqualTo(JobStage.MARK_LIVE);
+        // Phase 09D D13 — started_at is recorded, so processing time can be measured.
+        assertThat(finishedJob.getStartedAt()).isNotNull();
+        assertThat(finishedJob.getCompletedAt()).isAfterOrEqualTo(finishedJob.getStartedAt());
 
         // 5. Assert Product is LIVE and has thumbnail
         Product finishedProduct = productRepository.findById(product.getId()).orElseThrow();
