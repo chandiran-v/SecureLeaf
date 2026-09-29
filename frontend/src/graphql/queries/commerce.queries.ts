@@ -65,3 +65,13 @@ export const NOTIFICATION_STREAM_TICKET = gql`
     notificationStreamTicket
   }
 `;
+
+// Phase 09B D8 — public: the demo banner needs it before login.
+export const PLATFORM_INFO = gql`
+  query PlatformInfo {
+    platformInfo {
+      paymentMode
+      supportEmail
+    }
+  }
+`;

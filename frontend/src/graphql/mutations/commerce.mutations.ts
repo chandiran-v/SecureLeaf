@@ -13,6 +13,7 @@ export const INITIATE_ORDER = gql`
       gatewayOrderId
       gatewayKeyId
       currency
+      provider
     }
   }
 `;

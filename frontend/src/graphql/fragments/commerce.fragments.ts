@@ -6,6 +6,8 @@ export const ORDER_FIELDS = gql`
     status
     totalAmountPaise
     gatewayOrderId
+    gatewayKeyId
+    paymentProvider
     failureReason
     createdAt
     product {
