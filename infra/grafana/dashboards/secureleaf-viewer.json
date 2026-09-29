@@ -1,0 +1,456 @@
+{
+  "uid": "secureleaf-viewer",
+  "title": "SecureLeaf — Viewer",
+  "tags": [
+    "secureleaf",
+    "phase-10"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "editable": false,
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Tile latency p50 / p95 / p99 (ok)",
+      "description": "End-to-end SecureTileService time for successful tiles. The k6 threshold is p95 < 500 ms.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "secureleaf-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "secureleaf-prometheus"
+          },
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(secureleaf_tile_request_seconds_bucket{outcome=\"ok\"}[1m])))",
+          "legendFormat": "p50"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "secureleaf-prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(secureleaf_tile_request_seconds_bucket{outcome=\"ok\"}[1m])))",
+          "legendFormat": "p95"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "secureleaf-prometheus"
+          },
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(secureleaf_tile_request_seconds_bucket{outcome=\"ok\"}[1m])))",
+          "legendFormat": "p99"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Render vs storage time (avg per tile)",
+      "description": "Where a tile's time goes: CPU-bound rendering vs I/O-bound storage fetch.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "secureleaf-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "secureleaf-prometheus"
+          },
+          "expr": "sum(rate(secureleaf_watermark_render_seconds_sum[1m])) / sum(rate(secureleaf_watermark_render_seconds_count[1m]))",
+          "legendFormat": "watermark render"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "secureleaf-prometheus"
+          },
+          "expr": "sum(rate(secureleaf_storage_fetch_seconds_sum[1m])) / sum(rate(secureleaf_storage_fetch_seconds_count[1m]))",
+          "legendFormat": "storage fetch (MinIO)"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Tile requests/s by outcome",
+      "description": "ok / forbidden / superseded / not_found / error.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "secureleaf-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "secureleaf-prometheus"
+          },
+          "expr": "sum by (outcome) (rate(secureleaf_tile_request_seconds_count[1m]))",
+          "legendFormat": "{{outcome}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Tomcat threads: busy vs max",
+      "description": "Little's Law: busy threads = throughput x latency. Busy hitting max means requests queue.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "secureleaf-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "secureleaf-prometheus"
+          },
+          "expr": "tomcat_threads_busy_threads",
+          "legendFormat": "busy"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "secureleaf-prometheus"
+          },
+          "expr": "tomcat_threads_config_max_threads",
+          "legendFormat": "max"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "JVM heap used vs max",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "secureleaf-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "secureleaf-prometheus"
+          },
+          "expr": "sum(jvm_memory_used_bytes{area=\"heap\"})",
+          "legendFormat": "used"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "secureleaf-prometheus"
+          },
+          "expr": "sum(jvm_memory_max_bytes{area=\"heap\"})",
+          "legendFormat": "max"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "GC pause time per second",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "secureleaf-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "secureleaf-prometheus"
+          },
+          "expr": "sum(rate(jvm_gc_pause_seconds_sum[1m]))",
+          "legendFormat": "pause s/s"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "secureleaf-prometheus"
+          },
+          "expr": "sum(rate(jvm_gc_pause_seconds_count[1m]))",
+          "legendFormat": "pauses/s"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Active viewer sessions",
+      "description": "Sessions not yet ended (active or lapsed but not yet swept).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "secureleaf-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "secureleaf-prometheus"
+          },
+          "expr": "secureleaf_viewer_sessions_active",
+          "legendFormat": "sessions"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Tile size (avg bytes)",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "secureleaf-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "secureleaf-prometheus"
+          },
+          "expr": "sum(rate(secureleaf_tile_bytes_sum[1m])) / sum(rate(secureleaf_tile_bytes_count[1m]))",
+          "legendFormat": "avg bytes/tile"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "secureleaf-prometheus"
+          },
+          "expr": "sum(rate(secureleaf_tile_bytes_sum[1m]))",
+          "legendFormat": "bytes/s out"
+        }
+      ]
+    }
+  ],
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  }
+}

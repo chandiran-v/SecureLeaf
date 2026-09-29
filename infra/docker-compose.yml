@@ -10,9 +10,12 @@ version: "3.9"
 #   minio-init — One-shot sidecar that creates MinIO buckets on first run
 #   mailpit    — Dev SMTP catcher for purchase emails (UI on :8025)
 #   pgadmin    — Visual PostgreSQL admin UI (optional, comment out to save RAM)
+#   prometheus — (profile "monitoring") scrapes the backend's /actuator/prometheus  :9090
+#   grafana    — (profile "monitoring") provisioned viewer dashboard                 :3001
 #
 # Usage:
 #   Start all:        docker compose up -d
+#   With monitoring:  docker compose --profile monitoring up -d   (Phase 10; Grafana admin/admin)
 #   Stop all:         docker compose down
 #   Wipe all data:    docker compose down -v
 #   View logs:        docker compose logs -f [service]
@@ -28,6 +31,8 @@ volumes:
   redis_data:
   minio_data:
   pgadmin_data:
+  prometheus_data:
+  grafana_data:
 
 services:
 
@@ -202,6 +207,57 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+
+  # ---------------------------------------------------------------------------
+  # Phase 10 D3 — monitoring (opt-in: docker compose --profile monitoring up -d)
+  # Prometheus scrapes the backend on the host; Grafana shows the provisioned
+  # "SecureLeaf — Viewer" dashboard (infra/grafana/dashboards/secureleaf-viewer.json).
+  # ---------------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v2.53.1          # multi-arch (amd64 + arm64)
+    container_name: secureleaf-prometheus
+    profiles: ["monitoring"]
+    restart: unless-stopped
+    networks:
+      - secureleaf-net
+    ports:
+      - "9090:9090"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # Linux needs this; Docker Desktop has it built in
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=7d
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+
+  grafana:
+    image: grafana/grafana:11.1.3           # multi-arch (amd64 + arm64)
+    container_name: secureleaf-grafana
+    profiles: ["monitoring"]
+    restart: unless-stopped
+    networks:
+      - secureleaf-net
+    ports:
+      - "3001:3000"                         # 3000 is left free for the frontend dev server
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin     # local only; this profile is never used in production
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
     deploy:
       resources:
         limits:

@@ -158,7 +158,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info,metrics,prometheus
   endpoint:
     health:
       show-details: when-authorized   # the readiness/liveness UP-or-DOWN status is always public;
@@ -176,6 +176,11 @@ management:
           include: livenessState
 
 server:
+  tomcat:
+    # Phase 10 D2 — publishes tomcat.threads.busy / tomcat.threads.config.max (the dashboard's
+    # busy-vs-max panel). Off by default because it costs a little JMX bookkeeping.
+    mbeanregistry:
+      enabled: true
   error:
     include-stacktrace: never
     include-message: always

@@ -73,6 +73,10 @@ public class SecurityConfig {
                         // when-authorized so the *details* (DB/Redis component status) never leak to
                         // an anonymous prober, only the top-level UP/DOWN.
                         .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
+                        // Phase 10 D1 — Prometheus scrapes with no JWT. Not exposed publicly: in prod it
+                        // lives on the separate management port (8081, never published) and Caddy does
+                        // not proxy it; locally it is reachable only from the Docker network/host.
+                        .requestMatchers("/actuator/prometheus").permitAll()
                         // SSE notification stream (Phase 6, D7) — EventSource can't send an
                         // Authorization header, so this is public at the HTTP level; the one-time
                         // ticket (NotificationStreamTicketService) is the real authentication.
