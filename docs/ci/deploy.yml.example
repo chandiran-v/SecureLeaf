@@ -1,0 +1,42 @@
+name: Deploy to Oracle server
+
+# Phase 09D D14 — deploys a tagged release to the production server over SSH by running
+# infra/prod/scripts/deploy.sh (health-gated, rolls back automatically).
+# Delivered as a `*.example` file because the automation that builds phases may not add or edit
+# anything under `.github/workflows/`. To turn it on, copy this file to
+# `.github/workflows/deploy.yml` and add these repository secrets (Settings → Secrets → Actions):
+#   DEPLOY_HOST      the server's public IP or DuckDNS name
+#   DEPLOY_USER      ubuntu
+#   DEPLOY_SSH_KEY   a private key whose PUBLIC half is in ~/.ssh/authorized_keys on the server
+#                    (use a dedicated deploy key, not your personal one)
+#   DEPLOY_KNOWN_HOSTS  output of:  ssh-keyscan -t ed25519 <host>   (pins the host key)
+# Optionally create a GitHub Environment named `production` with required reviewers.
+
+on:
+  push:
+    tags: ['v*']
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false      # never interrupt a deploy half-way
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Configure SSH
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+
+      - name: Run deploy.sh on the server
+        run: |
+          ssh -i ~/.ssh/id_deploy "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            "cd /opt/secureleaf && infra/prod/scripts/deploy.sh '${GITHUB_REF_NAME}'"
+        # deploy.sh exits non-zero after rolling back, which fails this job (and notifies you).
+
+      - name: Post-deploy check
+        run: curl -fsS "https://${{ secrets.DEPLOY_HOST }}/actuator/health" | grep -q '"status":"UP"'
