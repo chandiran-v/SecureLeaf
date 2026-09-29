@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@apollo/client';
 import AppLayout from '../../components/layout/AppLayout';
 import StatusBadge from '../../components/ui/StatusBadge';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
+import PayoutsTab from '../../components/payouts/PayoutsTab';
+import StatementsTab from '../../components/payouts/StatementsTab';
 import { useCreatorProducts } from '../../hooks/useCreatorProducts';
 import { CREATOR_EARNINGS } from '../../graphql/queries/commerce.queries';
 import type { CreatorEarnings, JobStage, Product } from '../../types';
@@ -195,6 +197,15 @@ function ProductRow({
   );
 }
 
+// ── Tabs (Phase 09C) ──────────────────────────────────────────────────────────
+
+type DashboardTab = 'products' | 'payouts' | 'statements';
+const TABS: { key: DashboardTab; label: string }[] = [
+  { key: 'products', label: 'Products' },
+  { key: 'payouts', label: 'Payouts' },
+  { key: 'statements', label: 'Statements' },
+];
+
 // ── Dashboard page ────────────────────────────────────────────────────────────
 
 /**
@@ -205,6 +216,10 @@ function ProductRow({
  * so the creator sees the status flip to LIVE without refreshing the page.
  */
 export default function CreatorDashboardPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get('tab');
+  const tab: DashboardTab = TABS.some((t) => t.key === requestedTab) ? (requestedTab as DashboardTab) : 'products';
+
   const {
     products,
     productsLoading,
@@ -257,6 +272,29 @@ export default function CreatorDashboardPage() {
           </Link>
         </div>
 
+        {/* ── Tabs: Products | Payouts | Statements (Phase 09C) ── */}
+        <div role="tablist" aria-label="Creator dashboard sections" className="flex items-center gap-1 border-b border-gray-200 mb-6">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              role="tab"
+              type="button"
+              id={`tab-${t.key}`}
+              aria-selected={tab === t.key}
+              onClick={() => setSearchParams(t.key === 'products' ? {} : { tab: t.key }, { replace: true })}
+              className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                tab === t.key ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-800'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'payouts' && <PayoutsTab />}
+        {tab === 'statements' && <StatementsTab />}
+
+        {tab === 'products' && (<>
         {/* ── Stats bar (DASH-03: gross, platform fee, net) ── */}
         {products.length > 0 && (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -327,6 +365,7 @@ export default function CreatorDashboardPage() {
             </table>
           </div>
         )}
+        </>)}
       </div>
     </AppLayout>
   );

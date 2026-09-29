@@ -355,3 +355,78 @@ export interface AdminActionPage {
   totalPages: number;
   pageNumber: number;
 }
+
+// ── Payouts, statements & receipts (Phase 09C) ────────────────────────────────
+
+/** D1 — derived on the server from events on every read; never stored. */
+export interface CreatorBalance {
+  availablePaise: number;
+  pendingPaise: number;
+  lifetimeEarningsPaise: number;
+  paidOutPaise: number;
+}
+
+export type PayoutStatus = 'REQUESTED' | 'APPROVED' | 'PROCESSING' | 'PAID' | 'REJECTED';
+
+export interface Payout {
+  id: UUID;
+  creatorId: UUID;
+  creatorName: string;
+  creatorEmail: string;
+  amountPaise: number;
+  status: PayoutStatus;
+  grossRevenuePaise: number;
+  platformFeePaise: number;
+  netPayoutPaise: number;
+  payoutMethod?: string | null;
+  payoutDestination?: string | null;
+  payoutReference?: string | null;
+  requestedAt: string;
+  processedAt?: string | null;
+  notes?: string | null;
+}
+
+export interface PayoutPage {
+  content: Payout[];
+  totalElements: number;
+  totalPages: number;
+  pageNumber: number;
+}
+
+export interface PayoutDetails {
+  payoutUpi?: string | null;
+  payoutEmail?: string | null;
+}
+
+export type StatementLineType = 'SALE' | 'REFUND' | 'PAYOUT';
+
+/** Amounts are SIGNED paise from the creator's view: sales positive, refunds/payouts negative. */
+export interface StatementLine {
+  date: string;
+  type: StatementLineType;
+  description: string;
+  grossPaise: number;
+  feePaise: number;
+  netPaise: number;
+}
+
+export interface CreatorStatement {
+  month: string;
+  lines: StatementLine[];
+  grossSalesPaise: number;
+  refundsPaise: number;
+  platformFeePaise: number;
+  netEarningsPaise: number;
+  payoutsPaise: number;
+}
+
+export interface OrderReceipt {
+  orderId: UUID;
+  status: OrderStatus;
+  purchasedAt: string;
+  productTitle: string;
+  creatorName: string;
+  amountPaise: number;
+  paymentIdMasked?: string | null;
+  paymentMode: PaymentMode;
+}

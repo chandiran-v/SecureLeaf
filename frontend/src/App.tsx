@@ -15,6 +15,9 @@ import MarketplacePage from './pages/marketplace/MarketplacePage';
 import ProductDetailPage from './pages/marketplace/ProductDetailPage';
 import CheckoutPage from './pages/buyer/CheckoutPage';
 import LibraryPage from './pages/buyer/LibraryPage';
+import ReceiptPage from './pages/buyer/ReceiptPage';
+import { TermsPage, PrivacyPage, RefundPolicyPage, ContactPage, AboutPage } from './pages/legal/LegalPages';
+import AdminPayoutsPage from './pages/admin/AdminPayoutsPage';
 import ReaderPage from './pages/viewer/ReaderPage';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 import AdminUsersPage from './pages/admin/AdminUsersPage';
@@ -38,6 +41,13 @@ function App() {
           <Route path="/" element={<MarketplacePage />} />
           <Route path="/marketplace" element={<MarketplacePage />} />
           <Route path="/product/:id" element={<ProductDetailPage />} />
+
+          {/* Legal & info pages (Phase 09C D6) — public, linked from the footer on every page */}
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/refund-policy" element={<RefundPolicyPage />} />
+          <Route path="/contact" element={<ContactPage />} />
+          <Route path="/about" element={<AboutPage />} />
 
           {/* Protected routes — require valid JWT */}
           <Route
@@ -71,6 +81,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <CheckoutPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/orders/:id/receipt"
+            element={
+              <ProtectedRoute>
+                <ReceiptPage />
               </ProtectedRoute>
             }
           />
@@ -115,6 +133,14 @@ function App() {
             element={
               <ProtectedRoute requiredRole="ADMIN">
                 <AdminProductsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/payouts"
+            element={
+              <ProtectedRoute requiredRole="ADMIN">
+                <AdminPayoutsPage />
               </ProtectedRoute>
             }
           />

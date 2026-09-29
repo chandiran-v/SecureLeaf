@@ -11,6 +11,8 @@ import com.secureleaf.commerce.gateway.PaymentGateway;
 import com.secureleaf.commerce.service.EntitlementService;
 import com.secureleaf.commerce.service.PlatformInfoService;
 import com.secureleaf.commerce.service.OrderService;
+import com.secureleaf.commerce.service.ReceiptService;
+import com.secureleaf.commerce.dto.ReceiptDto;
 import com.secureleaf.commerce.service.PaymentCompletionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.graphql.data.method.annotation.Argument;
@@ -37,6 +39,7 @@ public class CommerceResolver {
     private final EntitlementService entitlementService;
     private final PlatformInfoService platformInfoService;
     private final PaymentGateway paymentGateway;
+    private final ReceiptService receiptService;
 
     @MutationMapping
     @PreAuthorize("isAuthenticated()")
@@ -73,6 +76,13 @@ public class CommerceResolver {
     @PreAuthorize("isAuthenticated()")
     public OrderDto order(@Argument Long id) {
         return orderService.getOrderForBuyer(id, getCurrentUserId());
+    }
+
+    /** Phase 09C D5 — owner-only printable receipt data. */
+    @QueryMapping
+    @PreAuthorize("isAuthenticated()")
+    public ReceiptDto orderReceipt(@Argument Long orderId) {
+        return receiptService.receipt(orderId, getCurrentUserId());
     }
 
     @QueryMapping

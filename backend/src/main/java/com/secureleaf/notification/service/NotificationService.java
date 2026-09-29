@@ -3,12 +3,14 @@ package com.secureleaf.notification.service;
 import com.secureleaf.auth.entity.User;
 import com.secureleaf.commerce.entity.Order;
 import com.secureleaf.common.exception.ResourceNotFoundException;
+import com.secureleaf.creator.entity.CreatorPayout;
 import com.secureleaf.marketplace.entity.Product;
 import com.secureleaf.notification.dto.NotificationDto;
 import com.secureleaf.notification.entity.Notification;
 import com.secureleaf.notification.entity.NotificationType;
 import com.secureleaf.notification.repository.NotificationRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -28,6 +30,10 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final ApplicationEventPublisher eventPublisher;
 
+    /** Phase 09C D5 — base of the receipt link in the purchase email. Field-injected, so the constructor stays as-is. */
+    @Value("${app.frontend-base-url:http://localhost:5173}")
+    private String frontendBaseUrl;
+
     /**
      * PAY-08 — one notification for the buyer, one for the creator.
      *
@@ -43,7 +49,8 @@ public class NotificationService {
 
         create(buyer, NotificationType.PURCHASE_SUCCESS, order, product,
                 "Purchase confirmed: " + product.getTitle(),
-                "You now own \"" + product.getTitle() + "\" (" + price + "). It's in your library.");
+                "You now own \"" + product.getTitle() + "\" (" + price + "). It's in your library. "
+                        + "Receipt: " + frontendBaseUrl + "/orders/" + order.getId() + "/receipt");
 
         create(product.getCreator(), NotificationType.SALE_RECEIVED, order, product,
                 "New sale: " + product.getTitle(),
@@ -62,6 +69,23 @@ public class NotificationService {
                 "We refunded " + price + " for \"" + product.getTitle() + "\" (" + reason
                         + "). Your access to it has ended. The money returns to your original payment method "
                         + "within a few business days.");
+    }
+
+    /** Phase 09C D3 — tell every admin a creator asked to be paid. MANDATORY like the others. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void notifyPayoutRequested(List<User> admins, CreatorPayout payout, User creator) {
+        for (User admin : admins) {
+            create(admin, NotificationType.PAYOUT_REQUESTED, null, null,
+                    "Payout requested: " + formatRupees(payout.getAmountPaise()),
+                    creator.getDisplayName() + " requested a payout of " + formatRupees(payout.getAmountPaise())
+                            + " to " + payout.getPayoutDestination() + ". Review it in the admin panel.");
+        }
+    }
+
+    /** Phase 09C D3 — approve / paid / reject, addressed to the creator. Emailed by the dispatcher. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void notifyPayoutStatus(CreatorPayout payout, String title, String body) {
+        create(payout.getCreator(), NotificationType.PAYOUT_STATUS_UPDATE, null, null, title, body);
     }
 
     /**

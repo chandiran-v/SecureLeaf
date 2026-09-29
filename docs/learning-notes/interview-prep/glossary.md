@@ -149,3 +149,13 @@
 | **HTTP Basic auth** | An `Authorization` header carrying `base64(user:password)` — for Razorpay, `key_id:key_secret` | [Phase 9B](../phase-09b-razorpay.md) |
 | **Receipt (gateway)** | Our own reference (`sl_order_42`) sent to the gateway and echoed back — a gateway-side idempotency handle | [Phase 9B](../phase-09b-razorpay.md) |
 | **checkout.js / `frame-src`** | Razorpay's browser script that opens the payment popup in an iframe; the CSP must allow its script, frame and API hosts explicitly | [Phase 9B](../phase-09b-razorpay.md) |
+| **Ledger** | A record of events (credits/debits) from which a balance is computed, instead of a stored balance that must be kept in sync | [Phase 9C](../phase-09c-payouts-legal.md) |
+| **Hold period** | Days a sale's earnings stay "pending" before they can be withdrawn; set equal to the refund window so refundable money isn't paid out | [Phase 9C](../phase-09c-payouts-legal.md) |
+| **Check-then-act race** | Two concurrent requests both pass a check ("is there an open payout?") before either acts, so both succeed | [Phase 9C](../phase-09c-payouts-legal.md) |
+| **Partial unique index** | A unique index limited to rows matching a `WHERE` — e.g. one *open* payout per creator | [Phase 9C](../phase-09c-payouts-legal.md) |
+| **Snapshot (of a value)** | Copying a value onto a record when it matters (payout destination) so later edits can't rewrite history | [Phase 9C](../phase-09c-payouts-legal.md) |
+| **Manual payout** | Money is sent outside the app (UPI/bank) and recorded afterwards with a transfer reference | [Phase 9C](../phase-09c-payouts-legal.md) |
+| **CSV injection** | A spreadsheet formula (`=`, `+`, `-`, `@` prefix) hidden in exported data that runs when the file is opened | [Phase 9C](../phase-09c-payouts-legal.md) |
+| **`ALTER TYPE … ADD VALUE`** | Adds a Postgres enum value; the value can't be used in the same transaction, so it gets its own migration | [Phase 9C](../phase-09c-payouts-legal.md) |
+| **DPDP Act 2023 / data fiduciary** | India's data-protection law and its term for whoever decides how personal data is processed | [Phase 9C](../phase-09c-payouts-legal.md) |
+| **`body.sl-reading` / `.no-print`** | The CSS hooks for printing: blank the page only while the secure reader is mounted; hide site chrome on paper | [Phase 9C](../phase-09c-payouts-legal.md) |

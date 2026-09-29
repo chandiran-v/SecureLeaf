@@ -146,6 +146,19 @@ describe('ReaderPage', () => {
     expect(container.querySelectorAll('img')).toHaveLength(0);
   });
 
+  // Phase 09C D5 — VIEW-07 regression: print is blocked ONLY while the reader is mounted.
+  it('adds body.sl-reading while mounted (print blanks the page) and removes it on unmount', async () => {
+    expect(document.body).not.toHaveClass('sl-reading');
+    const { unmount } = renderReader([
+      startSessionMock({ pageCount: 1 }),
+      pageUrlMock('tok-1', 1, '/api/viewer/tiles/100/1?exp=1&sig=abc'),
+    ]);
+    expect(document.body).toHaveClass('sl-reading');
+    await waitFor(() => expect(drawImageSpy).toHaveBeenCalled());
+    unmount();
+    expect(document.body).not.toHaveClass('sl-reading');
+  });
+
   // Criterion 2
   it('prevents the context menu and marks the viewer non-selectable/non-draggable', async () => {
     const { container } = renderReader([

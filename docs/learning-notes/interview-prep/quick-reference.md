@@ -304,6 +304,28 @@ a secret in a variable spelled unexpectedly still slips through. Say this unprom
 
 ---
 
+## Phase 9C — Creator payouts, receipts & legal pages · [full note](../phase-09c-payouts-legal.md)
+
+| Concept | The one-line answer |
+|---|---|
+| Balance | Derived on every read: cleared earnings (COMPLETED, older than 7 days) − payouts not REJECTED. Nothing stored, so it can't drift |
+| Hold period | 7 days from `orders.completed_at`, equal to the refund window, so refundable money is never paid out |
+| Double-payout protection | `SELECT … FOR UPDATE` on the creator's profile row before checking; partial unique index (one open request) as backstop; two-thread latch test |
+| Snapshot | Payout destination and gross/fee copied onto the payout row at request time |
+| Payout state machine | REQUESTED → APPROVED → PAID; REQUESTED/APPROVED → REJECTED; else `INVALID_STATE_TRANSITION`; each admin action = lock + guard + one audit row + one notification, one transaction |
+| Rejected vs paid | Rejected stops being counted (money returns automatically); paid stays counted forever |
+| Enum value | `ALTER TYPE … ADD VALUE` in its own migration — can't be used in the transaction that adds it |
+| Statement/CSV | Same service feeds GraphQL and CSV; IST months; integer paise; quoted cells + leading `'` against formula injection |
+| Owner-only CSV | `/api/creator/**` = CREATOR role, id from the JWT — nothing in the URL to tamper with |
+| Receipt | Owner-only (someone else's order = NOT_FOUND), payment id masked to last 4 |
+| Print bug | `body { display:none }` was site-wide; now `body.sl-reading`, class added/removed by `useReadingMode` on reader mount/unmount |
+| Legal pages | Text as structured data (no `dangerouslySetInnerHTML`); draft banner until `VITE_LEGAL_REVIEWED=true`; privacy policy states exactly what is logged |
+| Money in the UI | `"0.29"` → 29 by string maths, never `parseFloat * 100` |
+
+**Weakest point to volunteer:** a refund after a payout leaves the creator owing money and the ledger only clamps "available" to zero — the fix is an explicit adjustment entry. Also, "paid" is the admin's word; the app can't verify the transfer, and the 7 days is configured in two places.
+
+---
+
 ## Cross-cutting themes to weave into any answer
 
 1. **Threat-model each decision.** Every security choice here has a "what attack does this stop" answer. Say it.

@@ -299,6 +299,8 @@ type Query {
 
     # Buyer
     order(id: ID!): Order
+    # Phase 09C D5 — printable receipt, owner-only (someone else's order is NOT_FOUND)
+    orderReceipt(orderId: ID!): OrderReceipt!
     myLibrary: [Entitlement!]!
     myNotifications: [Notification!]!
     # Phase 6, D7 — a one-time, ~30s Redis-backed ticket that authenticates the SSE stream
@@ -311,6 +313,11 @@ type Query {
     # Creator
     myProducts: [Product!]!
     creatorEarnings: CreatorEarnings!
+    # Phase 09C — payouts & statements (CREATOR-only; the creator is always the caller)
+    creatorBalance: CreatorBalance!
+    myPayouts: [Payout!]!
+    myPayoutDetails: PayoutDetails!
+    creatorStatement(month: String!): CreatorStatement!   # month = YYYY-MM
 
     # Reviews
     productReviews(productId: ID!, page: Int = 0, size: Int = 10): ReviewPage!
@@ -348,6 +355,10 @@ type Mutation {
     startViewerSession(productId: ID!, deviceFingerprint: String!): ViewerSession!
     viewerHeartbeat(sessionToken: String!): ViewerHeartbeat!
     endViewerSession(sessionToken: String!): Boolean!
+
+    # Phase 09C D2 — ask to be paid out of the available balance (paise)
+    requestPayout(amountPaise: Long!): Payout!
+    updatePayoutDetails(payoutUpi: String, payoutEmail: String): PayoutDetails!
 
     # Reviews
     submitReview(input: SubmitReviewInput!): Review!
@@ -390,4 +401,84 @@ enum PaymentMode {
 type PlatformInfo {
     paymentMode: PaymentMode!
     supportEmail: String!
+}
+
+# ── Phase 09C — payouts, statements, receipts ────────────────────────────────
+
+# D1 — derived from events on every read; nothing is stored.
+type CreatorBalance {
+    availablePaise: Long!          # cleared earnings − payouts that are not REJECTED
+    pendingPaise: Long!            # earnings still inside the hold period
+    lifetimeEarningsPaise: Long!   # all non-refunded earnings
+    paidOutPaise: Long!            # payouts already PAID
+}
+
+enum PayoutStatus {
+    REQUESTED
+    APPROVED
+    PROCESSING   # reserved for automated payouts; unused while payouts are manual
+    PAID
+    REJECTED
+}
+
+type Payout {
+    id: ID!
+    creatorId: ID!
+    creatorName: String!
+    creatorEmail: String!
+    amountPaise: Long!
+    status: PayoutStatus!
+    grossRevenuePaise: Long!
+    platformFeePaise: Long!
+    netPayoutPaise: Long!
+    payoutMethod: String
+    payoutDestination: String
+    payoutReference: String
+    requestedAt: DateTime!
+    processedAt: DateTime
+    notes: String
+}
+
+type PayoutPage {
+    content: [Payout!]!
+    totalElements: Int!
+    totalPages: Int!
+    pageNumber: Int!
+}
+
+type PayoutDetails {
+    payoutUpi: String
+    payoutEmail: String
+}
+
+# D4 — amounts are SIGNED paise from the creator's view: sales positive, refunds/payouts negative.
+type StatementLine {
+    date: DateTime!
+    type: String!          # SALE | REFUND | PAYOUT
+    description: String!
+    grossPaise: Long!
+    feePaise: Long!
+    netPaise: Long!
+}
+
+type CreatorStatement {
+    month: String!
+    lines: [StatementLine!]!
+    grossSalesPaise: Long!
+    refundsPaise: Long!
+    platformFeePaise: Long!    # net of refunded fees
+    netEarningsPaise: Long!    # sales net − refund net
+    payoutsPaise: Long!        # PAID in the month
+}
+
+# D5 — the payment id is masked; only the last 4 characters survive.
+type OrderReceipt {
+    orderId: ID!
+    status: OrderStatus!
+    purchasedAt: DateTime!
+    productTitle: String!
+    creatorName: String!
+    amountPaise: Long!
+    paymentIdMasked: String
+    paymentMode: PaymentMode!
 }

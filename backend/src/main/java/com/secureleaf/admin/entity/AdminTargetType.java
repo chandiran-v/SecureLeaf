@@ -4,5 +4,6 @@ package com.secureleaf.admin.entity;
 public enum AdminTargetType {
     USER,
     PRODUCT,
-    ORDER
+    ORDER,
+    PAYOUT
 }

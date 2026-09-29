@@ -31,6 +31,9 @@ They serve a dual purpose:
 10. **[Phase 09B — Real Razorpay integration (test mode)](phase-09b-razorpay.md)** — Launch track
    - Covers: ports-and-adapters paying off (mock → real with no business-logic change), calling an HTTP API without an SDK and testing it with `MockRestServiceServer`, test vs live keys and the fail-fast live-key guard, authorize vs capture, three idempotent completion paths (browser, webhook, reconciliation), refunds as state transitions, who absorbs gateway fees, CSP for third-party checkout.
 
+11. **[Phase 09C — Creator payouts, receipts & legal pages](phase-09c-payouts-legal.md)** — Launch track
+   - Covers: ledger thinking (balance derived from events, never stored), hold periods vs. the refund window, preventing double payouts with a row lock + partial unique index and a two-thread test, state machines for money, adding a Postgres enum value safely, CSV injection, money as integers down to the form input, why marketplaces need Terms/Privacy/Refund pages, and scoping global CSS (the site-wide print bug).
+
 **Tooling / DevOps**
 
 - **[Ops 01 — Phase Scheduler](ops-01-phase-scheduler.md)**
@@ -67,6 +70,7 @@ When a new phase is complete, duplicate `TEMPLATE.md`, name it appropriately, an
 | 8 | [Admin panel](phase-08-admin-panel.md) | ✅ Done | RBAC vs. object-level authz, privilege-escalation surface, config-only bootstrap, Redis deny-list for immediate JWT revocation, fail-open vs. fail-closed, post-moderation, append-only audit log (DB trigger), aggregate dashboard queries |
 | 9 | [Hardening & release readiness](phase-09-hardening-release.md) | ✅ Done | Correlation IDs + MDC across `@Async` threads, structured JSON logs, security headers, GraphQL depth/complexity limiting + introspection, credential-stuffing throttling, fail-fast prod config, liveness vs. readiness, testing pyramid + E2E, requirements traceability |
 | 9B | [Real Razorpay (test mode)](phase-09b-razorpay.md) | ✅ Done | Ports & adapters, `RestClient` + `MockRestServiceServer`, test vs live key guard, authorize vs capture, reconciliation as a third idempotent path, refunds as state transitions, gateway-fee accounting, CSP for third-party checkout |
+| 9C | [Creator payouts, receipts & legal pages](phase-09c-payouts-legal.md) | ✅ Done | Ledger/derived balances, hold period vs. refund window, `FOR UPDATE` + partial unique index against double payouts, payout state machine + audit, `ALTER TYPE ADD VALUE` in its own migration, CSV injection, paise-only money, legal pages as data, scoped print CSS |
 | 10–17 | MVP2 — [roadmap](../phases/README.md) | ⏳ Queued | Observability, rate limiting, bulkheads, caching, libvips, versioning, capacity |
 | UI 1 | [ui-01-responsive-navigation.md](ui-01-responsive-navigation.md) | ✅ Done | Mobile-first breakpoints, accessible disclosure menu (`aria-expanded`), single source of truth for nav |
 | Ops 1 | [ops-01-phase-scheduler.md](ops-01-phase-scheduler.md) | ✅ Done | Cron + event-driven CI, WIP limit of one, reconciliation, privilege separation, `GITHUB_TOKEN` vs PAT, prompt injection, bounded retries |

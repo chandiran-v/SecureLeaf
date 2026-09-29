@@ -48,6 +48,11 @@ public class Order extends BaseEntity {
     @Column(name = "gateway_order_id", unique = true)
     private String gatewayOrderId;
 
+    /** Phase 09C D1 — when the sale completed; the payout hold period counts from here. */
+    @Column(name = "completed_at")
+    @Setter(AccessLevel.NONE)
+    private java.time.Instant completedAt;
+
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderItem> items = new ArrayList<>();
 
@@ -57,6 +62,9 @@ public class Order extends BaseEntity {
                     "Order " + id + " cannot move from " + status + " to " + next);
         }
         this.status = next;
+        if (next == OrderStatus.COMPLETED && completedAt == null) {
+            this.completedAt = java.time.Instant.now();
+        }
     }
 
     /** MVP orders hold exactly one item (single-product checkout). */

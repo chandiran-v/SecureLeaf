@@ -52,9 +52,18 @@
 }
 
 /* VIEW-07 — belt-and-braces for the secure reader: even if a print shortcut somehow reaches the
-   browser's print dialog, the printed output is a blank page, not the book. */
+   browser's print dialog, the printed output is a blank page, not the book.
+
+   Phase 09C D5: scoped to `body.sl-reading`, a class ReaderPage adds on mount and removes on
+   unmount (hooks/useReadingMode.ts). This used to be a bare `body { display: none }`, which made
+   EVERY page unprintable — receipts and legal pages included. */
 @media print {
-  body {
+  body.sl-reading {
+    display: none !important;
+  }
+
+  /* Chrome that has no place on paper (site header, footer, banners, buttons). */
+  .no-print {
     display: none !important;
   }
 }

@@ -171,3 +171,8 @@ server:
   error:
     include-stacktrace: never
     include-message: always
+
+# ── Creator payouts (Phase 09C D1/D2) ─────────────────────────────────────────
+payouts:
+  hold-days: ${PAYOUT_HOLD_DAYS:7}                 # matches the 7-day refund window
+  min-amount-paise: ${PAYOUT_MIN_PAISE:10000}      # ₹100
