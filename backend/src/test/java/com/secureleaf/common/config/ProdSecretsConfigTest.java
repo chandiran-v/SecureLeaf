@@ -94,4 +94,47 @@ class ProdSecretsConfigTest {
 
         config.checkNoDevDefaultsInProd(); // must not throw
     }
+
+    @Test
+    void prodProfile_razorpayProvider_withBlankCredentials_throwsNamingThem() {
+        MockEnvironment prod = new MockEnvironment();
+        prod.addActiveProfile("prod");
+        ProdSecretsConfig config = new ProdSecretsConfig(
+                jwtWith("a-real-256-bit-secret-generated-for-this-deployment-only"),
+                new PaymentGatewayProperties("razorpay", "", "", " "),
+                minioWith("real-access-key", "real-secret-key"),
+                prod);
+
+        assertThatThrownBy(config::checkNoDevDefaultsInProd)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("RAZORPAY_KEY_ID")
+                .hasMessageContaining("RAZORPAY_KEY_SECRET")
+                .hasMessageContaining("RAZORPAY_WEBHOOK_SECRET");
+    }
+
+    @Test
+    void prodProfile_razorpayProvider_withMockPlaceholderKeyId_throws() {
+        MockEnvironment prod = new MockEnvironment();
+        prod.addActiveProfile("prod");
+        ProdSecretsConfig config = new ProdSecretsConfig(
+                jwtWith("a-real-256-bit-secret-generated-for-this-deployment-only"),
+                new PaymentGatewayProperties("razorpay", ProdSecretsConfig.DEV_RAZORPAY_KEY_ID, "real_secret", "real_whsec"),
+                minioWith("real-access-key", "real-secret-key"),
+                prod);
+
+        assertThatThrownBy(config::checkNoDevDefaultsInProd).hasMessageContaining("RAZORPAY_KEY_ID");
+    }
+
+    @Test
+    void prodProfile_razorpayProvider_withRealCredentials_startsCleanly() {
+        MockEnvironment prod = new MockEnvironment();
+        prod.addActiveProfile("prod");
+        ProdSecretsConfig config = new ProdSecretsConfig(
+                jwtWith("a-real-256-bit-secret-generated-for-this-deployment-only"),
+                new PaymentGatewayProperties("razorpay", "rzp_test_realkey", "real_secret", "real_whsec"),
+                minioWith("real-access-key", "real-secret-key"),
+                prod);
+
+        config.checkNoDevDefaultsInProd(); // must not throw
+    }
 }

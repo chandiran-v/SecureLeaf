@@ -69,7 +69,8 @@ class AdminAuthorizationIT extends AbstractIntegrationTest {
                 Arguments.of("suspendUser", "mutation { suspendUser(userId: 1, reason: \"x\") { id } }"),
                 Arguments.of("reactivateUser", "mutation { reactivateUser(userId: 1) { id } }"),
                 Arguments.of("takeDownProduct", "mutation { takeDownProduct(productId: 1, reason: \"x\") { id } }"),
-                Arguments.of("restoreProduct", "mutation { restoreProduct(productId: 1) { id } }")
+                Arguments.of("restoreProduct", "mutation { restoreProduct(productId: 1) { id } }"),
+                Arguments.of("refundOrder", "mutation { refundOrder(orderId: 1, reason: \"x\") { id } }")
         );
     }
 
