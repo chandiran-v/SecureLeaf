@@ -28,10 +28,19 @@
 		}
 	}
 
-	# API: GraphQL, REST (uploads, tiles, SSE, webhooks) and the public health probe only.
-	# Everything else under /actuator is deliberately NOT proxied.
+	# Public health probe. Phase 10 D1: actuator now lives on the management port (8081), which
+	# is never published; only /actuator/health is forwarded to it. /actuator/prometheus and
+	# every other actuator path are deliberately NOT proxied.
+	@health {
+		path /actuator/health /actuator/health/*
+	}
+	handle @health {
+		reverse_proxy backend:8081
+	}
+
+	# API: GraphQL and REST (uploads, tiles, SSE, webhooks).
 	@api {
-		path /graphql /graphql/* /api/* /actuator/health /actuator/health/*
+		path /graphql /graphql/* /api/*
 	}
 	handle @api {
 		request_body {

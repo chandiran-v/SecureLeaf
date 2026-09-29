@@ -142,6 +142,11 @@ public class LoadTestSeeder implements ApplicationRunner {
         Product product = productRepository.findAll().stream()
                 .filter(p -> PRODUCT_SLUG.equals(p.getSlug())).findFirst()
                 .orElseGet(() -> createProduct(creator));
+        // A previous run may have died between saving the product and uploading its PDF (say,
+        // MinIO was down): finish that job instead of waiting forever for a version that isn't there.
+        if (documentVersionRepository.findByProductIdAndVersionNumber(product.getId(), 1).isEmpty()) {
+            provisionDocument(product);
+        }
         DocumentVersion version = waitUntilProcessed(product);
 
         List<String> buyerEmails = new ArrayList<>();
@@ -184,11 +189,10 @@ public class LoadTestSeeder implements ApplicationRunner {
         return userRepository.save(user);
     }
 
-    /** The upload controller's steps (raw PDF → version row → job), minus the HTTP part. The job is
-     *  created already claimed (PROCESSING) and handed straight to the real pipeline, so no other
-     *  worker can pick it up and the tiles are rendered exactly as for a real upload. */
     private Product createProduct(User creator) {
-        Category category = categoryRepository.findBySlug(CATEGORY_SLUG).orElseGet(() -> {
+        // Reuse any existing category: V3 seeds categories with explicit ids, which leaves the id
+        // sequence behind them, so INSERTing a new one can collide on categories_pkey.
+        Category category = categoryRepository.findAll().stream().findFirst().orElseGet(() -> {
             Category c = new Category();
             c.setName("Load test");
             c.setSlug(CATEGORY_SLUG);
@@ -204,8 +208,13 @@ public class LoadTestSeeder implements ApplicationRunner {
         product.setPricePaise(0L);
         product.setFreePreviewPages(1);
         product.setStatus(ProductStatus.PROCESSING);
-        product = productRepository.save(product);
+        return productRepository.save(product);
+    }
 
+    /** The upload controller's steps (raw PDF → version row → job), minus the HTTP part. The job is
+     *  created already claimed (PROCESSING) and handed straight to the real pipeline, so no other
+     *  worker can pick it up and the tiles are rendered exactly as for a real upload. */
+    private void provisionDocument(Product product) {
         byte[] pdf = readBundledPdf();
         String rawBucket = minioProperties.getBucket().getRawUploads();
         String objectKey = "products/%d/v1/%s.pdf".formatted(product.getId(), UUID.randomUUID());
@@ -228,7 +237,6 @@ public class LoadTestSeeder implements ApplicationRunner {
         job.setClaimedAt(Instant.now());
         job = processingJobRepository.save(job);
         documentProcessingService.processAsync(job.getId());   // @Async: returns at once
-        return product;
     }
 
     private DocumentVersion waitUntilProcessed(Product product) throws InterruptedException {

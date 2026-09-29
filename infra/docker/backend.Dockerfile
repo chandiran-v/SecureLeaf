@@ -43,8 +43,11 @@ EXPOSE 8080
 ENV JAVA_OPTS="-XX:MaxRAMPercentage=70 -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError -Djava.awt.headless=true"
 
 # Readiness = app started and Postgres/Redis reachable (application.yml management.group.readiness).
+# Phase 10 D1: under the prod profile actuator listens on 8081 (management.server.port); with any
+# other profile it shares 8080 — so try the management port first, then the app port.
 HEALTHCHECK --interval=15s --timeout=5s --start-period=90s --retries=5 \
-  CMD curl -fsS http://localhost:8080/actuator/health/readiness || exit 1
+  CMD curl -fsS http://localhost:8081/actuator/health/readiness \
+   || curl -fsS http://localhost:8080/actuator/health/readiness || exit 1
 
 # `exec` so java is PID 1 and receives SIGTERM for a graceful shutdown.
 ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar app.jar"]

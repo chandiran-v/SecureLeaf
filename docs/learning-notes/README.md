@@ -37,6 +37,9 @@ They serve a dual purpose:
 12. **[Phase 09D — Production on one Oracle server](phase-09d-production-single-server.md)** — Launch track
    - Covers: capacity planning from measured numbers, the single-server trade-off, reverse proxy + automatic TLS + same-origin (no CORS), container memory limits vs JVM heap, the two-firewall trap on Oracle, defense-in-depth hardening, health-gated deploy with rollback, 3-2-1 backups and restore drills, ARM64 images, and the fonts-in-slim-images production bug.
 
+13. **[Phase 10 — Observability & load-test harness](phase-10-observability-load-testing.md)** — MVP2 foundation
+   - Covers: the three pillars, percentiles vs averages and histograms, RED/USE, load vs stress vs soak, Little's Law applied to the Tomcat pool, coordinated omission, metric cardinality, Micrometer/Prometheus/Grafana, a private management port, idempotent test-data seeding, "measure before you optimise".
+
 **Tooling / DevOps**
 
 - **[Ops 01 — Phase Scheduler](ops-01-phase-scheduler.md)**
@@ -75,7 +78,8 @@ When a new phase is complete, duplicate `TEMPLATE.md`, name it appropriately, an
 | 9B | [Real Razorpay (test mode)](phase-09b-razorpay.md) | ✅ Done | Ports & adapters, `RestClient` + `MockRestServiceServer`, test vs live key guard, authorize vs capture, reconciliation as a third idempotent path, refunds as state transitions, gateway-fee accounting, CSP for third-party checkout |
 | 9C | [Creator payouts, receipts & legal pages](phase-09c-payouts-legal.md) | ✅ Done | Ledger/derived balances, hold period vs. refund window, `FOR UPDATE` + partial unique index against double payouts, payout state machine + audit, `ALTER TYPE ADD VALUE` in its own migration, CSV injection, paise-only money, legal pages as data, scoped print CSS |
 | 9D | [Production on one Oracle server](phase-09d-production-single-server.md) | ✅ Done | Capacity planning from measurements, Caddy + auto-TLS + same-origin, `mem_limit` vs `MaxRAMPercentage`, two-firewall trap, hardening layers, health-gated rollback, 3-2-1 backups + restore drill, ARM64, fonts in slim images |
-| 10–17 | MVP2 — [roadmap](../phases/README.md) | ⏳ Queued | Observability, rate limiting, bulkheads, caching, libvips, versioning, capacity |
+| 10 | [Observability & load-test harness](phase-10-observability-load-testing.md) | ✅ Done | Three pillars, percentiles + histograms, RED/USE, Little's Law on Tomcat threads, coordinated omission, cardinality, private management port, idempotent seeder, k6 thresholds |
+| 11–17 | MVP2 — [roadmap](../phases/README.md) | ⏳ Queued | Rate limiting, bulkheads, caching, libvips, versioning, capacity |
 | UI 1 | [ui-01-responsive-navigation.md](ui-01-responsive-navigation.md) | ✅ Done | Mobile-first breakpoints, accessible disclosure menu (`aria-expanded`), single source of truth for nav |
 | Ops 1 | [ops-01-phase-scheduler.md](ops-01-phase-scheduler.md) | ✅ Done | Cron + event-driven CI, WIP limit of one, reconciliation, privilege separation, `GITHUB_TOKEN` vs PAT, prompt injection, bounded retries |
 

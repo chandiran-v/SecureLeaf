@@ -51,7 +51,14 @@ export const options = {
 
 // Read once in the init context and shared by every VU (a SharedArray would save memory at
 // thousands of users; a plain array is fine for the few hundred we use).
-const users = parseCsv(open(USERS_CSV));
+// A missing file is tolerated here so `k6 inspect` (which only reads the options) works without
+// seeded data; setup() below fails a real run with a clear message instead.
+let users = [];
+try {
+  users = parseCsv(open(USERS_CSV));
+} catch (e) {
+  users = [];
+}
 
 function parseCsv(text) {
   const lines = text.split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
