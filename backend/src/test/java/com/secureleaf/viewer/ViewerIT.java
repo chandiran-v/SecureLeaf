@@ -39,11 +39,17 @@ import org.springframework.graphql.test.tester.HttpGraphQlTester;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.test.web.servlet.ResultHandler;
+import org.springframework.test.web.servlet.ResultMatcher;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import java.time.Instant;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -153,7 +159,7 @@ class ViewerIT extends AbstractIntegrationTest {
         Map<String, Object> pageUrl = pageUrl(asBuyer, session.token(), 1);
         String url = (String) pageUrl.get("url");
 
-        byte[] bytes = mockMvc.perform(get(url).header("Authorization", "Bearer " + jwtService.generateAccessToken(buyer)))
+        byte[] bytes = tile(get(url).header("Authorization", "Bearer " + jwtService.generateAccessToken(buyer)))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Cache-Control", "no-store, private"))
                 .andReturn().getResponse().getContentAsByteArray();
@@ -169,8 +175,8 @@ class ViewerIT extends AbstractIntegrationTest {
         String url = (String) pageUrl(asBuyer, session.token(), 1).get("url");
         String auth = "Bearer " + jwtService.generateAccessToken(buyer);
 
-        mockMvc.perform(get(url).header("Authorization", auth)).andExpect(status().isOk());
-        mockMvc.perform(get(url).header("Authorization", auth)).andExpect(status().isForbidden());
+        tile(get(url).header("Authorization", auth)).andExpect(status().isOk());
+        tile(get(url).header("Authorization", auth)).andExpect(status().isForbidden());
         assertThat(accessLogCount()).isEqualTo(1);
     }
 
@@ -181,7 +187,7 @@ class ViewerIT extends AbstractIntegrationTest {
         long pastExp = Instant.now().minusSeconds(5).getEpochSecond();
         String auth = "Bearer " + jwtService.generateAccessToken(buyer);
 
-        mockMvc.perform(get("/api/viewer/tiles/{id}/1?exp={exp}&sig=anything", session.sessionId(), pastExp)
+        tile(get("/api/viewer/tiles/{id}/1?exp={exp}&sig=anything", session.sessionId(), pastExp)
                         .header("Authorization", auth))
                 .andExpect(status().isForbidden());
     }
@@ -193,7 +199,7 @@ class ViewerIT extends AbstractIntegrationTest {
         String url = ((String) pageUrl.get("url")).replaceFirst("/1\\?", "/2?");
         String auth = "Bearer " + jwtService.generateAccessToken(buyer);
 
-        mockMvc.perform(get(url).header("Authorization", auth)).andExpect(status().isForbidden());
+        tile(get(url).header("Authorization", auth)).andExpect(status().isForbidden());
     }
 
     @Test
@@ -203,7 +209,7 @@ class ViewerIT extends AbstractIntegrationTest {
         String url = ((String) pageUrl.get("url")).replaceFirst("/tiles/" + session.sessionId() + "/", "/tiles/999999/");
         String auth = "Bearer " + jwtService.generateAccessToken(buyer);
 
-        mockMvc.perform(get(url).header("Authorization", auth)).andExpect(status().isForbidden());
+        tile(get(url).header("Authorization", auth)).andExpect(status().isForbidden());
     }
 
     // ═══ 5. Valid URL fetched with another user's JWT → 403 ═════════════════
@@ -213,7 +219,7 @@ class ViewerIT extends AbstractIntegrationTest {
         String url = (String) pageUrl(asBuyer, session.token(), 1).get("url");
         String otherAuth = "Bearer " + jwtService.generateAccessToken(otherBuyer);
 
-        mockMvc.perform(get(url).header("Authorization", otherAuth)).andExpect(status().isForbidden());
+        tile(get(url).header("Authorization", otherAuth)).andExpect(status().isForbidden());
     }
 
     // ═══ 6. Second startViewerSession supersedes the first ═════════════════
@@ -229,7 +235,7 @@ class ViewerIT extends AbstractIntegrationTest {
                 .execute().path("viewerHeartbeat.status").entity(String.class).isEqualTo("SUPERSEDED");
 
         String auth = "Bearer " + jwtService.generateAccessToken(buyer);
-        mockMvc.perform(get(firstUrl).header("Authorization", auth)).andExpect(status().isConflict());
+        tile(get(firstUrl).header("Authorization", auth)).andExpect(status().isConflict());
 
         assertThat(endReasonOf(first.sessionId())).isEqualTo("SUPERSEDED");
     }
@@ -264,7 +270,7 @@ class ViewerIT extends AbstractIntegrationTest {
         entitlementRepository.save(entitlement);
 
         String auth = "Bearer " + jwtService.generateAccessToken(buyer);
-        mockMvc.perform(get(url).header("Authorization", auth)).andExpect(status().isForbidden());
+        tile(get(url).header("Authorization", auth)).andExpect(status().isForbidden());
     }
 
     // ═══ 9. Page number outside 1..pageCount → 404 ══════════════════════════
@@ -275,7 +281,7 @@ class ViewerIT extends AbstractIntegrationTest {
         String url = (String) pageUrl.get("url");
         String auth = "Bearer " + jwtService.generateAccessToken(buyer);
 
-        mockMvc.perform(get(url).header("Authorization", auth)).andExpect(status().isNotFound());
+        tile(get(url).header("Authorization", auth)).andExpect(status().isNotFound());
     }
 
     // ═══ 10. UNPUBLISHED product is still viewable by an entitled buyer (D8) ═
@@ -288,7 +294,7 @@ class ViewerIT extends AbstractIntegrationTest {
         String url = (String) pageUrl(asBuyer, session.token(), 1).get("url");
         String auth = "Bearer " + jwtService.generateAccessToken(buyer);
 
-        mockMvc.perform(get(url).header("Authorization", auth)).andExpect(status().isOk());
+        tile(get(url).header("Authorization", auth)).andExpect(status().isOk());
     }
 
     // ═══ 11. Exactly one access-log row per successful fetch; none on failure ═
@@ -298,7 +304,7 @@ class ViewerIT extends AbstractIntegrationTest {
         String url = (String) pageUrl(asBuyer, session.token(), 3).get("url");
         String auth = "Bearer " + jwtService.generateAccessToken(buyer);
 
-        mockMvc.perform(get(url).header("Authorization", auth).header("X-Correlation-Id", "corr-123"))
+        tile(get(url).header("Authorization", auth).header("X-Correlation-Id", "corr-123"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("X-Correlation-Id", "corr-123"));
 
@@ -309,7 +315,7 @@ class ViewerIT extends AbstractIntegrationTest {
         assertThat(row.get("correlation_id")).isEqualTo("corr-123");
 
         // A failed fetch (reused URL) must create no new row.
-        mockMvc.perform(get(url).header("Authorization", auth)).andExpect(status().isForbidden());
+        tile(get(url).header("Authorization", auth)).andExpect(status().isForbidden());
         assertThat(accessLogCount()).isEqualTo(1);
     }
 
@@ -319,7 +325,7 @@ class ViewerIT extends AbstractIntegrationTest {
         Session session = startSession(asBuyer, "device-1");
         String url = (String) pageUrl(asBuyer, session.token(), 1).get("url");
 
-        mockMvc.perform(get(url)).andExpect(status().isUnauthorized());
+        tile(get(url)).andExpect(status().isUnauthorized());
     }
 
     // ═══ Phase 11 — per-buyer rate limiting (acceptance criteria 1, 2, 5) ═══
@@ -332,12 +338,12 @@ class ViewerIT extends AbstractIntegrationTest {
             urls[i] = (String) pageUrl(asBuyer, session.token(), (i % 5) + 1).get("url");
         }
         for (int i = 0; i < 5; i++) {
-            mockMvc.perform(get(urls[i]).header("Authorization", auth)).andExpect(status().isOk());
+            tile(get(urls[i]).header("Authorization", auth)).andExpect(status().isOk());
         }
         int storageReads = storage.getCallCount();
         long rejectedBefore = rejectedCount();
 
-        mockMvc.perform(get(urls[5]).header("Authorization", auth))
+        tile(get(urls[5]).header("Authorization", auth))
                 .andExpect(status().isTooManyRequests())
                 .andExpect(header().exists("Retry-After"))
                 .andExpect(header().string("X-RateLimit-Remaining", "0"))
@@ -359,13 +365,13 @@ class ViewerIT extends AbstractIntegrationTest {
 
         for (int i = 0; i < 5; i++) {
             String url = (String) pageUrl(asBuyer, mine.token(), i + 1).get("url");
-            mockMvc.perform(get(url).header("Authorization", myAuth)).andExpect(status().isOk());
+            tile(get(url).header("Authorization", myAuth)).andExpect(status().isOk());
         }
         String blockedUrl = (String) pageUrl(asBuyer, mine.token(), 1).get("url");
-        mockMvc.perform(get(blockedUrl).header("Authorization", myAuth)).andExpect(status().isTooManyRequests());
+        tile(get(blockedUrl).header("Authorization", myAuth)).andExpect(status().isTooManyRequests());
 
         String theirUrl = (String) pageUrl(asOtherBuyer, theirs.token(), 1).get("url");
-        mockMvc.perform(get(theirUrl).header("Authorization", theirAuth)).andExpect(status().isOk());
+        tile(get(theirUrl).header("Authorization", theirAuth)).andExpect(status().isOk());
     }
 
     @Test
@@ -387,7 +393,7 @@ class ViewerIT extends AbstractIntegrationTest {
     void suspectedScrapers_flagsOnlyUsersAboveTheSuccessfulTileRateThreshold() throws Exception {
         Session session = startSession(asBuyer, "device-1");
         String url = (String) pageUrl(asBuyer, session.token(), 1).get("url");
-        mockMvc.perform(get(url).header("Authorization", "Bearer " + jwtService.generateAccessToken(buyer)))
+        tile(get(url).header("Authorization", "Bearer " + jwtService.generateAccessToken(buyer)))
                 .andExpect(status().isOk());
         assertThat(scraperSignalService.suspectedScrapers(1)).isEmpty();   // one honest tile
 
@@ -405,6 +411,28 @@ class ViewerIT extends AbstractIntegrationTest {
                     assertThat(row.userId()).isEqualTo(buyer.getId());
                     assertThat(row.tileCount()).isEqualTo(64);
                 });
+    }
+
+    /**
+     * The tile endpoint returns a CompletableFuture (Phase 12), so MockMvc reports "async started"
+     * and the real status only appears after an async dispatch. Synchronous outcomes (403, 429 ...)
+     * come straight back.
+     */
+    private ResultActions tile(MockHttpServletRequestBuilder request) throws Exception {
+        MvcResult started = mockMvc.perform(request).andReturn();
+        return started.getRequest().isAsyncStarted() ? mockMvc.perform(asyncDispatch(started)) : new ResultActions() {
+            @Override public ResultActions andExpect(ResultMatcher matcher) throws Exception {
+                matcher.match(started);
+                return this;
+            }
+            @Override public ResultActions andDo(ResultHandler handler) throws Exception {
+                handler.handle(started);
+                return this;
+            }
+            @Override public MvcResult andReturn() {
+                return started;
+            }
+        };
     }
 
     private long rejectedCount() {
@@ -433,7 +461,7 @@ class ViewerIT extends AbstractIntegrationTest {
     void metrics_prometheusEndpointExposesEveryViewerMeterAfterOneTile() throws Exception {
         Session session = startSession(asBuyer, "device-1");
         String url = (String) pageUrl(asBuyer, session.token(), 1).get("url");
-        mockMvc.perform(get(url).header("Authorization", "Bearer " + jwtService.generateAccessToken(buyer)))
+        tile(get(url).header("Authorization", "Bearer " + jwtService.generateAccessToken(buyer)))
                 .andExpect(status().isOk());
 
         String scrape = mockMvc.perform(get("/actuator/prometheus"))   // no JWT: Prometheus has none
@@ -460,10 +488,10 @@ class ViewerIT extends AbstractIntegrationTest {
         Session first = startSession(asBuyer, "device-1");
         String firstUrl = (String) pageUrl(asBuyer, first.token(), 1).get("url");
         String supersededUrl = (String) pageUrl(asBuyer, first.token(), 2).get("url");
-        mockMvc.perform(get(firstUrl).header("Authorization", auth)).andExpect(status().isOk());
-        mockMvc.perform(get(firstUrl).header("Authorization", auth)).andExpect(status().isForbidden());  // reuse
+        tile(get(firstUrl).header("Authorization", auth)).andExpect(status().isOk());
+        tile(get(firstUrl).header("Authorization", auth)).andExpect(status().isForbidden());  // reuse
         startSession(asBuyer, "device-2");                                                          // supersedes
-        mockMvc.perform(get(supersededUrl).header("Authorization", auth)).andExpect(status().isConflict());
+        tile(get(supersededUrl).header("Authorization", auth)).andExpect(status().isConflict());
 
         assertThat(tileCount("ok")).isEqualTo(ok + 1);
         assertThat(tileCount("forbidden")).isEqualTo(forbidden + 1);

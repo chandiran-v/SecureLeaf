@@ -57,6 +57,13 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // Phase 12, D3 — the tile endpoint returns a CompletableFuture, so the servlet
+                        // container re-dispatches the request (DispatcherType.ASYNC) when the render
+                        // finishes. That second pass runs in a stateless app with no JWT filter and
+                        // an empty SecurityContext, so it would 401 a tile we already authorized.
+                        // Safe: a client can't start a request as ASYNC; only the container issues
+                        // one, for a request that already passed every rule below on its first pass.
+                        .dispatcherTypeMatchers(jakarta.servlet.DispatcherType.ASYNC).permitAll()
                         // GraphQL endpoint — public at HTTP level; auth enforced at resolver level
                         .requestMatchers("/graphql", "/graphiql/**").permitAll()
                         // REST auth endpoints (reserved for file upload etc.)

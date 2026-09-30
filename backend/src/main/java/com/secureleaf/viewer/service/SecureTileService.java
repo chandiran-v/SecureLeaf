@@ -16,7 +16,6 @@ import com.secureleaf.viewer.metrics.ViewerMetrics;
 import com.secureleaf.viewer.entity.ViewerSessionEndReason;
 import com.secureleaf.viewer.repository.ViewerSessionRepository;
 import com.secureleaf.viewer.security.TileUrlSigner;
-import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -61,23 +60,23 @@ public class SecureTileService {
                                Long callerUserId, String ipAddress, String userAgent, String correlationId) {
     }
 
-    @Transactional
-    public byte[] getTile(TileRequest request) {
-        // Phase 10 D2 — one timer around the whole method, tagged by how it ended. The outcome is
-        // only known at the end, hence Timer.Sample (start now, pick the tag when stopping).
-        Timer.Sample sample = metrics.startTileRequest();
-        try {
-            byte[] tile = serveTile(request);
-            metrics.recordTileBytes(tile.length);
-            metrics.recordTileRequest(sample, ViewerMetrics.OUTCOME_OK);
-            return tile;
-        } catch (RuntimeException e) {
-            metrics.recordTileRequest(sample, ViewerMetrics.outcomeOf(e));
-            throw e;
-        }
+    /**
+     * Everything the checks decided plus the clean bytes, handed to the render pool. The entities
+     * are detached once {@link #prepareTile} returns; they are only used as foreign-key references
+     * when the access log row is written, never navigated lazily.
+     */
+    public record PreparedTile(TileRequest request, ViewerSession session, DocumentVersion documentVersion,
+                               ContentPage contentPage, byte[] cleanBytes, String watermarkLabel) {
     }
 
-    private byte[] serveTile(TileRequest request) {
+    /**
+     * Phase 12, D3 — steps 1-7 of D6 plus the storage fetch: the part of a tile request that
+     * belongs on the (virtual) request thread. Deliberately stops before the watermark, and its
+     * transaction ends here, so a Postgres connection is not held while the CPU-bound render
+     * waits in the queue.
+     */
+    @Transactional
+    public PreparedTile prepareTile(TileRequest request) {
         // D6 steps 2 & 4 — the signature is computed over (sessionId|pageNumber|userId|exp), so
         // verifying it with the CALLER's own userId does double duty: it proves the URL wasn't
         // tampered with (2) AND that it was issued to this exact caller (4) in one comparison —
@@ -130,14 +129,22 @@ public class SecureTileService {
 
         byte[] cleanBytes = metrics.timeStorageFetch(
                 () -> storageService.get(contentPage.getBucketName(), contentPage.getMinioObjectKey()));
-        String label = watermarkLabel(session);
-        byte[] watermarked = metrics.timeWatermark(() -> watermarkRenderer.applyWatermark(cleanBytes, label));
+        return new PreparedTile(request, session, documentVersion, contentPage, cleanBytes, watermarkLabel(session));
+    }
 
-        // D9 — only successful responses reach here; every throw above logs nothing.
-        viewerAccessLogService.record(session, documentVersion, contentPage, request.pageNumber(),
-                request.ipAddress(), request.userAgent(), request.correlationId());
+    /** The CPU-bound step (D1). Runs on a {@code tile-render-} thread, see {@code RenderPool}. */
+    public byte[] renderWatermark(PreparedTile tile) {
+        return metrics.timeWatermark(() -> watermarkRenderer.applyWatermark(tile.cleanBytes(), tile.watermarkLabel()));
+    }
 
-        return watermarked;
+    /**
+     * D9/D6 (Phase 12) — one access-log row, written only after a successful render and never on
+     * the render pool.
+     */
+    public void recordAccess(PreparedTile tile) {
+        TileRequest request = tile.request();
+        viewerAccessLogService.record(tile.session(), tile.documentVersion(), tile.contentPage(),
+                request.pageNumber(), request.ipAddress(), request.userAgent(), request.correlationId());
     }
 
     /** D7 — "{email} · #{userId} · {yyyy-MM-dd HH:mm} UTC · s{sessionId}", identifying the buyer. */

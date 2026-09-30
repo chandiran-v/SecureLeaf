@@ -2,8 +2,10 @@ package com.secureleaf.viewer.controller;
 
 import com.secureleaf.auth.service.SecureLeafUserDetails;
 import com.secureleaf.common.web.CorrelationIdFilter;
+import com.secureleaf.viewer.service.AsyncTileService;
 import com.secureleaf.viewer.service.SecureTileService;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.MDC;
 import org.springframework.http.CacheControl;
@@ -16,6 +18,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.concurrent.CompletableFuture;
 
 /**
  * REST endpoint serving one signed, single-use, watermarked DRM tile (D1, D5, D6).
@@ -30,15 +34,16 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class SecureTileController {
 
-    private final SecureTileService secureTileService;
+    private final AsyncTileService asyncTileService;
 
     @GetMapping(value = "/tiles/{sessionId}/{pageNumber}", produces = MediaType.IMAGE_PNG_VALUE)
-    public ResponseEntity<byte[]> getTile(
+    public CompletableFuture<ResponseEntity<byte[]>> getTile(
             @PathVariable Long sessionId,
             @PathVariable int pageNumber,
             @RequestParam long exp,
             @RequestParam String sig,
-            HttpServletRequest request) {
+            HttpServletRequest request,
+            HttpServletResponse response) {
 
         // Phase 9, D1 — CorrelationIdFilter (the first filter in the chain) has already put an id
         // in the MDC and echoed it on the response header; this endpoint just reads it, rather
@@ -46,10 +51,21 @@ public class SecureTileController {
         // every other log line for this request does.
         String correlationId = MDC.get(CorrelationIdFilter.MDC_KEY);
 
-        byte[] watermarked = secureTileService.getTile(new SecureTileService.TileRequest(
-                sessionId, pageNumber, exp, sig, currentUserId(),
-                request.getRemoteAddr(), request.getHeader(HttpHeaders.USER_AGENT), correlationId));
+        // D6 — never cached anywhere. Set on the servlet response NOW rather than only on the
+        // ResponseEntity: with an async return, Spring Security's own Cache-Control header writer
+        // would otherwise get in first and our stricter "private" directive would be dropped.
+        response.setHeader(HttpHeaders.CACHE_CONTROL, CacheControl.noStore().cachePrivate().getHeaderValue());
 
+        // Phase 12, D3 — the checks and storage fetch run right here on the request (virtual)
+        // thread and throw synchronously; only the watermark is handed to the tile-render- pool.
+        // A full pool throws RenderUnavailableException here (503, D4), a slow one fails the future.
+        return asyncTileService.getTile(new SecureTileService.TileRequest(
+                        sessionId, pageNumber, exp, sig, currentUserId(),
+                        request.getRemoteAddr(), request.getHeader(HttpHeaders.USER_AGENT), correlationId))
+                .thenApply(SecureTileController::toResponse);
+    }
+
+    private static ResponseEntity<byte[]> toResponse(byte[] watermarked) {
         // D6 — never let this tile response be cached anywhere (browser, proxy, CDN): each URL
         // is single-use already, but a cached copy would silently outlive that guarantee.
         return ResponseEntity.ok()
