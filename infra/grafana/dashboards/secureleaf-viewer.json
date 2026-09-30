@@ -4,7 +4,8 @@
   "tags": [
     "secureleaf",
     "phase-10",
-    "phase-12"
+    "phase-12",
+    "phase-13"
   ],
   "timezone": "browser",
   "schemaVersion": 39,
@@ -563,6 +564,125 @@
           },
           "expr": "sum(rate(secureleaf_render_timeout_total[1m]))",
           "legendFormat": "timed out/s"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Tile cache hit rate",
+      "description": "Phase 13. Share of authorised tile requests served from the watermarked-tile cache (no storage fetch, no render). Hits and misses per second underneath.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "secureleaf-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 40,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "secureleaf-prometheus"
+          },
+          "expr": "sum(rate(secureleaf_tilecache_hit_total[1m])) / clamp_min(sum(rate(secureleaf_tilecache_hit_total[1m])) + sum(rate(secureleaf_tilecache_miss_total[1m])), 0.001)",
+          "legendFormat": "hit rate"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "secureleaf-prometheus"
+          },
+          "expr": "sum(rate(secureleaf_tilecache_hit_total[1m]))",
+          "legendFormat": "hits/s"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "secureleaf-prometheus"
+          },
+          "expr": "sum(rate(secureleaf_tilecache_miss_total[1m]))",
+          "legendFormat": "misses/s"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Tile cache size and evictions",
+      "description": "Phase 13. Bytes held by the disk cache and entries removed per second by reason (expired = TTL, size = bound reached, explicit = revocation/suspension).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "secureleaf-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 40,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "secureleaf-prometheus"
+          },
+          "expr": "secureleaf_tilecache_size_bytes",
+          "legendFormat": "cache size (bytes)"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "secureleaf-prometheus"
+          },
+          "expr": "sum by (reason) (rate(secureleaf_tilecache_evictions_total[1m]))",
+          "legendFormat": "evictions/s {{reason}}"
         }
       ]
     }

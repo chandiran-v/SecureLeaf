@@ -205,3 +205,10 @@
 | **503 Service Unavailable** | Server-side overload (vs 429 = client over its limit) | [Phase 12](../phase-12-render-pool-backpressure.md) |
 | **Thundering herd / jitter** | Many clients retrying together; random delay spreads them out | [Phase 12](../phase-12-render-pool-backpressure.md) |
 | **Async dispatch** | The servlet container re-runs the request pipeline when a `CompletableFuture` completes; security rules apply again | [Phase 12](../phase-12-render-pool-backpressure.md) |
+| **Cache-aside** | App checks the cache, on a miss does the real work and fills the cache; the cache stays dumb | [Phase 13](../phase-13-watermarked-tile-cache.md) |
+| **Versioned cache key** | Key includes a version/config field, so bumping it orphans every old entry (invalidation by key change) | [Phase 13](../phase-13-watermarked-tile-cache.md) |
+| **Authorise before cache lookup** | The access check runs first so a cache can never serve someone who lost access | [Phase 13](../phase-13-watermarked-tile-cache.md) |
+| **Atomic rename** | Write a temp file then `ATOMIC_MOVE` it into place; readers see all-or-nothing | [Phase 13](../phase-13-watermarked-tile-cache.md) |
+| **W-TinyLFU** | Caffeine's eviction policy: recency + frequency with an admission filter (not strict LRU/FIFO) | [Phase 13](../phase-13-watermarked-tile-cache.md) |
+| **Hit rate** | hits / (hits + misses); decides whether a cache pays for itself | [Phase 13](../phase-13-watermarked-tile-cache.md) |
+| **Cache stampede** | Many concurrent misses on one key all doing the expensive work; fix with single-flight | [Phase 13](../phase-13-watermarked-tile-cache.md) |

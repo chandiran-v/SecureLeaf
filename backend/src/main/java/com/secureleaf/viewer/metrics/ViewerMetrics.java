@@ -40,6 +40,12 @@ public class ViewerMetrics {
     public static final String RENDER_REJECTED = "secureleaf.render.rejected";
     public static final String RENDER_TIMEOUT = "secureleaf.render.timeout";
 
+    /** Phase 13, D7 — the watermarked tile cache. */
+    public static final String TILECACHE_HIT = "secureleaf.tilecache.hit";
+    public static final String TILECACHE_MISS = "secureleaf.tilecache.miss";
+    public static final String TILECACHE_SIZE_BYTES = "secureleaf.tilecache.size.bytes";
+    public static final String TILECACHE_EVICTIONS = "secureleaf.tilecache.evictions";
+
     /** Values of the {@code outcome} tag on {@link #TILE_REQUEST}. */
     public static final String OUTCOME_OK = "ok";
     public static final String OUTCOME_FORBIDDEN = "forbidden";
@@ -159,5 +165,31 @@ public class ViewerMetrics {
 
     public void recordTileBytes(int bytes) {
         tileBytes.record(bytes);
+    }
+
+    /** Phase 13, D7 — a tile served from the cache (no storage fetch, no render). */
+    public void recordTileCacheHit() {
+        registry.counter(TILECACHE_HIT).increment();
+    }
+
+    /** Phase 13, D7 — an authorised tile that was not cached (or the cache failed). */
+    public void recordTileCacheMiss() {
+        registry.counter(TILECACHE_MISS).increment();
+    }
+
+    /** Phase 13, D7 — entries removed, tagged by why (expired, size, explicit, replaced). */
+    public void recordTileCacheEviction(String reason) {
+        recordTileCacheEviction(reason, 1);
+    }
+
+    public void recordTileCacheEviction(String reason, double count) {
+        registry.counter(TILECACHE_EVICTIONS, "reason", reason).increment(count);
+    }
+
+    /** Phase 13, D7 — bytes currently held by the cache (only caches that know it register this). */
+    public void registerTileCacheSize(java.util.function.Supplier<Number> bytes) {
+        Gauge.builder(TILECACHE_SIZE_BYTES, () -> bytes.get().doubleValue())
+                .description("Bytes of watermarked tiles held by the server-side tile cache")
+                .register(registry);
     }
 }

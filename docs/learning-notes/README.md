@@ -43,6 +43,9 @@ They serve a dual purpose:
 14. **[Phase 11 — Per-buyer rate limiting](phase-11-rate-limiting.md)** — MVP2-04
    - Covers: token bucket vs fixed window / sliding log / leaky bucket, distributed limiting and CAS atomicity in Redis, 429 + `Retry-After`, trusting `X-Forwarded-For`, fail-open vs fail-closed, rate limiting as a DRM control, an abuse signal from access logs.
 
+15. **[Phase 13 — Watermarked tile cache](phase-13-watermarked-tile-cache.md)** — MVP2-02
+   - Covers: cache-aside, versioned/composite cache keys, invalidation (TTL + key change + explicit eviction), authorise-before-lookup (a cache must not bypass auth), disk vs Redis vs heap with real numbers, atomic file writes, W-TinyLFU, hit-rate economics, a cache-stable watermark and its forensic trade-off.
+
 **Tooling / DevOps**
 
 - **[Ops 01 — Phase Scheduler](ops-01-phase-scheduler.md)**
@@ -84,6 +87,7 @@ When a new phase is complete, duplicate `TEMPLATE.md`, name it appropriately, an
 | 10 | [Observability & load-test harness](phase-10-observability-load-testing.md) | ✅ Done | Three pillars, percentiles + histograms, RED/USE, Little's Law on Tomcat threads, coordinated omission, cardinality, private management port, idempotent seeder, k6 thresholds |
 | 11 | [Per-buyer rate limiting](phase-11-rate-limiting.md) | ✅ Done | Token bucket vs the alternatives, Bucket4j CAS in Redis, 429 + Retry-After, X-Forwarded-For trust, fail-open, scraper signal |
 | 12 | [Decoupled render pool + backpressure](phase-12-render-pool-backpressure.md) | ✅ Done | Bulkhead, CPU- vs I/O-bound, virtual threads (and what they don't fix, pinning), bounded queues, 503 vs 429, timeout vs cancellation, Little's Law sizing |
+| 13 | [Watermarked tile cache](phase-13-watermarked-tile-cache.md) | ✅ Done | Cache-aside, composite versioned keys, invalidation layers, authorise-before-lookup, disk vs Redis vs heap (25 GB maths), atomic file writes, W-TinyLFU, hit-rate economics, cache-stable watermark |
 | 13–17 | MVP2 — [roadmap](../phases/README.md) | ⏳ Queued | Caching, libvips, versioning, capacity |
 | UI 1 | [ui-01-responsive-navigation.md](ui-01-responsive-navigation.md) | ✅ Done | Mobile-first breakpoints, accessible disclosure menu (`aria-expanded`), single source of truth for nav |
 | Ops 1 | [ops-01-phase-scheduler.md](ops-01-phase-scheduler.md) | ✅ Done | Cron + event-driven CI, WIP limit of one, reconciliation, privilege separation, `GITHUB_TOKEN` vs PAT, prompt injection, bounded retries |

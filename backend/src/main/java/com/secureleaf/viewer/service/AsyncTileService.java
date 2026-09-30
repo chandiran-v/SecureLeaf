@@ -42,11 +42,20 @@ public class AsyncTileService {
         Timer.Sample sample = metrics.startTileRequest();
         try {
             SecureTileService.PreparedTile prepared = secureTileService.prepareTile(request);
-            return renderPool.submit(() -> secureTileService.renderWatermark(prepared))
-                    .thenApplyAsync(watermarked -> {
+            // Phase 13, D4 — a cache hit skips the render pool entirely but still writes the
+            // access-log row; a miss renders, logs, then stores the result for the next visit.
+            CompletableFuture<byte[]> pipeline = prepared.isCacheHit()
+                    ? CompletableFuture.supplyAsync(() -> {
                         secureTileService.recordAccess(prepared);
-                        return watermarked;
+                        return prepared.cachedTile();
                     }, ioExecutor)
+                    : renderPool.submit(() -> secureTileService.renderWatermark(prepared))
+                            .thenApplyAsync(watermarked -> {
+                                secureTileService.recordAccess(prepared);
+                                secureTileService.cacheRendered(prepared, watermarked);
+                                return watermarked;
+                            }, ioExecutor);
+            return pipeline
                     .whenComplete((tile, failure) -> {
                         if (failure == null) {
                             metrics.recordTileBytes(tile.length);

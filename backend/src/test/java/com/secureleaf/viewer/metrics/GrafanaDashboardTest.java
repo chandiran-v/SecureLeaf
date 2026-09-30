@@ -62,6 +62,10 @@ class GrafanaDashboardTest {
         names.add(ViewerMetrics.RENDER_ACTIVE.replace('.', '_'));
         names.add(ViewerMetrics.RENDER_REJECTED.replace('.', '_') + "_total");
         names.add(ViewerMetrics.RENDER_TIMEOUT.replace('.', '_') + "_total");
+        names.add(ViewerMetrics.TILECACHE_HIT.replace('.', '_') + "_total");
+        names.add(ViewerMetrics.TILECACHE_MISS.replace('.', '_') + "_total");
+        names.add(ViewerMetrics.TILECACHE_SIZE_BYTES.replace('.', '_'));
+        names.add(ViewerMetrics.TILECACHE_EVICTIONS.replace('.', '_') + "_total");
         return names;
     }
 }

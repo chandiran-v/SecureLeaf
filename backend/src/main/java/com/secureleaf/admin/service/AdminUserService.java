@@ -14,6 +14,7 @@ import com.secureleaf.auth.entity.User;
 import com.secureleaf.auth.repository.RefreshTokenRepository;
 import com.secureleaf.auth.repository.UserRepository;
 import com.secureleaf.auth.security.SuspendedUsersService;
+import com.secureleaf.viewer.cache.TileCacheEvictor;
 import com.secureleaf.common.exception.BusinessException;
 import com.secureleaf.common.exception.ErrorCode;
 import com.secureleaf.common.exception.ResourceNotFoundException;
@@ -55,6 +56,7 @@ public class AdminUserService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final ViewerSessionService viewerSessionService;
     private final SuspendedUsersService suspendedUsersService;
+    private final TileCacheEvictor tileCacheEvictor;
     private final AdminAuditService adminAuditService;
 
     // ── Read ─────────────────────────────────────────────────────────────────
@@ -119,6 +121,7 @@ public class AdminUserService {
         refreshTokenRepository.revokeAllForUser(target.getId(), Instant.now());
         viewerSessionService.endAllSessionsForUser(target.getId(), ViewerSessionEndReason.REVOKED);
         suspendedUsersService.suspend(target.getId());
+        tileCacheEvictor.evictUser(target.getId());   // Phase 13, D5
 
         adminAuditService.record(adminId, AdminActionType.SUSPEND_USER, AdminTargetType.USER, target.getId(), trimmedReason);
 

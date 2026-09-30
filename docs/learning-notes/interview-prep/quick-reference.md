@@ -384,6 +384,17 @@ a secret in a variable spelled unexpectedly still slips through. Say this unprom
 - **`orTimeout` doesn't stop the work** — also `Future.cancel(true)`; non-interruptible code still runs on.
 - **Async controller:** `CompletableFuture` return → ASYNC re-dispatch re-runs security; `@Transactional` needs a separate bean (proxy).
 
+## Phase 13 — Watermarked tile cache · [full note](../phase-13-watermarked-tile-cache.md)
+
+- **Cache the watermarked bytes, per buyer + session, server-side only** — never the clean tile; the browser still gets `no-store`.
+- **Authorise first, then look up.** A cache in front of the checks is an auth bypass. Proof: revoke without evicting → still 403.
+- **Key = sha256(user, session, version, page, variant, renderer, watermarkVersion).** Invalidate by changing the key (bump a version), plus TTL, plus best-effort `evictUser`.
+- **Watermark made cache-stable:** minute timestamp → date + session id; forensic precision moved to the access log (joined on session id).
+- **Disk by default:** 5,000 × 10 × 500 KB ≈ 25 GB won't fit RAM on a 12 GB box; disk read ≈ 1 ms; Redis for multi-instance.
+- **Atomic file write:** temp file + `ATOMIC_MOVE`; unique file name per put; delete on eviction; wipe stale dir at startup.
+- **Invalidate by identity, not key** (`remove(key, entry)`) — otherwise you delete the fresh replacement.
+- **A hit still writes the access-log row** and still passes the rate limit.
+
 ## Cross-cutting themes to weave into any answer
 
 1. **Threat-model each decision.** Every security choice here has a "what attack does this stop" answer. Say it.
