@@ -168,6 +168,52 @@ class ViewerIT extends AbstractIntegrationTest {
         assertThat(accessLogCount()).isEqualTo(1);
     }
 
+    // ═══ Phase 15, D6 — a buyer on v1 keeps reading v1 after v2 becomes current ═══
+    @Test
+    void buyerOnV1_keepsReadingV1_afterV2BecomesCurrent() throws Exception {
+        product.setCurrentDocumentVersion(documentVersion);
+        product = productRepository.save(product);
+
+        // v2 is longer (7 pages) and becomes the product's current version.
+        DocumentVersion v2 = new DocumentVersion();
+        v2.setProduct(product);
+        v2.setVersionNumber(2);
+        v2.setOriginalFilename("book-2nd.pdf");
+        v2.setFileSizeBytes(4096L);
+        v2.setRawMinioBucket("secureleaf-raw");
+        v2.setRawMinioObjectKey("raw/" + product.getId() + "-v2.pdf");
+        v2.setPageCount(7);
+        v2 = documentVersionRepository.save(v2);
+        for (int page = 1; page <= 7; page++) {
+            String key = "products/%d/v2/page-%d.png".formatted(product.getId(), page);
+            storage.put("tiles", key, cleanPagePng(), "image/png");
+            ContentPage cp = new ContentPage();
+            cp.setDocumentVersion(v2);
+            cp.setPageNumber(page);
+            cp.setBucketName("tiles");
+            cp.setMinioObjectKey(key);
+            contentPageRepository.save(cp);
+        }
+        product.setCurrentDocumentVersion(v2);
+        productRepository.save(product);
+
+        // The session reports v1's page count, not the new current version's. (Checked first: every
+        // startViewerSession supersedes the previous one, and the real session below must be the last.)
+        assertThat(pageCountOf(asBuyer)).isEqualTo(5);
+
+        Session session = startSession(asBuyer, "device-1");
+        String auth = "Bearer " + jwtService.generateAccessToken(buyer);
+
+        String url = (String) pageUrl(asBuyer, session.token(), 1).get("url");
+        tile(get(url).header("Authorization", auth)).andExpect(status().isOk());
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT document_version_id FROM viewer_access_logs", Long.class)).isEqualTo(documentVersion.getId());
+
+        // Page 6 exists only in v2: the buyer's entitlement is v1, so it is not theirs to read.
+        String beyondV1 = (String) pageUrl(asBuyer, session.token(), 6).get("url");
+        tile(get(beyondV1).header("Authorization", auth)).andExpect(status().isNotFound());
+    }
+
     // ═══ 3. Same signed URL used twice → second use is 403 ═════════════════
     @Test
     void reusedSignedUrl_returns403() throws Exception {
@@ -560,6 +606,12 @@ class ViewerIT extends AbstractIntegrationTest {
         WebTestClient.Builder client = WebTestClient.bindToServer().baseUrl("http://localhost:" + port + "/graphql");
         client.defaultHeader("Authorization", "Bearer " + jwtService.generateAccessToken(user));
         return HttpGraphQlTester.create(client.build());
+    }
+
+    private int pageCountOf(HttpGraphQlTester as) {
+        return as.document(START)
+                .variable("productId", product.getId()).variable("fp", "device-pc")
+                .execute().path("startViewerSession.pageCount").entity(Integer.class).get();
     }
 
     private int accessLogCount() {
