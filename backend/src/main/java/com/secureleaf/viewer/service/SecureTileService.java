@@ -11,12 +11,16 @@ import com.secureleaf.content.entity.ContentPage;
 import com.secureleaf.content.entity.DocumentVersion;
 import com.secureleaf.content.repository.ContentPageRepository;
 import com.secureleaf.content.watermark.WatermarkRenderer;
+import com.secureleaf.viewer.cache.TileCacheKey;
+import com.secureleaf.viewer.cache.TileCacheKeyFactory;
+import com.secureleaf.viewer.cache.WatermarkedTileCache;
 import com.secureleaf.viewer.entity.ViewerSession;
 import com.secureleaf.viewer.metrics.ViewerMetrics;
 import com.secureleaf.viewer.entity.ViewerSessionEndReason;
 import com.secureleaf.viewer.repository.ViewerSessionRepository;
 import com.secureleaf.viewer.security.TileUrlSigner;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +29,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
+import java.util.Optional;
 
 /**
  * D6 — the tile endpoint's checks, in order, then the watermarked bytes. The core invariant this
@@ -38,12 +43,13 @@ import java.time.format.DateTimeFormatter;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class SecureTileService {
 
     private static final String ACTIVE_KEY_PREFIX = "viewer:active:";
     private static final String USED_SIG_KEY_PREFIX = "viewer:used-sig:";
     private static final Duration USED_SIG_TTL = Duration.ofSeconds(60);
-    private static final DateTimeFormatter WATERMARK_TIMESTAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+    private static final DateTimeFormatter WATERMARK_TIMESTAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
     private final ViewerSessionRepository viewerSessionRepository;
     private final EntitlementRepository entitlementRepository;
@@ -55,18 +61,27 @@ public class SecureTileService {
     private final StringRedisTemplate redisTemplate;
     private final Clock clock;
     private final ViewerMetrics metrics;
+    private final WatermarkedTileCache tileCache;
+    private final TileCacheKeyFactory tileCacheKeys;
 
     public record TileRequest(Long sessionId, int pageNumber, long exp, String signature,
                                Long callerUserId, String ipAddress, String userAgent, String correlationId) {
     }
 
     /**
-     * Everything the checks decided plus the clean bytes, handed to the render pool. The entities
-     * are detached once {@link #prepareTile} returns; they are only used as foreign-key references
-     * when the access log row is written, never navigated lazily.
+     * Everything the checks decided plus either the clean bytes (cache miss: handed to the render
+     * pool) or the finished watermarked bytes (cache hit, Phase 13). Exactly one of
+     * {@code cleanBytes} / {@code cachedTile} is non-null. The entities are detached once
+     * {@link #prepareTile} returns; they are only used as foreign-key references when the access
+     * log row is written, never navigated lazily.
      */
     public record PreparedTile(TileRequest request, ViewerSession session, DocumentVersion documentVersion,
-                               ContentPage contentPage, byte[] cleanBytes, String watermarkLabel) {
+                               ContentPage contentPage, byte[] cleanBytes, byte[] cachedTile,
+                               String watermarkLabel, TileCacheKey cacheKey) {
+
+        public boolean isCacheHit() {
+            return cachedTile != null;
+        }
     }
 
     /**
@@ -127,9 +142,41 @@ public class SecureTileService {
                 .findByDocumentVersionIdAndPageNumber(documentVersion.getId(), request.pageNumber())
                 .orElseThrow(() -> new ResourceNotFoundException("ViewerPage", "pageNumber", request.pageNumber()));
 
+        // Phase 13, D4 — only here, with every check above passed, may the cache be consulted. A hit
+        // skips the storage fetch and the render; it does not skip the access-log row (VIEW-13).
+        TileCacheKey cacheKey = tileCacheKeys.keyFor(session.getUser().getId(), session.getId(),
+                documentVersion.getId(), request.pageNumber());
+        Optional<byte[]> cached = cacheLookup(cacheKey);
+        if (cached.isPresent()) {
+            metrics.recordTileCacheHit();
+            return new PreparedTile(request, session, documentVersion, contentPage, null, cached.get(),
+                    null, cacheKey);
+        }
+        metrics.recordTileCacheMiss();
+
         byte[] cleanBytes = metrics.timeStorageFetch(
                 () -> storageService.get(contentPage.getBucketName(), contentPage.getMinioObjectKey()));
-        return new PreparedTile(request, session, documentVersion, contentPage, cleanBytes, watermarkLabel(session));
+        return new PreparedTile(request, session, documentVersion, contentPage, cleanBytes, null,
+                watermarkLabel(session), cacheKey);
+    }
+
+    /** A broken cache is a miss, never a failed request. */
+    private Optional<byte[]> cacheLookup(TileCacheKey key) {
+        try {
+            return tileCache.get(key);
+        } catch (RuntimeException e) {
+            log.warn("Tile cache lookup failed; treating as a miss", e);
+            return Optional.empty();
+        }
+    }
+
+    /** Phase 13 — stores freshly rendered bytes; failures are logged and swallowed. */
+    public void cacheRendered(PreparedTile tile, byte[] watermarked) {
+        try {
+            tileCache.put(tile.cacheKey(), watermarked);
+        } catch (RuntimeException e) {
+            log.warn("Tile cache store failed; continuing without caching", e);
+        }
     }
 
     /** The CPU-bound step (D1). Runs on a {@code tile-render-} thread, see {@code RenderPool}. */
@@ -147,7 +194,9 @@ public class SecureTileService {
                 request.pageNumber(), request.ipAddress(), request.userAgent(), request.correlationId());
     }
 
-    /** D7 — "{email} · #{userId} · {yyyy-MM-dd HH:mm} UTC · s{sessionId}", identifying the buyer. */
+    /** Phase 13, D1 — "{email} · #{userId} · {yyyy-MM-dd} UTC · s{sessionId}". Date + session id
+     * (not a minute timestamp) so the same page renders to the same bytes for a session and can be
+     * cached; the access log still holds the exact per-page time, joined on the session id. */
     private String watermarkLabel(ViewerSession session) {
         return "%s · #%d · %s UTC · s%d".formatted(
                 session.getUser().getEmail(),

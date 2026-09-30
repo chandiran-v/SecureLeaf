@@ -24,6 +24,7 @@ import com.secureleaf.common.exception.ResourceNotFoundException;
 import com.secureleaf.marketplace.entity.Product;
 import com.secureleaf.marketplace.repository.ProductRepository;
 import com.secureleaf.notification.service.NotificationService;
+import com.secureleaf.viewer.cache.TileCacheEvictor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -58,6 +59,7 @@ public class RefundService {
     private final AdminAuditService adminAuditService;
     private final NotificationService notificationService;
     private final PaymentGateway paymentGateway;
+    private final TileCacheEvictor tileCacheEvictor;
     private final ObjectMapper objectMapper;
 
     /**
@@ -136,7 +138,11 @@ public class RefundService {
         Product product = order.getSingleItem().getProduct();
         entitlementRepository.findByOrderId(order.getId())
                 .filter(e -> e.getStatus() == EntitlementStatus.ACTIVE)
-                .ifPresent(e -> revoke(e, reason));
+                .ifPresent(e -> {
+                    revoke(e, reason);
+                    // Phase 13, D5 — best-effort; the entitlement check runs before any cache lookup.
+                    tileCacheEvictor.evictUser(e.getBuyer().getId());
+                });
         productRepository.decrementTotalSales(product.getId());
         notificationService.notifyRefund(order, product, reason);
     }

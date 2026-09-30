@@ -152,6 +152,17 @@ render:
     queue-capacity: 200
   timeout-ms: 5000            # queue wait + render; over this -> 503
 
+# Phase 13 — server-side cache of ALREADY-WATERMARKED tiles, per buyer + session. Looked up only
+# after every access check has passed; browser responses stay no-store.
+#   type: disk (default, single server) | redis (several backend instances) | none
+tilecache:
+  type: ${TILECACHE_TYPE:disk}
+  # dir defaults to ${java.io.tmpdir}/tile-cache
+  ttl: 15m
+  max-bytes: 2147483648        # disk: total size bound (2 GB)
+  max-bytes-per-entry: 2097152 # redis: larger tiles are not cached
+  watermark-version: "1"       # part of every key: bump to invalidate every cached tile
+
 # ── Async thread pool (content processing pipeline) ──────────────────────────
 processing:
   thread-pool:

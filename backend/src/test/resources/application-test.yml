@@ -49,3 +49,8 @@ management:
     metrics:
       export:
         enabled: true
+
+# Phase 13 — off by default so every older test sees exactly the Phase 12 pipeline (acceptance
+# criterion 6). TileCacheIT and RedisTileCacheIT switch it on with @TestPropertySource.
+tilecache:
+  type: none
