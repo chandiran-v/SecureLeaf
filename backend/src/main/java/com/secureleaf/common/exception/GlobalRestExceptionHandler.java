@@ -1,5 +1,6 @@
 package com.secureleaf.common.exception;
 
+import com.secureleaf.viewer.render.RenderUnavailableException;
 import lombok.extern.slf4j.Slf4j;
 import com.secureleaf.ratelimit.RateLimitedException;
 import org.springframework.http.HttpHeaders;
@@ -36,6 +37,18 @@ public class GlobalRestExceptionHandler {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                 .header(HttpHeaders.RETRY_AFTER, String.valueOf(ex.getRetryAfterSeconds()))
                 .body(Map.of("message", ex.getMessage(), "code", ex.getErrorCode().name(),
+                        "retryAfterSeconds", ex.getRetryAfterSeconds()));
+    }
+
+    /**
+     * Phase 12, D4 — 503, not 429: the client did nothing wrong, the render pool is full or slow.
+     * {@code Retry-After} tells well-behaved clients when to come back.
+     */
+    @ExceptionHandler(RenderUnavailableException.class)
+    public ResponseEntity<Map<String, Object>> handleRenderUnavailable(RenderUnavailableException ex) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(ex.getRetryAfterSeconds()))
+                .body(Map.of("message", ex.getMessage(), "code", "RENDER_UNAVAILABLE",
                         "retryAfterSeconds", ex.getRetryAfterSeconds()));
     }
 

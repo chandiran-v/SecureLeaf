@@ -173,6 +173,29 @@ describe('ReaderPage', () => {
     expect(screen.queryByText('Slow down…')).not.toBeInTheDocument();
   });
 
+  // Phase 12 / criterion 5 — a 503 (render pool full) is retried with backoff and a "Busy" hint.
+  it('retries a 503 tile response with backoff, shows the busy hint, then draws the page', async () => {
+    let tileCalls = 0;
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.startsWith('/api/viewer/tiles/')) {
+        tileCalls += 1;
+        if (tileCalls === 1) {
+          return new Response('{"code":"RENDER_UNAVAILABLE"}', { status: 503, headers: { 'Retry-After': '1' } });
+        }
+        return new Response(new Blob(['png-bytes'], { type: 'image/png' }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ data: {} }), { status: 200 });
+    });
+
+    renderReader([startSessionMock({ pageCount: 1 }), pageUrlMockRepeatable('tok-1', 1)]);
+
+    expect(await screen.findByText('Busy, retrying…')).toBeInTheDocument();
+    await waitFor(() => expect(drawImageSpy).toHaveBeenCalled(), { timeout: 4000 });
+    expect(tileCalls).toBe(2);
+    expect(screen.queryByText('Busy, retrying…')).not.toBeInTheDocument();
+  });
+
   // Phase 09C D5 — VIEW-07 regression: print is blocked ONLY while the reader is mounted.
   it('adds body.sl-reading while mounted (print blanks the page) and removes it on unmount', async () => {
     expect(document.body).not.toHaveClass('sl-reading');

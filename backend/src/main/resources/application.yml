@@ -31,6 +31,12 @@ spring:
       password: ${REDIS_PASSWORD:secureleaf_redis_pass}
 
   # ── GraphQL ───────────────────────────────────────────────────────────────
+  # Phase 12, D2 — Tomcat request handling (and so storage/DB I/O in the tile path) runs on Java 21
+  # virtual threads. CPU-bound watermarking does NOT: it has its own platform pool, see `render:`.
+  threads:
+    virtual:
+      enabled: true
+
   graphql:
     graphiql:
       enabled: true              # Disabled in production profile
@@ -137,6 +143,14 @@ drm:
     renderer: java2d             # Strategy: java2d | libvips (future)
     opacity: 0.25
     font-size: 24
+
+# ── Render bulkhead (Phase 12, D1/D3) ─────────────────────────────────────────
+# Watermarking is CPU-bound, so it gets its own bounded platform-thread pool ("tile-render-").
+# pool.size defaults to the CPU count; a full queue answers 503 + Retry-After at once (D4).
+render:
+  pool:
+    queue-capacity: 200
+  timeout-ms: 5000            # queue wait + render; over this -> 503
 
 # ── Async thread pool (content processing pipeline) ──────────────────────────
 processing:

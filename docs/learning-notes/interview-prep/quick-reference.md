@@ -375,6 +375,15 @@ a secret in a variable spelled unexpectedly still slips through. Say this unprom
 - **DRM angle:** limits the *speed* of ripping; with the watermark and access logs it makes ripping slow and traceable.
 - **Test without sleeping:** inject a `TimeMeter`, wind the clock by hand.
 
+## Phase 12 — Render pool + backpressure · [full note](../phase-12-render-pool-backpressure.md)
+
+- **Bulkhead:** own bounded pool for the CPU-bound watermark so it can't starve login/heartbeats; proven by a test timing a heartbeat while saturated.
+- **CPU-bound → platform threads ≈ cores; I/O-bound → virtual threads.** Virtual threads make *waiting* cheap, they don't add CPU. Pinning = blocking inside `synchronized` (Java 21); find it with JFR.
+- **Bounded queue + AbortPolicy:** overload becomes a fast 503, not growing latency. Little's Law (L = λW) sizes it; the timeout is usually the real limit.
+- **503 (we're overloaded) vs 429 (you're too fast)**, both with `Retry-After`; client retries 503 with jittered backoff, max twice.
+- **`orTimeout` doesn't stop the work** — also `Future.cancel(true)`; non-interruptible code still runs on.
+- **Async controller:** `CompletableFuture` return → ASYNC re-dispatch re-runs security; `@Transactional` needs a separate bean (proxy).
+
 ## Cross-cutting themes to weave into any answer
 
 1. **Threat-model each decision.** Every security choice here has a "what attack does this stop" answer. Say it.

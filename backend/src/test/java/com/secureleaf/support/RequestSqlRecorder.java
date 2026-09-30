@@ -23,9 +23,14 @@ public class RequestSqlRecorder implements StatementInspector {
     private static volatile boolean recording;
     private static final List<String> STATEMENTS = new CopyOnWriteArrayList<>();
 
-    /** Tomcat request threads are named http-nio-&lt;port&gt;-exec-N. */
+    /**
+     * Tomcat request threads are named http-nio-&lt;port&gt;-exec-N; since Phase 12 enabled virtual
+     * threads (spring.threads.virtual.enabled) Tomcat names each request's virtual thread
+     * tomcat-handler-N instead.
+     */
     private static boolean isRequestThread() {
-        return Thread.currentThread().getName().startsWith("http-nio-");
+        String name = Thread.currentThread().getName();
+        return name.startsWith("http-nio-") || name.startsWith("tomcat-handler-");
     }
 
     @Override
