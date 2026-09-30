@@ -48,7 +48,8 @@ class GrafanaDashboardTest {
     private static Set<String> publishedSeries() {
         Set<String> names = new HashSet<>();
         for (String timer : new String[]{
-                ViewerMetrics.TILE_REQUEST, ViewerMetrics.WATERMARK_RENDER, ViewerMetrics.STORAGE_FETCH}) {
+                ViewerMetrics.TILE_REQUEST, ViewerMetrics.WATERMARK_RENDER, ViewerMetrics.STORAGE_FETCH,
+                ViewerMetrics.RENDER_WAIT}) {
             for (String suffix : new String[]{"count", "sum", "bucket", "max"}) {
                 names.add(timer.replace('.', '_') + "_seconds_" + suffix);
             }
@@ -57,6 +58,10 @@ class GrafanaDashboardTest {
             names.add(ViewerMetrics.TILE_BYTES.replace('.', '_') + "_" + suffix);
         }
         names.add(ViewerMetrics.SESSIONS_ACTIVE.replace('.', '_'));
+        names.add(ViewerMetrics.RENDER_QUEUE_SIZE.replace('.', '_'));
+        names.add(ViewerMetrics.RENDER_ACTIVE.replace('.', '_'));
+        names.add(ViewerMetrics.RENDER_REJECTED.replace('.', '_') + "_total");
+        names.add(ViewerMetrics.RENDER_TIMEOUT.replace('.', '_') + "_total");
         return names;
     }
 }

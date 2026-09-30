@@ -3,7 +3,8 @@
   "title": "SecureLeaf — Viewer",
   "tags": [
     "secureleaf",
-    "phase-10"
+    "phase-10",
+    "phase-12"
   ],
   "timezone": "browser",
   "schemaVersion": 39,
@@ -443,6 +444,125 @@
           },
           "expr": "sum(rate(secureleaf_tile_bytes_sum[1m]))",
           "legendFormat": "bytes/s out"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Render pool: queue depth vs busy threads",
+      "description": "Phase 12 bulkhead. Queue > 0 means renders are waiting for a tile-render- thread; a queue pinned at its capacity means new tiles are being shed with 503.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "secureleaf-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "secureleaf-prometheus"
+          },
+          "expr": "secureleaf_render_queue_size",
+          "legendFormat": "queued"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "secureleaf-prometheus"
+          },
+          "expr": "secureleaf_render_active",
+          "legendFormat": "rendering (busy threads)"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Render queue wait p95 and load shed/s",
+      "description": "Time a tile waited for a render thread (p95), and tiles per second refused (queue full -> 503) or abandoned (timeout).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "secureleaf-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "secureleaf-prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(secureleaf_render_wait_seconds_bucket[1m])))",
+          "legendFormat": "queue wait p95 (s)"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "secureleaf-prometheus"
+          },
+          "expr": "sum(rate(secureleaf_render_rejected_total[1m]))",
+          "legendFormat": "rejected/s (queue full)"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "secureleaf-prometheus"
+          },
+          "expr": "sum(rate(secureleaf_render_timeout_total[1m]))",
+          "legendFormat": "timed out/s"
         }
       ]
     }

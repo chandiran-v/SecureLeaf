@@ -85,6 +85,7 @@ export default function ReaderPage() {
     retry: retryTile,
     links: pageLinks,
     slowDown,
+    busy,
   } = useSecureTile({
     session: status === 'active' ? session : null,
     pageNumber: clampedPage,
@@ -126,6 +127,15 @@ export default function ReaderPage() {
           className="pointer-events-none absolute left-1/2 top-16 z-50 -translate-x-1/2 animate-pulse rounded-full bg-white/10 px-4 py-1.5 text-sm text-gray-200 backdrop-blur"
         >
           Slow down…
+        </div>
+      )}
+
+      {busy && (
+        <div
+          role="status"
+          className="pointer-events-none absolute left-1/2 top-16 z-50 -translate-x-1/2 animate-pulse rounded-full bg-white/10 px-4 py-1.5 text-sm text-gray-200 backdrop-blur"
+        >
+          Busy, retrying…
         </div>
       )}
 

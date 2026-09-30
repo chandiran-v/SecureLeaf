@@ -1,6 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
   RateLimitedError,
+  ServerBusyError,
+  busyBackoffMs,
+  retryOnServerBusy,
   RequestBudget,
   parseRetryAfterSeconds,
   rateLimitedFromGraphQlError,
@@ -68,5 +71,43 @@ describe('RequestBudget', () => {
     budget.record(100);
     expect(budget.canSpend(200)).toBe(false);
     expect(budget.canSpend(1001)).toBe(true); // the first stamp has left the window
+  });
+});
+
+describe('retryOnServerBusy (Phase 12)', () => {
+  it('backs off with jitter that grows per attempt', () => {
+    expect(busyBackoffMs(1, 0, () => 0.5)).toBe(1000);
+    expect(busyBackoffMs(1, 1, () => 0.5)).toBe(2000);
+    expect(busyBackoffMs(1, 0, () => 0)).toBe(500);
+    expect(busyBackoffMs(1, 0, () => 1)).toBe(1500);
+  });
+
+  it('retries a 503 and lowers the hint once it succeeds', async () => {
+    const op = vi.fn().mockRejectedValueOnce(new ServerBusyError(1)).mockResolvedValueOnce('ok');
+    const hint = vi.fn();
+    const sleep = vi.fn().mockResolvedValue(undefined);
+
+    await expect(retryOnServerBusy(op, hint, sleep, () => 0.5)).resolves.toBe('ok');
+
+    expect(sleep).toHaveBeenCalledWith(1000);
+    expect(hint.mock.calls).toEqual([[true], [false]]);
+  });
+
+  it('gives up after 2 retries (3 attempts) and rethrows', async () => {
+    const op = vi.fn().mockRejectedValue(new ServerBusyError(1));
+    const hint = vi.fn();
+    const sleep = vi.fn().mockResolvedValue(undefined);
+
+    await expect(retryOnServerBusy(op, hint, sleep, () => 0.5)).rejects.toBeInstanceOf(ServerBusyError);
+
+    expect(op).toHaveBeenCalledTimes(3);
+    expect(sleep.mock.calls).toEqual([[1000], [2000]]);
+    expect(hint).toHaveBeenLastCalledWith(false);
+  });
+
+  it('does not retry other errors', async () => {
+    const op = vi.fn().mockRejectedValue(new Error('nope'));
+    await expect(retryOnServerBusy(op, vi.fn(), async () => undefined)).rejects.toThrow('nope');
+    expect(op).toHaveBeenCalledTimes(1);
   });
 });

@@ -7,8 +7,10 @@ import { recoverFromUnauthorized } from '../../lib/session';
 import {
   RateLimitedError,
   RequestBudget,
+  ServerBusyError,
   parseRetryAfterSeconds,
   rateLimitedFromGraphQlError,
+  retryOnServerBusy,
   retryOnceOnRateLimit,
 } from '../../lib/rateLimit';
 import type { PageLink, SignedPageUrl, ViewerSession } from '../../types';
@@ -52,6 +54,8 @@ export interface UseSecureTileResult {
   links: PageLink[];
   /** True while waiting out a 429 (Phase 11, D7) — the viewer shows a subtle "Slow down…" hint. */
   slowDown: boolean;
+  /** True while waiting out a 503 from the render pool (Phase 12, D4) — "Busy, retrying…". */
+  busy: boolean;
 }
 
 function drawBitmapToCanvas(canvas: HTMLCanvasElement, bitmap: ImageBitmap): void {
@@ -97,6 +101,7 @@ export function useSecureTile({
   const [retryNonce, setRetryNonce] = useState(0);
   const [links, setLinks] = useState<PageLink[]>([]);
   const [slowDown, setSlowDown] = useState(false);
+  const [busy, setBusy] = useState(false);
   const retry = () => setRetryNonce((n) => n + 1);
 
   // Undrawn, prefetched bitmaps only — see the module comment above.
@@ -157,6 +162,11 @@ export function useSecureTile({
         throw new RateLimitedError(parseRetryAfterSeconds(response.headers.get('Retry-After')));
       }
 
+      // Phase 12, D4 — 503: the server's render pool is full or slow (not our fault, unlike 429).
+      if (response.status === 503) {
+        throw new ServerBusyError(parseRetryAfterSeconds(response.headers.get('Retry-After')));
+      }
+
       if (!response.ok) {
         let code: string | null = null;
         try {
@@ -187,9 +197,19 @@ export function useSecureTile({
       setLinks([]); // never leave the previous page's links over the next page
       try {
         // D7 — a 429 on the page the reader asked for: wait Retry-After, try once more, hint meanwhile.
-        const loaded = await retryOnceOnRateLimit(() => loadPage(pageNumber), (active) => {
-          if (!cancelled) setSlowDown(active);
-        });
+        // Phase 12, D4 — a 503 is retried (jittered, at most twice) with a "Busy, retrying…" hint.
+        const loaded = await retryOnceOnRateLimit(
+          () =>
+            retryOnServerBusy(
+              () => loadPage(pageNumber),
+              (active) => {
+                if (!cancelled) setBusy(active);
+              }
+            ),
+          (active) => {
+            if (!cancelled) setSlowDown(active);
+          }
+        );
         if (cancelled) {
           loaded.bitmap.close();
           return;
@@ -219,6 +239,9 @@ export function useSecureTile({
         if (err instanceof RateLimitedError) {
           // Still limited after the one retry: an ordinary, retryable error (no 403/409/410 meaning).
           setError({ code: 'RATE_LIMITED', status: 429 });
+        } else if (err instanceof ServerBusyError) {
+          // Still busy after the retries: an ordinary, retryable error (the "Try again" button).
+          setError({ code: 'SERVER_BUSY', status: 503 });
         } else if (err instanceof TileFetchError) {
           if (err.status === 409) {
             onSuperseded();
@@ -242,5 +265,5 @@ export function useSecureTile({
     };
   }, [session, pageNumber, pageCount, canvasRef, onSuperseded, onExpired, apolloClient, retryNonce]);
 
-  return { loading, error, retry, links, slowDown };
+  return { loading, error, retry, links, slowDown, busy };
 }
