@@ -110,3 +110,9 @@ lists the user.
 > **Not yet measured on real hardware.** The figures above follow from the configured limits and are
 > asserted by `RateLimiterTest` / `ViewerIT`; the k6 run itself has not been executed in CI. Record a
 > real run in `docs/perf/` when you do one.
+
+## Phase 12: what to expect under overload
+
+The render pool answers `503` + `Retry-After` when saturated, and k6 counts that as a failed
+request. See [`docs/perf/phase-12-render-pool.md`](../docs/perf/phase-12-render-pool.md) for the
+before/after procedure and what the dashboard's *Render pool* panels show.

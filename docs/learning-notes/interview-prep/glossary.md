@@ -198,3 +198,10 @@
 | **Fail open / fail closed** | Allow / deny when the protective check itself is unavailable | [Phase 11](../phase-11-rate-limiting.md) |
 | **X-Forwarded-For trust** | Believing the client-IP header only from a known proxy CIDR, since anyone can forge it | [Phase 11](../phase-11-rate-limiting.md) |
 | **Scraper signal** | Repeated rate-limit rejections or an abnormal successful-tile rate, surfaced for an admin to review | [Phase 11](../phase-11-rate-limiting.md) |
+| **Bulkhead** | Separate resource pools per workload so overload in one can't starve the others | [Phase 12](../phase-12-render-pool-backpressure.md) |
+| **Backpressure / load shedding** | Refusing work early (503 + Retry-After) instead of queueing without bound | [Phase 12](../phase-12-render-pool-backpressure.md) |
+| **Virtual thread / carrier thread** | Cheap JVM-managed Java 21 thread that parks when blocked; the OS thread it runs on is the carrier | [Phase 12](../phase-12-render-pool-backpressure.md) |
+| **Pinning** | A virtual thread stuck to its carrier while blocked (e.g. inside `synchronized`); detect with JFR `jdk.VirtualThreadPinned` | [Phase 12](../phase-12-render-pool-backpressure.md) |
+| **503 Service Unavailable** | Server-side overload (vs 429 = client over its limit) | [Phase 12](../phase-12-render-pool-backpressure.md) |
+| **Thundering herd / jitter** | Many clients retrying together; random delay spreads them out | [Phase 12](../phase-12-render-pool-backpressure.md) |
+| **Async dispatch** | The servlet container re-runs the request pipeline when a `CompletableFuture` completes; security rules apply again | [Phase 12](../phase-12-render-pool-backpressure.md) |

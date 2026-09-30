@@ -83,7 +83,8 @@ When a new phase is complete, duplicate `TEMPLATE.md`, name it appropriately, an
 | 9D | [Production on one Oracle server](phase-09d-production-single-server.md) | ✅ Done | Capacity planning from measurements, Caddy + auto-TLS + same-origin, `mem_limit` vs `MaxRAMPercentage`, two-firewall trap, hardening layers, health-gated rollback, 3-2-1 backups + restore drill, ARM64, fonts in slim images |
 | 10 | [Observability & load-test harness](phase-10-observability-load-testing.md) | ✅ Done | Three pillars, percentiles + histograms, RED/USE, Little's Law on Tomcat threads, coordinated omission, cardinality, private management port, idempotent seeder, k6 thresholds |
 | 11 | [Per-buyer rate limiting](phase-11-rate-limiting.md) | ✅ Done | Token bucket vs the alternatives, Bucket4j CAS in Redis, 429 + Retry-After, X-Forwarded-For trust, fail-open, scraper signal |
-| 11–17 | MVP2 — [roadmap](../phases/README.md) | ⏳ Queued | Rate limiting, bulkheads, caching, libvips, versioning, capacity |
+| 12 | [Decoupled render pool + backpressure](phase-12-render-pool-backpressure.md) | ✅ Done | Bulkhead, CPU- vs I/O-bound, virtual threads (and what they don't fix, pinning), bounded queues, 503 vs 429, timeout vs cancellation, Little's Law sizing |
+| 13–17 | MVP2 — [roadmap](../phases/README.md) | ⏳ Queued | Caching, libvips, versioning, capacity |
 | UI 1 | [ui-01-responsive-navigation.md](ui-01-responsive-navigation.md) | ✅ Done | Mobile-first breakpoints, accessible disclosure menu (`aria-expanded`), single source of truth for nav |
 | Ops 1 | [ops-01-phase-scheduler.md](ops-01-phase-scheduler.md) | ✅ Done | Cron + event-driven CI, WIP limit of one, reconciliation, privilege separation, `GITHUB_TOKEN` vs PAT, prompt injection, bounded retries |
 
