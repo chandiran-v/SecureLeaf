@@ -77,9 +77,9 @@ public class DiskTileCache implements WatermarkedTileCache {
     @Override
     public Optional<byte[]> get(TileCacheKey key) {
         String hash = key.hash();
-        // Two attempts: a concurrent put of the same key can replace the entry (and delete the old
-        // file) between our index lookup and our read; the second lookup then finds the new entry.
-        for (int attempt = 0; attempt < 2; attempt++) {
+        // A few attempts: a concurrent put of the same key can replace the entry (and delete the old
+        // file) between our index lookup and our read; the next lookup then finds the new entry.
+        for (int attempt = 0; attempt < 3; attempt++) {
             Entry entry = index.getIfPresent(hash);
             if (entry == null) {
                 return Optional.empty();

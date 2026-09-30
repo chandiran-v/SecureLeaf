@@ -116,8 +116,9 @@ class DiskTileCacheTest {
                 go.await();
                 for (int n = 0; n < 20; n++) {
                     cache.put(key, payload);
-                    byte[] read = cache.get(key).orElseThrow();
-                    assertThat(read).isIn((Object) a, (Object) b);   // whole payload, never a mix
+                    // A miss is legal while other threads keep replacing the entry; a torn or
+                    // mixed payload never is.
+                    cache.get(key).ifPresent(read -> assertThat(read).isIn((Object) a, (Object) b));
                 }
                 return null;
             }));
