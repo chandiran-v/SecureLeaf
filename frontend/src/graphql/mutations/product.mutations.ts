@@ -29,8 +29,8 @@ export const DELETE_PRODUCT = gql`
 // Phase 6, D4 — state-transition recovery from the dashboard.
 export const RETRY_PROCESSING = gql`
   ${PRODUCT_FIELDS}
-  mutation RetryProcessing($productId: ID!) {
-    retryProcessing(productId: $productId) {
+  mutation RetryProcessing($productId: ID!, $versionId: ID) {
+    retryProcessing(productId: $productId, versionId: $versionId) {
       ...ProductFields
       salesCount
       netEarningsPaise
@@ -59,5 +59,12 @@ export const BECOME_CREATOR = gql`
     becomeCreator(input: $input) {
       ...UserFields
     }
+  }
+`;
+
+// Phase 15, D5 — soft-retire a version nobody is reading.
+export const RETIRE_DOCUMENT_VERSION = gql`
+  mutation RetireDocumentVersion($productId: ID!, $versionId: ID!) {
+    retireDocumentVersion(productId: $productId, versionId: $versionId)
   }
 `;

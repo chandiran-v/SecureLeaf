@@ -74,7 +74,7 @@ class PageLinksIT extends AbstractCommerceIT {
     }
 
     private DocumentVersion versionOf(Product product) {
-        return documentVersionRepository.findFirstByProductIdOrderByVersionNumberDesc(product.getId()).orElseThrow();
+        return documentVersionRepository.findByProductIdAndVersionNumber(product.getId(), 1).orElseThrow();
     }
 
     private List<Map<String, Object>> linkRows(long versionId) {

@@ -2,6 +2,7 @@ package com.secureleaf.marketplace.entity;
 
 import com.secureleaf.auth.entity.User;
 import com.secureleaf.common.entity.BaseEntity;
+import com.secureleaf.content.entity.DocumentVersion;
 import jakarta.persistence.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -71,6 +72,15 @@ public class Product extends BaseEntity {
 
     @Column(name = "takedown_reason", columnDefinition = "TEXT")
     private String takedownReason;
+
+    /**
+     * Phase 15, D1 — the explicit "current version" pointer (V12). The marketplace, previews and NEW
+     * purchases use this; a buyer reads the version their entitlement points at. Null only until
+     * the first version finishes processing. Moved in the same transaction that completes the job.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "current_document_version_id")
+    private DocumentVersion currentDocumentVersion;
 
     @Version
     @Column(nullable = false)

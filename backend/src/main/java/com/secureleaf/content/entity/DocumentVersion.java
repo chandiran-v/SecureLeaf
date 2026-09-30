@@ -59,4 +59,18 @@ public class DocumentVersion {
     @Column(name = "links_extracted_at")
     private Instant linksExtractedAt;
 
+    /** D3 — what the creator chose for buyers already on an older version (V12). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "update_policy", nullable = false, length = 40)
+    private UpdatePolicy updatePolicy = UpdatePolicy.NEW_BUYERS_ONLY;
+
+    /** D3 — set when every ACTIVE entitlement has been moved here (or nothing needed moving). */
+    @Column(name = "entitlements_migrated_at")
+    private Instant entitlementsMigratedAt;
+
+    /** D5 — soft retirement. A retired version is hidden from the creator's active list and can
+     *  never become current or be retried; its row stays for audit and access-log integrity. */
+    @Column(name = "retired_at")
+    private Instant retiredAt;
+
 }

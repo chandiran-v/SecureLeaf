@@ -3,6 +3,7 @@ package com.secureleaf.creator.service;
 import com.secureleaf.common.exception.BusinessException;
 import com.secureleaf.common.exception.ErrorCode;
 import com.secureleaf.common.exception.ResourceNotFoundException;
+import com.secureleaf.content.entity.DocumentVersion;
 import com.secureleaf.content.repository.DocumentVersionRepository;
 import com.secureleaf.creator.entity.JobStatus;
 import com.secureleaf.creator.entity.ProcessingJob;
@@ -47,17 +48,44 @@ public class ProductRecoveryService {
      */
     @Transactional
     public ProductDto retryProcessing(Long productId, Long creatorId) {
+        return retryProcessing(productId, null, creatorId);
+    }
+
+    /**
+     * Phase 15, D2 — generalised to a specific version. {@code versionId == null} keeps the Phase 6
+     * meaning (the product's first upload FAILED). With a version id, the retry targets that
+     * version's latest job, which must be FAILED; the product's own status is left alone (it is
+     * still LIVE on its current version) unless it was FAILED because it has no current version.
+     */
+    @Transactional
+    public ProductDto retryProcessing(Long productId, Long versionId, Long creatorId) {
         Product product = productRepository.findByIdAndDeletedAtIsNull(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", productId));
         assertOwnership(product, creatorId);
 
-        if (product.getStatus() != ProductStatus.FAILED) {
-            throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION,
-                    "Product " + productId + " is not FAILED (currently " + product.getStatus() + ") — nothing to retry.");
+        ProcessingJob job;
+        if (versionId == null) {
+            if (product.getStatus() != ProductStatus.FAILED) {
+                throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION,
+                        "Product " + productId + " is not FAILED (currently " + product.getStatus() + ") — nothing to retry.");
+            }
+            job = processingJobRepository.findFirstByProductIdOrderByIdDesc(productId)
+                    .orElseThrow(() -> new IllegalStateException("FAILED product " + productId + " has no processing job"));
+        } else {
+            DocumentVersion version = documentVersionRepository.findById(versionId)
+                    .filter(v -> v.getProduct().getId().equals(productId))
+                    .orElseThrow(() -> new ResourceNotFoundException("DocumentVersion", versionId));
+            job = processingJobRepository.findFirstByDocumentVersionIdOrderByIdDesc(versionId)
+                    .filter(j -> j.getStatus() == JobStatus.FAILED && version.getRetiredAt() == null)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_STATE_TRANSITION,
+                            "Version " + version.getVersionNumber() + " of product " + productId
+                                    + " has no failed processing job to retry."));
+            if (processingJobRepository.existsByProductIdAndStatusIn(productId,
+                    java.util.List.of(JobStatus.QUEUED, JobStatus.PROCESSING))) {
+                throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION,
+                        "Another version of product " + productId + " is still processing.");
+            }
         }
-
-        ProcessingJob job = processingJobRepository.findFirstByProductIdOrderByIdDesc(productId)
-                .orElseThrow(() -> new IllegalStateException("FAILED product " + productId + " has no processing job"));
         job.setStatus(JobStatus.QUEUED);
         job.setRetryCount(0);
         job.setFailureReason(null);
@@ -68,8 +96,11 @@ public class ProductRecoveryService {
         job.setCompletedAt(null);
         processingJobRepository.save(job);
 
-        product.setStatus(ProductStatus.PROCESSING);
-        Product saved = productRepository.save(product);
+        Product saved = product;
+        if (product.getStatus() == ProductStatus.FAILED) {
+            product.setStatus(ProductStatus.PROCESSING);
+            saved = productRepository.save(product);
+        }
 
         log.info("Product {} retry requested by creator {}: job {} reset to QUEUED", productId, creatorId, job.getId());
         return ProductMapper.toDto(saved);
@@ -99,11 +130,8 @@ public class ProductRecoveryService {
                             + "An admin must restore it first.");
         }
 
-        boolean hasProcessedVersion = documentVersionRepository
-                .findFirstByProductIdOrderByVersionNumberDesc(productId)
-                .map(v -> v.getProcessedAt() != null)
-                .orElse(false);
-        if (!hasProcessedVersion) {
+        // Phase 15, D1 — "has a processed version" now means "has a current-version pointer".
+        if (product.getCurrentDocumentVersion() == null) {
             throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION,
                     "Product " + productId + " has no processed document version to republish.");
         }

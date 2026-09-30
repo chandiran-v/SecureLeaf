@@ -5,7 +5,6 @@ import com.secureleaf.commerce.entity.Order;
 import com.secureleaf.commerce.entity.OrderStatus;
 import com.secureleaf.commerce.repository.EntitlementRepository;
 import com.secureleaf.content.entity.DocumentVersion;
-import com.secureleaf.content.repository.DocumentVersionRepository;
 import com.secureleaf.marketplace.entity.Product;
 import com.secureleaf.marketplace.repository.ProductRepository;
 import com.secureleaf.notification.service.NotificationService;
@@ -31,7 +30,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class FulfillmentService {
 
     private final EntitlementRepository entitlementRepository;
-    private final DocumentVersionRepository documentVersionRepository;
     private final ProductRepository productRepository;
     private final NotificationService notificationService;
 
@@ -42,11 +40,13 @@ public class FulfillmentService {
         }
         Product product = order.getSingleItem().getProduct();
 
-        // PAY-05: the entitlement pins the document version that was current at purchase time.
-        // MVP has one version per product; MVP-2 versioning then works without a data migration.
-        DocumentVersion version = documentVersionRepository
-                .findFirstByProductIdOrderByVersionNumberDesc(product.getId())
-                .orElseThrow(() -> new IllegalStateException("LIVE product " + product.getId() + " has no document version"));
+        // PAY-05 / Phase 15 D1: the entitlement pins the version that is CURRENT at purchase time, by
+        // the explicit pointer. A v2 still processing is not current, so a buyer never pays for
+        // something that can't be opened yet.
+        DocumentVersion version = product.getCurrentDocumentVersion();
+        if (version == null) {
+            throw new IllegalStateException("LIVE product " + product.getId() + " has no current document version");
+        }
 
         Entitlement entitlement = new Entitlement();
         entitlement.setBuyer(order.getBuyer());

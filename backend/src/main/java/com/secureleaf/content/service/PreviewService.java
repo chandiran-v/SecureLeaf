@@ -5,7 +5,6 @@ import com.secureleaf.common.storage.StorageService;
 import com.secureleaf.content.entity.ContentPage;
 import com.secureleaf.content.entity.DocumentVersion;
 import com.secureleaf.content.repository.ContentPageRepository;
-import com.secureleaf.content.repository.DocumentVersionRepository;
 import com.secureleaf.content.watermark.WatermarkRenderer;
 import com.secureleaf.marketplace.entity.Product;
 import com.secureleaf.marketplace.entity.ProductStatus;
@@ -42,7 +41,6 @@ public class PreviewService {
     private static final String PREVIEW_LABEL = "PREVIEW · SecureLeaf";
 
     private final ProductRepository productRepository;
-    private final DocumentVersionRepository documentVersionRepository;
     private final ContentPageRepository contentPageRepository;
     private final StorageService storageService;
     private final WatermarkRenderer watermarkRenderer;
@@ -52,9 +50,12 @@ public class PreviewService {
         Product product = productRepository.findByIdAndStatusAndDeletedAtIsNull(productId, ProductStatus.LIVE)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", productId));
 
-        DocumentVersion documentVersion = documentVersionRepository
-                .findFirstByProductIdOrderByVersionNumberDesc(productId)
-                .orElseThrow(() -> new ResourceNotFoundException("DocumentVersion", "productId", productId));
+        // Phase 15, D1 — the explicit pointer, not "highest version number": a v2 that is still
+        // processing (or failed) exists as a row but must never be what the public previews.
+        DocumentVersion documentVersion = product.getCurrentDocumentVersion();
+        if (documentVersion == null) {
+            throw new ResourceNotFoundException("DocumentVersion", "productId", productId);
+        }
 
         int previewLimit = Math.min(
                 product.getFreePreviewPages(),

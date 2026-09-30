@@ -151,6 +151,14 @@ function ProductRow({
               Upload PDF
             </Link>
           )}
+          {(product.status === 'LIVE' || product.status === 'UNPUBLISHED') && (
+            <Link
+              to={`/creator/products/${product.id}/versions`}
+              className="text-xs px-3 py-1.5 rounded-lg border border-indigo-200 text-indigo-700 hover:bg-indigo-50 transition-colors"
+            >
+              Versions
+            </Link>
+          )}
           {product.status === 'FAILED' && (
             <button
               onClick={() => onRetry(product.id)}

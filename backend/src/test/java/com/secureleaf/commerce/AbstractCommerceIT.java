@@ -124,8 +124,9 @@ public abstract class AbstractCommerceIT extends AbstractIntegrationTest {
         v.setRawMinioBucket("secureleaf-raw");
         v.setRawMinioObjectKey("raw/" + p.getId() + ".pdf");
         v.setPageCount(10);
-        documentVersionRepository.save(v);
-        return p;
+        v = documentVersionRepository.save(v);
+        p.setCurrentDocumentVersion(v);   // Phase 15, D1: "current" is an explicit pointer
+        return productRepository.save(p);
     }
 
     protected HttpGraphQlTester tester(User user) {

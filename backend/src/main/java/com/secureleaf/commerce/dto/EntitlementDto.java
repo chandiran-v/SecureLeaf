@@ -9,5 +9,7 @@ public record EntitlementDto(
         Long id,
         ProductDto product,
         OffsetDateTime purchasedAt,
-        String status
+        String status,
+        Integer versionNumber,
+        Boolean newEditionAvailable
 ) {}

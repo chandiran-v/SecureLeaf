@@ -97,6 +97,8 @@ class PreviewControllerIT extends AbstractIntegrationTest {
         version.setRawMinioObjectKey("raw/key.pdf");
         version.setPageCount(5);
         version = documentVersionRepository.save(version);
+        liveProduct.setCurrentDocumentVersion(version);   // Phase 15, D1
+        liveProduct = productRepository.save(liveProduct);
 
         for (int page = 1; page <= 5; page++) {
             String key = "products/%d/v1/page-%d.png".formatted(liveProduct.getId(), page);

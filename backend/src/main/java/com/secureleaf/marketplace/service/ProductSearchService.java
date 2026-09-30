@@ -1,7 +1,6 @@
 package com.secureleaf.marketplace.service;
 
 import com.secureleaf.common.exception.ResourceNotFoundException;
-import com.secureleaf.content.repository.DocumentVersionRepository;
 import com.secureleaf.marketplace.dto.CategoryDto;
 import com.secureleaf.marketplace.dto.ProductDto;
 import com.secureleaf.marketplace.dto.ProductFilterInput;
@@ -39,7 +38,6 @@ public class ProductSearchService {
 
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
-    private final DocumentVersionRepository documentVersionRepository;
 
     @Transactional(readOnly = true)
     public ProductPageDto searchProducts(ProductFilterInput filter, int page, int size) {
@@ -73,9 +71,10 @@ public class ProductSearchService {
         Product product = productRepository.findByIdAndStatusAndDeletedAtIsNull(id, ProductStatus.LIVE)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", id));
 
-        Integer pageCount = documentVersionRepository.findFirstByProductIdOrderByVersionNumberDesc(id)
-                .map(dv -> dv.getPageCount())
-                .orElse(null);
+        // Phase 15, D1 — page count of the CURRENT version (the one a new buyer would get).
+        Integer pageCount = product.getCurrentDocumentVersion() != null
+                ? product.getCurrentDocumentVersion().getPageCount()
+                : null;
 
         return ProductMapper.toDto(product, pageCount);
     }

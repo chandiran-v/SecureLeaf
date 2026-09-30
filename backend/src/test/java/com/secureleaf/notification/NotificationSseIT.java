@@ -101,7 +101,9 @@ class NotificationSseIT extends AbstractIntegrationTest {
         version.setRawMinioBucket("secureleaf-raw");
         version.setRawMinioObjectKey("raw/" + freeProduct.getId() + ".pdf");
         version.setPageCount(3);
-        documentVersionRepository.save(version);
+        version = documentVersionRepository.save(version);
+        freeProduct.setCurrentDocumentVersion(version);   // Phase 15, D1
+        freeProduct = productRepository.save(freeProduct);
 
         asCreator = tester(creator);
         asBuyer = tester(buyer);
