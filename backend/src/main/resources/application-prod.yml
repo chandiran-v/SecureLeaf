@@ -54,3 +54,8 @@ management:
   # network. The container healthcheck and Caddy target 8081 (see docker-compose.prod.yml).
   server:
     port: 8081
+
+# Phase 11, D4 — Caddy reaches the backend from the compose bridge network (RFC1918 172.16/12), so
+# that is the only peer whose X-Forwarded-For we believe. Anyone else's header is ignored.
+ratelimit:
+  trusted-proxies: ${RATELIMIT_TRUSTED_PROXIES:172.16.0.0/12,10.0.0.0/8,127.0.0.1/32}

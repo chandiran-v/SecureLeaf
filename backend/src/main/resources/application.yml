@@ -189,3 +189,24 @@ server:
 payouts:
   hold-days: ${PAYOUT_HOLD_DAYS:7}                 # matches the 7-day refund window
   min-amount-paise: ${PAYOUT_MIN_PAISE:10000}      # ₹100
+
+# ── Rate limiting (Phase 11, D2) ──────────────────────────────────────────────
+# Token buckets in Redis (Bucket4j). tile: 2 req/s sustained with a burst of 5 for prefetch;
+# a person turning pages every few seconds never gets near it, a scraper hits it at once.
+ratelimit:
+  tile:
+    capacity: 5
+    refill-per-second: 2
+  page-url:
+    capacity: 10
+    refill-per-second: 4
+  preview:
+    capacity: 20
+    refill-per-second: 1
+  # D4 — X-Forwarded-For is believed only from these peers. Loopback by default; prod adds the
+  # Docker network Caddy connects from (see application-prod.yml). Comma-separated CIDRs.
+  trusted-proxies: ${RATELIMIT_TRUSTED_PROXIES:127.0.0.1/32,::1/128}
+  scraper:
+    rejections-threshold: 100        # D6 — more rejections than this ...
+    rejection-window-minutes: 10     # ... inside this window logs "possible scraper"
+    suspect-tiles-per-minute: 30     # D6 — suspectedScrapers flags a successful-tile rate above this

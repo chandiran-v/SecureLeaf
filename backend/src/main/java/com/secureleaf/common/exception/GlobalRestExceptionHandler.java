@@ -1,6 +1,8 @@
 package com.secureleaf.common.exception;
 
 import lombok.extern.slf4j.Slf4j;
+import com.secureleaf.ratelimit.RateLimitedException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -26,6 +28,15 @@ public class GlobalRestExceptionHandler {
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<Map<String, String>> handleNotFound(ResourceNotFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", ex.getMessage()));
+    }
+
+    /** Phase 11, D3 — 429 with Retry-After (seconds), the standard "come back later" contract. */
+    @ExceptionHandler(RateLimitedException.class)
+    public ResponseEntity<Map<String, Object>> handleRateLimited(RateLimitedException ex) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(ex.getRetryAfterSeconds()))
+                .body(Map.of("message", ex.getMessage(), "code", ex.getErrorCode().name(),
+                        "retryAfterSeconds", ex.getRetryAfterSeconds()));
     }
 
     @ExceptionHandler(BusinessException.class)

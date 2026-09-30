@@ -40,6 +40,9 @@ They serve a dual purpose:
 13. **[Phase 10 — Observability & load-test harness](phase-10-observability-load-testing.md)** — MVP2 foundation
    - Covers: the three pillars, percentiles vs averages and histograms, RED/USE, load vs stress vs soak, Little's Law applied to the Tomcat pool, coordinated omission, metric cardinality, Micrometer/Prometheus/Grafana, a private management port, idempotent test-data seeding, "measure before you optimise".
 
+14. **[Phase 11 — Per-buyer rate limiting](phase-11-rate-limiting.md)** — MVP2-04
+   - Covers: token bucket vs fixed window / sliding log / leaky bucket, distributed limiting and CAS atomicity in Redis, 429 + `Retry-After`, trusting `X-Forwarded-For`, fail-open vs fail-closed, rate limiting as a DRM control, an abuse signal from access logs.
+
 **Tooling / DevOps**
 
 - **[Ops 01 — Phase Scheduler](ops-01-phase-scheduler.md)**
@@ -79,6 +82,7 @@ When a new phase is complete, duplicate `TEMPLATE.md`, name it appropriately, an
 | 9C | [Creator payouts, receipts & legal pages](phase-09c-payouts-legal.md) | ✅ Done | Ledger/derived balances, hold period vs. refund window, `FOR UPDATE` + partial unique index against double payouts, payout state machine + audit, `ALTER TYPE ADD VALUE` in its own migration, CSV injection, paise-only money, legal pages as data, scoped print CSS |
 | 9D | [Production on one Oracle server](phase-09d-production-single-server.md) | ✅ Done | Capacity planning from measurements, Caddy + auto-TLS + same-origin, `mem_limit` vs `MaxRAMPercentage`, two-firewall trap, hardening layers, health-gated rollback, 3-2-1 backups + restore drill, ARM64, fonts in slim images |
 | 10 | [Observability & load-test harness](phase-10-observability-load-testing.md) | ✅ Done | Three pillars, percentiles + histograms, RED/USE, Little's Law on Tomcat threads, coordinated omission, cardinality, private management port, idempotent seeder, k6 thresholds |
+| 11 | [Per-buyer rate limiting](phase-11-rate-limiting.md) | ✅ Done | Token bucket vs the alternatives, Bucket4j CAS in Redis, 429 + Retry-After, X-Forwarded-For trust, fail-open, scraper signal |
 | 11–17 | MVP2 — [roadmap](../phases/README.md) | ⏳ Queued | Rate limiting, bulkheads, caching, libvips, versioning, capacity |
 | UI 1 | [ui-01-responsive-navigation.md](ui-01-responsive-navigation.md) | ✅ Done | Mobile-first breakpoints, accessible disclosure menu (`aria-expanded`), single source of truth for nav |
 | Ops 1 | [ops-01-phase-scheduler.md](ops-01-phase-scheduler.md) | ✅ Done | Cron + event-driven CI, WIP limit of one, reconciliation, privilege separation, `GITHUB_TOKEN` vs PAT, prompt injection, bounded retries |

@@ -2,6 +2,7 @@ package com.secureleaf.auth.security;
 
 import com.secureleaf.common.config.AppProperties;
 import com.secureleaf.common.web.CorrelationIdFilter;
+import com.secureleaf.ratelimit.RateLimitFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -46,6 +47,7 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final CorrelationIdFilter correlationIdFilter;
+    private final RateLimitFilter rateLimitFilter;
     private final AppProperties appProperties;
 
     @Bean
@@ -133,6 +135,9 @@ public class SecurityConfig {
                 // custom filter before it has any known order throws IllegalArgumentException.
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(correlationIdFilter, JwtAuthenticationFilter.class)
+                // Phase 11, D3 — after JWT auth (the tile bucket is keyed by user id), before any
+                // controller runs, so a throttled request never reaches storage or the renderer.
+                .addFilterAfter(rateLimitFilter, JwtAuthenticationFilter.class)
                 // Disable Spring's default OAuth2 login (we handle Google OAuth via GraphQL mutation)
                 .oauth2Login(oauth2 -> oauth2.disable())
                 .build();

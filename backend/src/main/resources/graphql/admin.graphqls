@@ -130,6 +130,9 @@ extend type Query {
     adminProducts(filter: AdminProductFilter, page: Int = 0, size: Int = 25): AdminProductPage!
     platformStats(days: Int = 30): PlatformStats!
     adminActions(page: Int = 0, size: Int = 25): AdminActionPage!
+    # Phase 11 D6 — users whose successful tile rate in the window is above the scraper threshold,
+    # computed from viewer_access_logs. A signal for an admin to look at, never an automatic ban.
+    suspectedScrapers(windowMinutes: Int = 10): [SuspectedScraper!]!
     # Phase 09C D3 — payout requests, newest first; status = null means all
     adminPayouts(status: PayoutStatus, page: Int = 0, size: Int = 25): PayoutPage!
 }
@@ -155,4 +158,12 @@ extend type Mutation {
     approvePayout(id: ID!): Payout!
     markPayoutPaid(id: ID!, reference: String!): Payout!
     rejectPayout(id: ID!, reason: String!): Payout!
+}
+
+# Phase 11 D6 — one row per suspected scraper (user id only: an admin can look the user up).
+type SuspectedScraper {
+    userId: ID!
+    tileCount: Int!
+    tilesPerMinute: Float!
+    lastTileAt: DateTime!
 }

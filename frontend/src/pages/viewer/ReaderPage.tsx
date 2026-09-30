@@ -84,6 +84,7 @@ export default function ReaderPage() {
     error: tileError,
     retry: retryTile,
     links: pageLinks,
+    slowDown,
   } = useSecureTile({
     session: status === 'active' ? session : null,
     pageNumber: clampedPage,
@@ -118,6 +119,15 @@ export default function ReaderPage() {
         onPrev={() => goToPage(clampedPage - 1)}
         onNext={() => goToPage(clampedPage + 1)}
       />
+
+      {slowDown && (
+        <div
+          role="status"
+          className="pointer-events-none absolute left-1/2 top-16 z-50 -translate-x-1/2 animate-pulse rounded-full bg-white/10 px-4 py-1.5 text-sm text-gray-200 backdrop-blur"
+        >
+          Slow down…
+        </div>
+      )}
 
       <ViewerCanvas
         canvasRef={canvasRef}

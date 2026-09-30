@@ -1,6 +1,8 @@
 package com.secureleaf.viewer.resolver;
 
 import com.secureleaf.auth.service.SecureLeafUserDetails;
+import com.secureleaf.ratelimit.RateLimitBucket;
+import com.secureleaf.ratelimit.RateLimiter;
 import com.secureleaf.viewer.dto.SignedPageUrlDto;
 import com.secureleaf.viewer.dto.ViewerHeartbeatDto;
 import com.secureleaf.viewer.dto.ViewerSessionDto;
@@ -25,6 +27,7 @@ public class ViewerResolver {
 
     private final ViewerSessionService viewerSessionService;
     private final HttpServletRequest request;
+    private final RateLimiter rateLimiter;
 
     @MutationMapping
     @PreAuthorize("isAuthenticated()")
@@ -47,7 +50,10 @@ public class ViewerResolver {
     @QueryMapping
     @PreAuthorize("isAuthenticated()")
     public SignedPageUrlDto viewerPageUrl(@Argument String sessionToken, @Argument int pageNumber) {
-        return viewerSessionService.signPageUrl(getCurrentUserId(), sessionToken, pageNumber);
+        Long userId = getCurrentUserId();
+        // Phase 11, D3 — checked before any DB lookup or signing work.
+        rateLimiter.assertAllowed(RateLimitBucket.PAGE_URL, String.valueOf(userId));
+        return viewerSessionService.signPageUrl(userId, sessionToken, pageNumber);
     }
 
     private Long getCurrentUserId() {

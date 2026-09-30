@@ -365,6 +365,16 @@ a secret in a variable spelled unexpectedly still slips through. Say this unprom
 - **Load test hygiene:** think time + heartbeats model real readers, thresholds make it pass/fail, closed model under-reports at saturation (coordinated omission), label smoke runs "not a capacity result".
 - **Seeders:** guard against prod, find-or-create by natural key, survive half-finished previous runs.
 
+## Phase 11 — Per-buyer rate limiting · [full note](../phase-11-rate-limiting.md)
+
+- **Token bucket:** capacity = burst, refill = sustained rate; refill computed lazily from the last timestamp, O(1) state. Beats fixed window (2× burst at the boundary) and sliding log (memory).
+- **Distributed:** bucket state lives in Redis; Bucket4j's CAS (Lua) makes take-a-token atomic across instances — never GET-compare-SET yourself.
+- **429 + `Retry-After`** (round up, never 0); GraphQL is always HTTP 200, so use `RATE_LIMITED` + `retryAfterSeconds` in extensions.
+- **`X-Forwarded-For` is a header anyone can forge:** trust it only from a trusted-proxy CIDR, take the rightmost untrusted hop. Spring's `ForwardedHeaderFilter` strips it, so capture it first.
+- **Fail open** for the limiter (protection, not correctness), **fail closed** for entitlement; back off after a failure so a dead Redis costs one timeout.
+- **DRM angle:** limits the *speed* of ripping; with the watermark and access logs it makes ripping slow and traceable.
+- **Test without sleeping:** inject a `TimeMeter`, wind the clock by hand.
+
 ## Cross-cutting themes to weave into any answer
 
 1. **Threat-model each decision.** Every security choice here has a "what attack does this stop" answer. Say it.
