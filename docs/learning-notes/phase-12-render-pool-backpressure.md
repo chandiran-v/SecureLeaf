@@ -196,6 +196,7 @@ A: The container re-dispatches an async request when the result is ready. In a s
 | Timeout did not free the worker | `orTimeout` fails the future only | `cancel(true)` on the submitted `Future` | Timeouts ≠ cancellation |
 | `@Transactional` would be skipped | Self-invocation bypasses Spring's proxy | Orchestration lives in `AsyncTileService`, separate bean | Classic proxy trap |
 | Existing `ViewerIT` tile calls broke | MockMvc reports "async started" until dispatched | Test helper `tile(...)` does `asyncDispatch` | Test tools must follow the async lifecycle |
+| `LibraryIT` query-count test failed after enabling virtual threads | The test's SQL recorder identified request threads by the name `http-nio-`; virtual request threads are named `tomcat-handler-N` | Recorder accepts both prefixes | Changing the threading model breaks anything keyed on thread names |
 | **Not done:** Phase 10 k6 smoke re-run and JFR pinning check | The unattended CI run had no MinIO and no time for a full stack | Procedure and empty before/after table in `docs/perf/phase-12-render-pool.md` | Never invent numbers |
 
 ---
