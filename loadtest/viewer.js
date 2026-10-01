@@ -14,13 +14,16 @@
 //   HEARTBEAT_EVERY  seconds between heartbeats             (default 15)
 //   BACK_NAV_RATE    chance of going back one page, 0..1    (default 0.1)
 //   TILE_P95_MS      threshold for p95 of tile requests     (default 500)
+//   VARIANT          tile resolution to ask for             (default DESKTOP)
+//                    Phase 16: VARIANT=MOBILE models phone readers; compare bytes and latency
+//                    per tile with a DESKTOP run (see docs/perf/phase-16-adaptive-tiles.md)
 //
 // One user per VU: the same buyer in two VUs would supersede its own session (one active session
 // per buyer+product), so VUS must not exceed the number of rows in users.csv.
 
 import http from 'k6/http';
 import { check, sleep, fail } from 'k6';
-import { Counter } from 'k6/metrics';
+import { Counter, Trend } from 'k6/metrics';
 
 const BASE_URL = __ENV.BASE_URL || 'http://host.docker.internal:8080';
 const USERS_CSV = __ENV.USERS_CSV || '/loadtest/users.csv';
@@ -30,9 +33,12 @@ const THINK_TIME = parseFloat(__ENV.THINK_TIME || '5');
 const HEARTBEAT_EVERY = parseFloat(__ENV.HEARTBEAT_EVERY || '15');
 const BACK_NAV_RATE = parseFloat(__ENV.BACK_NAV_RATE || '0.1');
 const TILE_P95_MS = parseInt(__ENV.TILE_P95_MS || '500', 10);
+const VARIANT = (__ENV.VARIANT || 'DESKTOP').toUpperCase();
 const TOKEN_MAX_AGE_S = 10 * 60; // access tokens live 15 min; refresh by logging in again
 
 const sessionsLost = new Counter('viewer_sessions_lost');
+// Phase 16 — bytes per tile, so a MOBILE run can be compared with a DESKTOP run.
+const tileBytes = new Trend('tile_bytes', false);
 
 export const options = {
   scenarios: {
@@ -92,8 +98,8 @@ const START = `mutation($productId: ID!, $fp: String!) {
     sessionToken pageCount heartbeatIntervalSeconds
   }
 }`;
-const PAGE_URL = `query($token: String!, $page: Int!) {
-  viewerPageUrl(sessionToken: $token, pageNumber: $page) { url }
+const PAGE_URL = `query($token: String!, $page: Int!, $variant: String) {
+  viewerPageUrl(sessionToken: $token, pageNumber: $page, variant: $variant) { url }
 }`;
 const HEARTBEAT = `mutation($token: String!) { viewerHeartbeat(sessionToken: $token) { status } }`;
 const END = `mutation($token: String!) { endViewerSession(sessionToken: $token) }`;
@@ -135,7 +141,7 @@ function heartbeatIfDue() {
 }
 
 function readPage(page) {
-  const { data } = gql(PAGE_URL, { token: session.token, page }, auth.token);
+  const { data } = gql(PAGE_URL, { token: session.token, page, variant: VARIANT }, auth.token);
   const url = data && data.viewerPageUrl && data.viewerPageUrl.url;
   if (!check(url, { 'got signed url': (u) => !!u })) return false;
   // Fetched immediately: the URL is single-use and only valid for 30 s.
@@ -144,7 +150,9 @@ function readPage(page) {
     tags: { name: 'tile' },
     responseType: 'binary',
   });
-  return check(res, { 'tile 200': (r) => r.status === 200 });
+  const ok = check(res, { 'tile 200': (r) => r.status === 200 });
+  if (ok) tileBytes.add(res.body.byteLength);
+  return ok;
 }
 
 // Sleeps for `seconds` but sends heartbeats meanwhile, like the real reader page does.

@@ -153,13 +153,17 @@ class ProcessingPipelineIT extends AbstractIntegrationTest {
         assertThat(finishedVersion.getThumbnailMinioKey()).isNotNull();
         assertThat(storage.exists("secureleaf-thumbnails", finishedVersion.getThumbnailMinioKey())).isTrue();
 
-        // 7. Assert 2 ContentPages were created and tiles exist in storage
-        List<ContentPage> pages = pageRepository.findByDocumentVersionIdOrderByPageNumber(finishedVersion.getId());
+        // 7. Assert 2 pages x 2 variants (Phase 16) were created and every tile exists in storage
+        List<ContentPage> pages = pageRepository.findByDocumentVersionIdAndVariantOrderByPageNumber(
+                finishedVersion.getId(), "DESKTOP");
         assertThat(pages).hasSize(2);
         assertThat(pages.get(0).getPageNumber()).isEqualTo(1);
         assertThat(pages.get(1).getPageNumber()).isEqualTo(2);
+        assertThat(pageRepository.findByDocumentVersionIdAndVariantOrderByPageNumber(finishedVersion.getId(), "MOBILE"))
+                .hasSize(2);
 
-        assertThat(storage.exists(pages.get(0).getBucketName(), pages.get(0).getMinioObjectKey())).isTrue();
-        assertThat(storage.exists(pages.get(1).getBucketName(), pages.get(1).getMinioObjectKey())).isTrue();
+        for (ContentPage page : pageRepository.findByDocumentVersionIdOrderByPageNumber(finishedVersion.getId())) {
+            assertThat(storage.exists(page.getBucketName(), page.getMinioObjectKey())).isTrue();
+        }
     }
 }

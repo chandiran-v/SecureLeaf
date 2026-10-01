@@ -61,6 +61,10 @@ docker run --rm -i --add-host=host.docker.internal:host-gateway -v "$PWD/loadtes
   -e VUS=20,20 -e STAGE_DURATION=30s -e THINK_TIME=1 grafana/k6 run /loadtest/viewer.js
 ```
 
+Phase 16: add `-e VARIANT=MOBILE` (default `DESKTOP`) to read the 900 px tiles instead; the script
+records a `tile_bytes` trend so a MOBILE and a DESKTOP run can be compared
+([`docs/perf/phase-16-adaptive-tiles.md`](../docs/perf/phase-16-adaptive-tiles.md)).
+
 A smoke test proves the harness works. It is **not** a capacity result.
 
 ## Check the script without running it

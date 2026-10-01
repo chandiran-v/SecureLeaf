@@ -406,6 +406,17 @@ a secret in a variable spelled unexpectedly still slips through. Say this unprom
 - **Retire, don't delete:** refuse if current, processing, or *any* entitlement references it; only then remove tile objects; rows stay (access-log FKs).
 - **BOLA:** owner check on every creator action (upload, list, retire, retry) plus tests with a second creator.
 
+## Phase 16 — Adaptive tile resolution · [full note](../phase-16-adaptive-tile-resolution.md)
+
+- **Pick by pixels, not by "mobile".** `neededWidth = canvasCssWidth × devicePixelRatio`; smallest variant ≥ that, else DESKTOP. A 390 px phone at DPR 3 needs 1170 px.
+- **Render each variant from the PDF** (vector), never by shrinking the other PNG: sharper, and variants don't depend on each other.
+- **Numbers:** MOBILE (900 px) has ~53 % of DESKTOP's pixels but ~70 % of its PNG bytes (210 KB vs 299 KB); a second variant adds ~70 % storage per page. k6 comparison not yet run.
+- **Widen the key, don't break it:** `variant NOT NULL DEFAULT 'DESKTOP'` (true for every old row) + unique `(version, page, variant)`; `VARCHAR`, so `TABLET` is config, not a migration.
+- **Fallback makes rollout safe:** missing variant → serve DESKTOP. Cache key and access log use the variant *served*, not requested.
+- **Sign the variant:** it selects a storage object and a cache entry, so it's an input to authenticate. Dropped or swapped `v` → 403.
+- **Backfill checkpoint = the data:** "versions with fewer pages of this variant than page_count"; idempotent, resumes at page level, one transaction per version, one run at a time (per JVM), low priority.
+- **Watermark font = base × width / reference (min 12);** contract test on ink coverage (≈1.4 % at both widths). Bumped `tilecache.watermark-version` because cached DESKTOP tiles had the old font.
+
 ## Cross-cutting themes to weave into any answer
 
 1. **Threat-model each decision.** Every security choice here has a "what attack does this stop" answer. Say it.
