@@ -31,13 +31,28 @@ import java.io.IOException;
 public class Java2DWatermarkRenderer implements WatermarkRenderer {
 
     private final float opacity;
-    private final int fontSize;
+    private final int baseFontSize;
+    private final int referenceWidthPx;
 
+    /** Phase 16, D6 — never smaller than this, however narrow the image: below it the text smears. */
+    static final int MIN_FONT_SIZE = 12;
+
+    /**
+     * @param baseFontSize     the font size on an image {@code referenceWidthPx} wide (the DESKTOP width)
+     * @param referenceWidthPx the width {@code baseFontSize} was chosen for
+     */
     public Java2DWatermarkRenderer(
             @Value("${drm.watermark.opacity:0.25}") float opacity,
-            @Value("${drm.watermark.font-size:24}") int fontSize) {
+            @Value("${drm.watermark.font-size:24}") int baseFontSize,
+            @Value("${drm.watermark.reference-width-px:1240}") int referenceWidthPx) {
         this.opacity = opacity;
-        this.fontSize = fontSize;
+        this.baseFontSize = baseFontSize;
+        this.referenceWidthPx = referenceWidthPx;
+    }
+
+    /** Phase 16, D6 — {@code base × width / reference}, so every variant gets the same visual weight. */
+    static int scaledFontSize(int baseFontSize, int imageWidthPx, int referenceWidthPx) {
+        return Math.max(MIN_FONT_SIZE, Math.round((float) baseFontSize * imageWidthPx / referenceWidthPx));
     }
 
     @Override
@@ -48,6 +63,7 @@ public class Java2DWatermarkRenderer implements WatermarkRenderer {
                 throw new BusinessException(ErrorCode.INVALID_FILE, "Page image could not be decoded.");
             }
 
+            int fontSize = scaledFontSize(baseFontSize, source.getWidth(), referenceWidthPx);
             BufferedImage result = new BufferedImage(
                     source.getWidth(), source.getHeight(), BufferedImage.TYPE_INT_RGB);
             Graphics2D g = result.createGraphics();

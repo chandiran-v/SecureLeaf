@@ -11,7 +11,7 @@ import java.util.HexFormat;
  * <ul>
  *   <li>{@code userId}, {@code sessionId} — the watermark text names both (D1);</li>
  *   <li>{@code documentVersionId}, {@code pageNumber} — which clean tile;</li>
- *   <li>{@code variant} — {@code "default"} until Phase 16 adds more;</li>
+ *   <li>{@code variant} — the served tile variant (DESKTOP, MOBILE, …; Phase 16);</li>
  *   <li>{@code rendererId}, {@code watermarkVersion} — a renderer swap or a watermark redesign
  *       bumps one of these, which orphans every old entry at once (invalidation by key change
  *       instead of by hunting entries down).</li>

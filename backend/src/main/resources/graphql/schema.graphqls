@@ -210,7 +210,14 @@ type ViewerSession {
     productId: ID!
     pageCount: Int
     heartbeatIntervalSeconds: Int!
+    # Phase 16, D5 — the resolutions pages exist in, so the viewer can pick the smallest sharp one.
+    tileVariants: [TileVariant!]!
     expiresAt: DateTime!
+}
+
+type TileVariant {
+    name: String!
+    widthPx: Int!
 }
 
 type ViewerHeartbeat {
@@ -331,7 +338,9 @@ type Query {
     notificationStreamTicket: String!
 
     # Secure viewer (D1) — side-effect-free: signing a tile URL doesn't itself change any state.
-    viewerPageUrl(sessionToken: String!, pageNumber: Int!): SignedPageUrl!
+    # Phase 16, D5 — variant is a name from ViewerSession.tileVariants (DESKTOP when omitted or unknown);
+    # the variant is signed into the URL.
+    viewerPageUrl(sessionToken: String!, pageNumber: Int!, variant: String = "DESKTOP"): SignedPageUrl!
 
     # Creator
     myProducts: [Product!]!

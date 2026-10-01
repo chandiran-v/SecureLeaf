@@ -35,7 +35,7 @@ public final class WatermarkSmokeCheck {
         ByteArrayOutputStream in = new ByteArrayOutputStream();
         ImageIO.write(blank, "png", in);
 
-        byte[] marked = new Java2DWatermarkRenderer(0.25f, 24)
+        byte[] marked = new Java2DWatermarkRenderer(0.25f, 24, 1240)
                 .applyWatermark(in.toByteArray(), "SMOKE CHECK buyer@example.com");
 
         BufferedImage result = ImageIO.read(new ByteArrayInputStream(marked));

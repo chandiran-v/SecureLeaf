@@ -10,6 +10,7 @@ import com.secureleaf.common.storage.StorageService;
 import com.secureleaf.content.entity.ContentPage;
 import com.secureleaf.content.entity.DocumentVersion;
 import com.secureleaf.content.repository.ContentPageRepository;
+import com.secureleaf.content.tiles.TileVariantProperties;
 import com.secureleaf.content.watermark.WatermarkRenderer;
 import com.secureleaf.viewer.cache.TileCacheKey;
 import com.secureleaf.viewer.cache.TileCacheKeyFactory;
@@ -64,7 +65,8 @@ public class SecureTileService {
     private final WatermarkedTileCache tileCache;
     private final TileCacheKeyFactory tileCacheKeys;
 
-    public record TileRequest(Long sessionId, int pageNumber, long exp, String signature,
+    /** {@code variant} is what the (signed) URL asked for; null means a legacy URL, i.e. DESKTOP. */
+    public record TileRequest(Long sessionId, int pageNumber, String variant, long exp, String signature,
                                Long callerUserId, String ipAddress, String userAgent, String correlationId) {
     }
 
@@ -96,8 +98,9 @@ public class SecureTileService {
         // verifying it with the CALLER's own userId does double duty: it proves the URL wasn't
         // tampered with (2) AND that it was issued to this exact caller (4) in one comparison —
         // a URL signed for user A simply fails to verify when checked against user B's id.
+        String requestedVariant = request.variant() == null ? TileUrlSigner.DEFAULT_VARIANT : request.variant();
         if (!tileUrlSigner.verify(request.sessionId(), request.pageNumber(), request.callerUserId(),
-                request.exp(), request.signature())) {
+                requestedVariant, request.exp(), request.signature())) {
             throw new BusinessException(ErrorCode.SIGNED_URL_INVALID, "Signed URL is invalid, expired, or tampered.");
         }
 
@@ -138,14 +141,19 @@ public class SecureTileService {
         if (pageCount == null || request.pageNumber() < 1 || request.pageNumber() > pageCount) {
             throw new ResourceNotFoundException("ViewerPage", "pageNumber", request.pageNumber());
         }
+        // Phase 16, D4 — the variant was verified above, so it is trustworthy. If this page has no row
+        // for it yet (backfill still running), serve DESKTOP: slower to load, never an error.
         ContentPage contentPage = contentPageRepository
-                .findByDocumentVersionIdAndPageNumber(documentVersion.getId(), request.pageNumber())
+                .findByDocumentVersionIdAndPageNumberAndVariant(documentVersion.getId(), request.pageNumber(), requestedVariant)
+                .or(() -> contentPageRepository.findByDocumentVersionIdAndPageNumberAndVariant(
+                        documentVersion.getId(), request.pageNumber(), TileVariantProperties.DESKTOP))
                 .orElseThrow(() -> new ResourceNotFoundException("ViewerPage", "pageNumber", request.pageNumber()));
+        String servedVariant = contentPage.getVariant();
 
         // Phase 13, D4 — only here, with every check above passed, may the cache be consulted. A hit
         // skips the storage fetch and the render; it does not skip the access-log row (VIEW-13).
         TileCacheKey cacheKey = tileCacheKeys.keyFor(session.getUser().getId(), session.getId(),
-                documentVersion.getId(), request.pageNumber());
+                documentVersion.getId(), request.pageNumber(), servedVariant);
         Optional<byte[]> cached = cacheLookup(cacheKey);
         if (cached.isPresent()) {
             metrics.recordTileCacheHit();
@@ -191,7 +199,8 @@ public class SecureTileService {
     public void recordAccess(PreparedTile tile) {
         TileRequest request = tile.request();
         viewerAccessLogService.record(tile.session(), tile.documentVersion(), tile.contentPage(),
-                request.pageNumber(), request.ipAddress(), request.userAgent(), request.correlationId());
+                request.pageNumber(), tile.contentPage().getVariant(), request.ipAddress(), request.userAgent(),
+                request.correlationId());
     }
 
     /** Phase 13, D1 — "{email} · #{userId} · {yyyy-MM-dd} UTC · s{sessionId}". Date + session id

@@ -12,7 +12,13 @@ public class TileCacheKeyFactory {
     }
 
     public TileCacheKey keyFor(long userId, long sessionId, long documentVersionId, int pageNumber) {
+        return keyFor(userId, sessionId, documentVersionId, pageNumber, TileCacheKey.DEFAULT_VARIANT);
+    }
+
+    /** Phase 16 — {@code variant} is the one actually SERVED (after any fallback), never the one asked for. */
+    public TileCacheKey keyFor(long userId, long sessionId, long documentVersionId, int pageNumber,
+                               String variant) {
         return new TileCacheKey(userId, sessionId, documentVersionId, pageNumber,
-                TileCacheKey.DEFAULT_VARIANT, rendererId, watermarkVersion);
+                variant, rendererId, watermarkVersion);
     }
 }

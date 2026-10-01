@@ -46,6 +46,10 @@ public class ViewerAccessLog {
     @Column(name = "page_number", nullable = false)
     private Integer pageNumber;
 
+    /** Phase 16, D7 — the variant that was actually served (after any fallback), for analytics. */
+    @Column(name = "variant", nullable = false, length = 16)
+    private String variant = "DESKTOP";
+
     @Column(name = "ip_address")
     private String ipAddress;
 

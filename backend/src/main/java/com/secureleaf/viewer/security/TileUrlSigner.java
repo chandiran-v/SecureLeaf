@@ -32,6 +32,8 @@ import java.util.Base64;
 public class TileUrlSigner {
 
     private static final String ALGORITHM = "HmacSHA256";
+    /** What a URL without a {@code variant} parameter means: the MVP1 behaviour. */
+    public static final String DEFAULT_VARIANT = "DESKTOP";
 
     private final DrmProperties drmProperties;
     private final Clock clock;
@@ -42,8 +44,13 @@ public class TileUrlSigner {
 
     /** Mints a signature valid for {@code drm.signed-url-ttl-seconds} from now (D5). */
     public Signature sign(long sessionId, int pageNumber, long userId) {
+        return sign(sessionId, pageNumber, userId, DEFAULT_VARIANT);
+    }
+
+    /** Phase 16, D5 — the variant is signed too, so a client cannot swap MOBILE for DESKTOP in the URL. */
+    public Signature sign(long sessionId, int pageNumber, long userId, String variant) {
         long exp = clock.instant().getEpochSecond() + drmProperties.signedUrlTtlSeconds();
-        return new Signature(exp, hmac(sessionId, pageNumber, userId, exp));
+        return new Signature(exp, hmac(sessionId, pageNumber, userId, exp, variant));
     }
 
     /**
@@ -53,9 +60,14 @@ public class TileUrlSigner {
      * as your own) or {@code exp} all produce a mismatch here, not just an expired-clock failure.
      */
     public boolean verify(long sessionId, int pageNumber, long userId, long exp, String providedSignature) {
-        if (providedSignature == null) return false;
+        return verify(sessionId, pageNumber, userId, DEFAULT_VARIANT, exp, providedSignature);
+    }
+
+    public boolean verify(long sessionId, int pageNumber, long userId, String variant, long exp,
+                          String providedSignature) {
+        if (providedSignature == null || variant == null) return false;
         if (clock.instant().getEpochSecond() > exp) return false;
-        String expected = hmac(sessionId, pageNumber, userId, exp);
+        String expected = hmac(sessionId, pageNumber, userId, exp, variant);
         // Constant-time compare (MessageDigest.isEqual), same reasoning as RazorpaySignatures.matches:
         // String.equals short-circuits on the first differing byte, which leaks timing information
         // an attacker could use to guess a valid signature one byte at a time.
@@ -64,8 +76,8 @@ public class TileUrlSigner {
                 providedSignature.getBytes(StandardCharsets.UTF_8));
     }
 
-    private String hmac(long sessionId, int pageNumber, long userId, long exp) {
-        String payload = sessionId + "|" + pageNumber + "|" + userId + "|" + exp;
+    private String hmac(long sessionId, int pageNumber, long userId, long exp, String variant) {
+        String payload = sessionId + "|" + pageNumber + "|" + userId + "|" + exp + "|" + variant;
         try {
             Mac mac = Mac.getInstance(ALGORITHM);
             mac.init(new SecretKeySpec(drmProperties.signingSecret().getBytes(StandardCharsets.UTF_8), ALGORITHM));
