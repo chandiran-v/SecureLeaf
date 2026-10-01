@@ -118,4 +118,16 @@ class TileUrlSignerTest {
 
         assertThat(otherSecret.verify(SESSION_ID, PAGE_NUMBER, USER_ID, sig.expiresAtEpochSeconds(), sig.value())).isFalse();
     }
+
+    // Phase 16, D5 — the variant is part of what is signed.
+    @Test
+    void variantIsSigned_swappingOrDroppingItFailsVerification() {
+        TileUrlSigner.Signature sig = signer.sign(SESSION_ID, PAGE_NUMBER, USER_ID, "MOBILE");
+
+        assertThat(signer.verify(SESSION_ID, PAGE_NUMBER, USER_ID, "MOBILE", sig.expiresAtEpochSeconds(), sig.value())).isTrue();
+        assertThat(signer.verify(SESSION_ID, PAGE_NUMBER, USER_ID, "DESKTOP", sig.expiresAtEpochSeconds(), sig.value())).isFalse();
+        assertThat(signer.verify(SESSION_ID, PAGE_NUMBER, USER_ID, sig.expiresAtEpochSeconds(), sig.value()))
+                .as("a URL without a variant means DESKTOP").isFalse();
+        assertThat(signer.verify(SESSION_ID, PAGE_NUMBER, USER_ID, null, sig.expiresAtEpochSeconds(), sig.value())).isFalse();
+    }
 }
