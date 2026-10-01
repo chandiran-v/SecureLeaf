@@ -177,6 +177,12 @@ export interface CreatorEarnings {
 
 export type ViewerSessionStatus = 'ACTIVE' | 'SUPERSEDED' | 'EXPIRED';
 
+// Phase 16, D5 — a resolution the server has rendered pages at; the viewer picks one by width.
+export interface TileVariant {
+  name: string;
+  widthPx: number;
+}
+
 export interface ViewerSession {
   sessionId: UUID;
   // Returned ONCE, here, at startViewerSession — only its SHA-256 hash is ever stored
@@ -185,6 +191,7 @@ export interface ViewerSession {
   productId: UUID;
   pageCount?: number | null;
   heartbeatIntervalSeconds: number;
+  tileVariants?: TileVariant[];
   expiresAt: string; // ISO 8601 — current lease expiry
 }
 

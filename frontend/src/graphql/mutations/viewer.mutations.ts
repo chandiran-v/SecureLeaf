@@ -10,6 +10,11 @@ export const START_VIEWER_SESSION = gql`
       productId
       pageCount
       heartbeatIntervalSeconds
+      # Phase 16, D5 — the resolutions on offer; useTileVariant picks one by canvas width x DPR.
+      tileVariants {
+        name
+        widthPx
+      }
       expiresAt
     }
   }

@@ -38,6 +38,8 @@ export interface UseSecureTileOptions {
   session: ViewerSession | null;
   pageNumber: number;
   pageCount: number | null;
+  /** Phase 16, D5 — the tile resolution to request (see useTileVariant). */
+  variant: string;
   canvasRef: RefObject<HTMLCanvasElement>;
   /** A 409 from the tile endpoint: another device just took over. */
   onSuperseded: () => void;
@@ -91,6 +93,7 @@ export function useSecureTile({
   session,
   pageNumber,
   pageCount,
+  variant,
   canvasRef,
   onSuperseded,
   onExpired,
@@ -108,6 +111,7 @@ export function useSecureTile({
   const cacheRef = useRef(new Map<number, LoadedPage>());
   // Phase 11, D7 — recent tile requests, so prefetch can stand down near the server's budget.
   const budgetRef = useRef(new RequestBudget());
+  const cacheVariantRef = useRef(variant);
   const sessionTokenRef = useRef<string | null>(null);
   sessionTokenRef.current = session?.sessionToken ?? null;
 
@@ -123,13 +127,20 @@ export function useSecureTile({
     if (!session) return undefined;
     let cancelled = false;
 
+    // Prefetched bitmaps are of the OLD variant after a resize/rotation: drop them.
+    if (cacheVariantRef.current !== variant) {
+      for (const page of cacheRef.current.values()) page.bitmap.close();
+      cacheRef.current.clear();
+      cacheVariantRef.current = variant;
+    }
+
     async function fetchAndDecode(page: number): Promise<LoadedPage> {
       budgetRef.current.record();
       let data: { viewerPageUrl: SignedPageUrl };
       try {
         ({ data } = await apolloClient.query<{ viewerPageUrl: SignedPageUrl }>({
           query: VIEWER_PAGE_URL,
-          variables: { sessionToken: sessionTokenRef.current, pageNumber: page },
+          variables: { sessionToken: sessionTokenRef.current, pageNumber: page, variant },
           fetchPolicy: 'network-only',
         }));
       } catch (err) {
@@ -263,7 +274,7 @@ export function useSecureTile({
     return () => {
       cancelled = true;
     };
-  }, [session, pageNumber, pageCount, canvasRef, onSuperseded, onExpired, apolloClient, retryNonce]);
+  }, [session, pageNumber, pageCount, variant, canvasRef, onSuperseded, onExpired, apolloClient, retryNonce]);
 
   return { loading, error, retry, links, slowDown, busy };
 }

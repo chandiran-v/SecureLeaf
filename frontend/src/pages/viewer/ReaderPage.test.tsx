@@ -28,6 +28,10 @@ function startSessionMock(overrides: {
           productId: '1',
           pageCount: overrides.pageCount ?? 1,
           heartbeatIntervalSeconds: overrides.heartbeatIntervalSeconds ?? 15,
+          tileVariants: [
+            { name: 'DESKTOP', widthPx: 1240 },
+            { name: 'MOBILE', widthPx: 900 },
+          ],
           expiresAt: new Date(Date.now() + 45_000).toISOString(),
         },
       },
@@ -50,7 +54,7 @@ function notEntitledMock(): MockedResponse {
 
 function pageUrlMock(sessionToken: string, pageNumber: number, url: string): MockedResponse {
   return {
-    request: { query: VIEWER_PAGE_URL, variables: { sessionToken, pageNumber } },
+    request: { query: VIEWER_PAGE_URL, variables: { sessionToken, pageNumber, variant: 'DESKTOP' } },
     result: { data: { viewerPageUrl: { url, expiresAt: new Date(Date.now() + 30_000).toISOString(), links: [] } } },
   };
 }
@@ -59,7 +63,7 @@ function pageUrlMock(sessionToken: string, pageNumber: number, url: string): Moc
  *  revisited after its prefetched bitmap was already drawn and closed). */
 function pageUrlMockRepeatable(sessionToken: string, pageNumber: number): MockedResponse {
   return {
-    request: { query: VIEWER_PAGE_URL, variables: { sessionToken, pageNumber } },
+    request: { query: VIEWER_PAGE_URL, variables: { sessionToken, pageNumber, variant: 'DESKTOP' } },
     maxUsageCount: Number.POSITIVE_INFINITY,
     result: () => ({
       data: {
@@ -392,7 +396,7 @@ describe('ReaderPage', () => {
   it('overlays the page links: web links open in a new tab, page links jump, unsafe ones are dropped', async () => {
     const box = { left: 0.1, top: 0.1, width: 0.2, height: 0.05 };
     const linksMock: MockedResponse = {
-      request: { query: VIEWER_PAGE_URL, variables: { sessionToken: 'tok-1', pageNumber: 1 } },
+      request: { query: VIEWER_PAGE_URL, variables: { sessionToken: 'tok-1', pageNumber: 1, variant: 'DESKTOP' } },
       result: {
         data: {
           viewerPageUrl: {
