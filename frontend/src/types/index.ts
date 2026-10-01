@@ -137,6 +137,29 @@ export interface Entitlement {
   product: Product;
   purchasedAt: string;
   status: EntitlementStatus;
+  /** Phase 15, D4 — the version this purchase reads. */
+  versionNumber: number;
+  /** Phase 15, D4 — the product has a newer current version this buyer doesn't have. Informational. */
+  newEditionAvailable: boolean;
+}
+
+// Phase 15 — mirrors the backend's UpdatePolicy / DocumentVersionStatus enums and DocumentVersionDto.
+export type UpdatePolicy = 'NEW_BUYERS_ONLY' | 'FREE_UPDATE_FOR_EXISTING';
+export type DocumentVersionStatus = 'PROCESSING' | 'READY' | 'FAILED' | 'RETIRED';
+
+export interface DocumentVersion {
+  id: UUID;
+  versionNumber: number;
+  createdAt: string;
+  pageCount: number | null;
+  status: DocumentVersionStatus;
+  updatePolicy: UpdatePolicy;
+  /** ACTIVE entitlements currently pinned to this version. */
+  buyerCount: number;
+  current: boolean;
+  failureReason: string | null;
+  /** A FREE_UPDATE_FOR_EXISTING batch migration still has entitlements to move. */
+  migrationPending: boolean;
 }
 
 // Amounts arrive as the GraphQL `Long` scalar → JSON numbers. Safe in JS up to 2^53 paise

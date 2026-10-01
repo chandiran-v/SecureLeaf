@@ -97,8 +97,21 @@ export default function LibraryPage() {
                     <p className="text-xs text-emerald-600 font-medium">{item.product.category.name}</p>
                     <StatusBadge status={item.status} />
                   </div>
-                  <h2 className="text-sm font-semibold text-gray-900 line-clamp-2">{item.product.title}</h2>
-                  <p className="text-xs text-gray-400 mb-auto">by {item.product.creator.displayName}</p>
+                  <h2 className="text-sm font-semibold text-gray-900 line-clamp-2">
+                    {item.product.title}{' '}
+                    <span className="text-xs font-normal text-gray-400" data-testid="edition-version">v{item.versionNumber}</span>
+                  </h2>
+                  <p className="text-xs text-gray-400">by {item.product.creator.displayName}</p>
+                  {/* Phase 15, D4 — informational only: upgrading is not purchasable yet. */}
+                  {item.status === 'ACTIVE' && item.newEditionAvailable && (
+                    <Link
+                      to={`/product/${item.product.id}`}
+                      className="text-xs text-indigo-600 font-medium hover:underline mb-auto"
+                    >
+                      A new edition is available
+                    </Link>
+                  )}
+                  {!(item.status === 'ACTIVE' && item.newEditionAvailable) && <span className="mb-auto" />}
                   <p className="text-xs text-gray-400 mt-2">
                     Purchased {new Date(item.purchasedAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}
                   </p>

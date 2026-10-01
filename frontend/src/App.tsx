@@ -11,6 +11,7 @@ import SessionExpiredModal from './components/auth/SessionExpiredModal';
 import BecomeCreatorPage from './pages/creator/BecomeCreatorPage';
 import CreatorDashboardPage from './pages/creator/CreatorDashboardPage';
 import UploadProductPage from './pages/creator/UploadProductPage';
+import ProductVersionsPage from './pages/creator/ProductVersionsPage';
 import MarketplacePage from './pages/marketplace/MarketplacePage';
 import ProductDetailPage from './pages/marketplace/ProductDetailPage';
 import CheckoutPage from './pages/buyer/CheckoutPage';
@@ -71,6 +72,15 @@ function App() {
             element={
               <ProtectedRoute requiredRole="CREATOR">
                 <UploadProductPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/creator/products/:id/versions"
+            element={
+              <ProtectedRoute requiredRole="CREATOR">
+                <ProductVersionsPage />
               </ProtectedRoute>
             }
           />

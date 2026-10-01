@@ -395,6 +395,17 @@ a secret in a variable spelled unexpectedly still slips through. Say this unprom
 - **Invalidate by identity, not key** (`remove(key, entry)`) — otherwise you delete the fresh replacement.
 - **A hit still writes the access-log row** and still passes the rate limit.
 
+## Phase 15 — Full document versioning · [full note](../phase-15-document-versioning.md)
+
+- **Immutable versions + one pointer.** "Current" is `products.current_document_version_id`, moved in the same transaction that completes the job. Same idea as git refs / Docker tags. Never infer "current" by ORDER BY.
+- **Buyers pin to a version.** The entitlement stores `document_version_id`; the viewer and cache read *that*, never "latest". That is what lets the creator choose per version.
+- **A later version never disturbs the product.** v2 processing/failure leaves status and pointer alone; only the first version flips PROCESSING→LIVE/FAILED.
+- **Backfill + test from the previous schema** (Flyway `target("11")`, seed, migrate, assert) — fresh-DB tests can't see a bad backfill.
+- **Resumable batch:** chunks of 500, each its own transaction; checkpoint = "ACTIVE entitlements not yet on target"; stamp `entitlements_migrated_at` only when a chunk finds nothing; poller resumes; UPDATE re-checks `ACTIVE`.
+- **Skip stale migrations:** if a newer version is already current, don't move buyers to an older one.
+- **Retire, don't delete:** refuse if current, processing, or *any* entitlement references it; only then remove tile objects; rows stay (access-log FKs).
+- **BOLA:** owner check on every creator action (upload, list, retire, retry) plus tests with a second creator.
+
 ## Cross-cutting themes to weave into any answer
 
 1. **Threat-model each decision.** Every security choice here has a "what attack does this stop" answer. Say it.

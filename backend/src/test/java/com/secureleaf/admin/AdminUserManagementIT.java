@@ -296,6 +296,8 @@ class AdminUserManagementIT extends AbstractIntegrationTest {
         documentVersion.setRawMinioObjectKey("raw/" + product.getId() + ".pdf");
         documentVersion.setPageCount(1);
         documentVersion = documentVersionRepository.save(documentVersion);
+        product.setCurrentDocumentVersion(documentVersion);   // Phase 15, D1
+        product = productRepository.save(product);
 
         String key = "products/%d/v1/page-1.png".formatted(product.getId());
         storage.put("tiles", key, cleanPagePng(), "image/png");
@@ -316,7 +318,7 @@ class AdminUserManagementIT extends AbstractIntegrationTest {
         order.transitionTo(OrderStatus.COMPLETED);
         order = orderRepository.save(order);
 
-        DocumentVersion version = documentVersionRepository.findFirstByProductIdOrderByVersionNumberDesc(product.getId())
+        DocumentVersion version = documentVersionRepository.findByProductIdAndVersionNumber(product.getId(), 1)
                 .orElseGet(() -> {
                     DocumentVersion v = new DocumentVersion();
                     v.setProduct(product);

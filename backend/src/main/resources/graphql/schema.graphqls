@@ -155,6 +155,29 @@ type Entitlement {
     product: Product!
     purchasedAt: DateTime!
     status: EntitlementStatus!
+    # Phase 15, D4 — the version this purchase reads ("v2"), and whether the product now has a newer
+    # CURRENT version the buyer does NOT have. Informational only: no upgrade purchase exists yet.
+    versionNumber: Int!
+    newEditionAvailable: Boolean!
+}
+
+# Phase 15, D7 — one row of the creator's version history.
+enum UpdatePolicy { NEW_BUYERS_ONLY FREE_UPDATE_FOR_EXISTING }
+enum DocumentVersionStatus { PROCESSING READY FAILED RETIRED }
+
+type DocumentVersion {
+    id: ID!
+    versionNumber: Int!
+    createdAt: DateTime!
+    pageCount: Int
+    status: DocumentVersionStatus!
+    updatePolicy: UpdatePolicy!
+    # ACTIVE entitlements currently pinned to this version
+    buyerCount: Int!
+    current: Boolean!
+    failureReason: String
+    # True while a FREE_UPDATE_FOR_EXISTING batch migration has entitlements left to move
+    migrationPending: Boolean!
 }
 
 # MVP orders contain exactly one product.
@@ -312,6 +335,8 @@ type Query {
 
     # Creator
     myProducts: [Product!]!
+    # Phase 15, D7 — newest first. Owner-only: someone else's product is ACCESS_DENIED.
+    productVersions(productId: ID!): [DocumentVersion!]!
     creatorEarnings: CreatorEarnings!
     # Phase 09C — payouts & statements (CREATOR-only; the creator is always the caller)
     creatorBalance: CreatorBalance!
@@ -342,7 +367,11 @@ type Mutation {
     deleteProduct(id: ID!): Boolean!
     # Phase 6, D4 — state-transition recovery. Both are owner-only (object-level check in the
     # service) and throw INVALID_STATE_TRANSITION from any other starting status.
-    retryProcessing(productId: ID!): Product!
+    # Phase 15, D2 — versionId (optional) targets one version's failed job; omit it for the Phase 6
+    # meaning (the product's first upload FAILED).
+    retryProcessing(productId: ID!, versionId: ID): Product!
+    # Phase 15, D5 — soft-retire a version. Rejected while it is current, processing, or has buyers.
+    retireDocumentVersion(productId: ID!, versionId: ID!): Boolean!
     republishProduct(productId: ID!): Product!
 
     # Commerce — idempotencyKey: a client-generated UUID per purchase attempt (Stripe pattern);

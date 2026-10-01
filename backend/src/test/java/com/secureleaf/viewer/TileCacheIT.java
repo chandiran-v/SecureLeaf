@@ -65,7 +65,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
  */
 // The test profile's 2 s lease would lapse while the helper waits out the signature's one-second
 // resolution (see Viewer#url), so give this class an ordinary lease.
-@TestPropertySource(properties = "drm.session.lease-seconds=60")
+// Secondary context (own properties => own Spring context, cached and left running): keep its job
+// poller off the shared DB, or it steals QUEUED jobs from the main context and fails them because
+// its InMemoryStorageService is a different instance (see ProductStatsIT, same rule).
+@TestPropertySource(properties = {"drm.session.lease-seconds=60", "processing.worker.enabled=false"})
 @Import(TileCacheIT.CountingRendererConfig.class)
 class TileCacheIT extends AbstractIntegrationTest {
 

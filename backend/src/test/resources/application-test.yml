@@ -54,3 +54,11 @@ management:
 # criterion 6). TileCacheIT and RedisTileCacheIT switch it on with @TestPropertySource.
 tilecache:
   type: none
+
+# Phase 15 — the entitlement-migration poller would race with tests that drive the batch job
+# chunk by chunk (and simulate a crash between chunks); they call EntitlementMigrationJob.runOnce()
+# or EntitlementMigrationService directly instead.
+versioning:
+  migration:
+    poller:
+      enabled: false

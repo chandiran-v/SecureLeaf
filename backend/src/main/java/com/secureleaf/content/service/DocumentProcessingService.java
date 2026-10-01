@@ -223,29 +223,40 @@ public class DocumentProcessingService {
 
         storageService.put(thumbBucket, thumbKey, thumbBytes, "image/png");
 
-        // Update DocumentVersion and Product with the thumbnail key
+        // Record the thumbnail on the VERSION only. The product's cover (coverImageUrl) follows the
+        // current-version pointer, so it is set in markLive — a v2 still processing must not change
+        // what the marketplace shows for the LIVE v1 (Phase 15, D2).
         docVersion.setThumbnailMinioKey(thumbKey);
         documentVersionRepository.save(docVersion);
-
-        // SECURITY: coverImageUrl stores the MinIO *key*, NOT a signed URL.
-        // A signed URL is generated per-request in the viewer (Phase 5).
-        // This field is used by the creator dashboard only to show a thumbnail preview
-        // — the frontend calls a separate endpoint to get a short-lived URL.
-        product.setCoverImageUrl(thumbKey);
-        productRepository.save(product);
 
         log.debug("[job-{}] Thumbnail generated: {}x{}px, {} bytes", jobId,
                 THUMBNAIL_WIDTH_PX, thumbHeight, thumbBytes.length);
     }
 
     private void markLive(ProcessingJob job, DocumentVersion docVersion,
-                           Product product, int pageCount) {
+                           Product unlockedProduct, int pageCount) {
         docVersion.setPageCount(pageCount);
         docVersion.setProcessedAt(Instant.now());
         docVersion.setLinksExtractedAt(Instant.now()); // links were saved with the tiles (V8)
         documentVersionRepository.save(docVersion);
 
-        product.setStatus(ProductStatus.LIVE);
+        // Phase 15, D2 — the pointer moves in THIS transaction, with the job's COMPLETED status. The
+        // product row lock serialises two versions finishing at once, so the higher number wins.
+        Product product = productRepository.findByIdForUpdate(unlockedProduct.getId()).orElseThrow();
+        DocumentVersion previous = product.getCurrentDocumentVersion();
+        boolean firstVersion = previous == null;
+        boolean becomesCurrent = docVersion.getRetiredAt() == null
+                && (firstVersion || docVersion.getVersionNumber() > previous.getVersionNumber());
+        if (becomesCurrent) {
+            product.setCurrentDocumentVersion(docVersion);
+            // SECURITY: coverImageUrl stores the MinIO *key*, NOT a signed URL (signed per request).
+            product.setCoverImageUrl(docVersion.getThumbnailMinioKey());
+        }
+        if (firstVersion) {
+            // Only the first version takes the product PROCESSING -> LIVE. A later version leaves the
+            // status alone: the product stayed LIVE (or UNPUBLISHED by choice) on its old version.
+            product.setStatus(ProductStatus.LIVE);
+        }
         productRepository.save(product);
 
         job.setStatus(JobStatus.COMPLETED);
@@ -254,12 +265,16 @@ public class DocumentProcessingService {
 
         // NOTIF-03 (D6) — inside this method's transaction, so the notification's AFTER_COMMIT
         // side effects (Redis publish, email) never fire for a pipeline run that later rolls back.
-        notificationService.notifyProcessingComplete(product);
+        if (firstVersion) {
+            notificationService.notifyProcessingComplete(product);
+        } else {
+            notificationService.notifyVersionProcessed(product, docVersion.getVersionNumber(), becomesCurrent);
+        }
 
         long durationMs = job.getStartedAt() == null ? -1
                 : Duration.between(job.getStartedAt(), job.getCompletedAt()).toMillis();
-        log.info("[job-{}] Pipeline complete: product {} is now LIVE ({} pages) in {} ms",
-                job.getId(), product.getId(), pageCount, durationMs);
+        log.info("[job-{}] Pipeline complete: product {} version {} processed ({} pages, current={}) in {} ms",
+                job.getId(), product.getId(), docVersion.getVersionNumber(), pageCount, becomesCurrent, durationMs);
     }
 
     // ── Failure handling ─────────────────────────────────────────────────────
@@ -287,10 +302,17 @@ public class DocumentProcessingService {
             processingJobRepository.save(job);
 
             productRepository.findById(job.getProduct().getId()).ifPresent(p -> {
-                p.setStatus(ProductStatus.FAILED);
-                productRepository.save(p);
-                // NOTIF-03 (D6) — same AFTER_COMMIT reasoning as the success path above.
-                notificationService.notifyProcessingFailed(p, e.getMessage());
+                // Phase 15, D2 — only a product with NO current version has nothing to fall back on.
+                // A failed v2 leaves the product LIVE on v1; the failure is visible on that version.
+                if (p.getCurrentDocumentVersion() == null) {
+                    p.setStatus(ProductStatus.FAILED);
+                    productRepository.save(p);
+                    // NOTIF-03 (D6) — same AFTER_COMMIT reasoning as the success path above.
+                    notificationService.notifyProcessingFailed(p, e.getMessage());
+                } else {
+                    notificationService.notifyVersionFailed(p, job.getDocumentVersion().getVersionNumber(),
+                            e.getMessage());
+                }
             });
 
             log.error("[job-{}] Processing permanently failed after {} attempts",

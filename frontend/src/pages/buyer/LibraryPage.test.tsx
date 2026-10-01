@@ -14,6 +14,8 @@ function entitlement(overrides: Record<string, unknown> = {}) {
     id: '1',
     purchasedAt: '2026-09-20T10:00:00Z',
     status: 'ACTIVE',
+    versionNumber: 1,
+    newEditionAvailable: false,
     product: {
       __typename: 'Product',
       id: '7',
@@ -45,6 +47,8 @@ describe('LibraryPage', () => {
         id: '1',
         purchasedAt: '2026-09-20T10:00:00Z',
         status: 'ACTIVE',
+        versionNumber: 1,
+        newEditionAvailable: false,
         product: {
           __typename: 'Product',
           id: '7',
@@ -99,5 +103,20 @@ describe('LibraryPage', () => {
 
     expect(screen.queryByText('Paid Guide')).not.toBeInTheDocument();
     expect(screen.getByText('Cooking Basics')).toBeInTheDocument();
+  });
+
+  // Phase 15, D4 — the library shows which version the buyer has, and hints (informationally) at a newer one.
+  it('shows the owned version and a new-edition hint linking to the product page', async () => {
+    renderLibrary([entitlement({ versionNumber: 1, newEditionAvailable: true })]);
+
+    expect(await screen.findByTestId('edition-version')).toHaveTextContent('v1');
+    expect(screen.getByRole('link', { name: /a new edition is available/i })).toHaveAttribute('href', '/product/7');
+  });
+
+  it('shows no new-edition hint when the buyer already has the current version', async () => {
+    renderLibrary([entitlement({ versionNumber: 2, newEditionAvailable: false })]);
+
+    expect(await screen.findByTestId('edition-version')).toHaveTextContent('v2');
+    expect(screen.queryByText(/a new edition is available/i)).not.toBeInTheDocument();
   });
 });

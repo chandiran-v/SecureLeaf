@@ -109,6 +109,26 @@ public class NotificationService {
                 "We couldn't process \"" + product.getTitle() + "\": " + reason);
     }
 
+    /** Phase 15, D2 — a later version finished processing. Reuses PROCESSING_COMPLETE: the type is a
+     *  Postgres enum, and a new value would need its own migration for what is only different text. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void notifyVersionProcessed(Product product, int versionNumber, boolean becameCurrent) {
+        create(product.getCreator(), NotificationType.PROCESSING_COMPLETE, null, product,
+                "Version " + versionNumber + " is ready: " + product.getTitle(),
+                becameCurrent
+                        ? "Version " + versionNumber + " of \"" + product.getTitle() + "\" finished processing and is now the current version."
+                        : "Version " + versionNumber + " of \"" + product.getTitle() + "\" finished processing, but a newer version is already current.");
+    }
+
+    /** Phase 15, D2 — a later version gave up; the product itself is unaffected. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void notifyVersionFailed(Product product, int versionNumber, String reason) {
+        create(product.getCreator(), NotificationType.PROCESSING_FAILED, null, product,
+                "Version " + versionNumber + " failed: " + product.getTitle(),
+                "We couldn't process version " + versionNumber + " of \"" + product.getTitle()
+                        + "\". The product is still live on its previous version. " + reason);
+    }
+
     @Transactional(readOnly = true)
     public List<NotificationDto> myNotifications(Long userId) {
         return notificationRepository.findTop20ByRecipientIdOrderByCreatedAtDescIdDesc(userId).stream()

@@ -1,5 +1,6 @@
 package com.secureleaf.creator.repository;
 
+import com.secureleaf.creator.entity.JobStatus;
 import com.secureleaf.creator.entity.ProcessingJob;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -17,6 +18,15 @@ public interface ProcessingJobRepository extends JpaRepository<ProcessingJob, Lo
      * matters right now, regardless of how many times the product has been re-uploaded.
      */
     Optional<ProcessingJob> findFirstByProductIdOrderByIdDesc(Long productId);
+
+    /** Phase 15 — the latest attempt for one version (retry target / version-history status). */
+    Optional<ProcessingJob> findFirstByDocumentVersionIdOrderByIdDesc(Long documentVersionId);
+
+    /** Phase 15, D7 — one query for a whole product's version history; highest id first per version. */
+    List<ProcessingJob> findByDocumentVersionIdInOrderByIdDesc(Collection<Long> documentVersionIds);
+
+    /** Phase 15, D2 — is any version of this product still being processed? */
+    boolean existsByProductIdAndStatusIn(Long productId, Collection<JobStatus> statuses);
 
     /** Dashboard batch loader (Phase 6, D4) — one query for a whole page of products. */
     List<ProcessingJob> findByProductIdInOrderByIdDesc(Collection<Long> productIds);

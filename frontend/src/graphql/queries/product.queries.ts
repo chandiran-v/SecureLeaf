@@ -18,3 +18,21 @@ export const MY_PRODUCTS = gql`
     }
   }
 `;
+
+// Phase 15, D7 — the creator's version history for one product (owner-only on the server).
+export const PRODUCT_VERSIONS = gql`
+  query ProductVersions($productId: ID!) {
+    productVersions(productId: $productId) {
+      id
+      versionNumber
+      createdAt
+      pageCount
+      status
+      updatePolicy
+      buyerCount
+      current
+      failureReason
+      migrationPending
+    }
+  }
+`;

@@ -63,7 +63,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @TestPropertySource(properties = {
         "render.pool.size=1",
         "render.pool.queue-capacity=1",
-        "render.timeout-ms=1500"
+        "render.timeout-ms=1500",
+        "processing.worker.enabled=false"   // secondary context: its poller would steal jobs from the main one
 })
 @Import(RenderBackpressureIT.StubRendererConfig.class)
 class RenderBackpressureIT extends AbstractIntegrationTest {

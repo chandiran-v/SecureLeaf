@@ -147,7 +147,9 @@ class ProductRecoveryIT extends AbstractIntegrationTest {
         version.setRawMinioObjectKey("raw/x.pdf");
         version.setPageCount(5);
         version.setProcessedAt(Instant.now());
-        documentVersionRepository.save(version);
+        version = documentVersionRepository.save(version);
+        product.setCurrentDocumentVersion(version);   // Phase 15, D1
+        productRepository.save(product);
 
         tester(creator).document("mutation($id: ID!) { republishProduct(productId: $id) { status } }")
                 .variable("id", product.getId())

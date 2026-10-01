@@ -100,8 +100,8 @@ export function useCreatorProducts() {
   );
 
   const retryProcessing = useCallback(
-    async (productId: string) => {
-      await retryProcessingMutation({ variables: { productId } });
+    async (productId: string, versionId?: string) => {
+      await retryProcessingMutation({ variables: { productId, versionId } });
     },
     [retryProcessingMutation]
   );

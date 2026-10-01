@@ -4,6 +4,7 @@ import com.secureleaf.commerce.entity.Entitlement;
 import com.secureleaf.commerce.entity.EntitlementStatus;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -40,7 +41,8 @@ public interface EntitlementRepository extends JpaRepository<Entitlement, Long> 
      * first. REVOKED/EXPIRED rows stay visible with their status so the buyer can see *why* a
      * product is no longer readable, rather than the row silently vanishing.
      */
-    @EntityGraph(attributePaths = {"product", "product.creator", "product.category", "product.tags"})
+    @EntityGraph(attributePaths = {"product", "product.creator", "product.category", "product.tags",
+            "documentVersion", "product.currentDocumentVersion"})
     List<Entitlement> findByBuyerIdOrderByGrantedAtDesc(Long buyerId);
 
     /**
@@ -60,6 +62,41 @@ public interface EntitlementRepository extends JpaRepository<Entitlement, Long> 
     default List<Long> findOwnedProductIds(Long buyerId, Collection<Long> productIds) {
         return findProductIdsByBuyerAndStatus(buyerId, EntitlementStatus.ACTIVE, productIds);
     }
+
+    /** Phase 15, D5 — does ANY entitlement (any status) still point at this version? */
+    boolean existsByDocumentVersionId(Long documentVersionId);
+
+    /** Phase 15, D7 — buyers per version of one product: [versionId, ACTIVE-entitlement count]. */
+    @Query("""
+            select e.documentVersion.id, count(e) from Entitlement e
+            where e.product.id = :productId and e.status = :status
+            group by e.documentVersion.id
+            """)
+    List<Object[]> countByVersionForProduct(@Param("productId") Long productId,
+                                            @Param("status") EntitlementStatus status);
+
+    /**
+     * Phase 15, D3 — the next chunk of ACTIVE entitlements that are NOT yet on the target version.
+     * "Not yet on the target" is the whole checkpoint: progress lives in the data, so the same query
+     * is correct on a first run, a re-run (empty) and a resume after a crash (the remainder).
+     * Ordered by id so chunks are deterministic. Native because of the LIMIT and the enum literal.
+     */
+    @Query(value = """
+            SELECT id FROM entitlements
+            WHERE product_id = :productId AND status = 'ACTIVE' AND document_version_id <> :versionId
+            ORDER BY id
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<Long> findChunkToMigrate(@Param("productId") Long productId,
+                                  @Param("versionId") Long versionId,
+                                  @Param("limit") int limit);
+
+    /** Phase 15, D3 — re-checks ACTIVE inside the UPDATE: a refund that lands between the SELECT and
+     *  the UPDATE must not have its REVOKED row touched. */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = "UPDATE entitlements SET document_version_id = :versionId WHERE id IN (:ids) AND status = 'ACTIVE'",
+            nativeQuery = true)
+    int moveToVersion(@Param("ids") Collection<Long> ids, @Param("versionId") Long versionId);
 
     /**
      * AdminUser.purchaseCount (Phase 8, D3) — every entitlement ever granted (any status), not

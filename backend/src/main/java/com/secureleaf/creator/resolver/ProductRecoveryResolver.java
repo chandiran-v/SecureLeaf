@@ -19,8 +19,8 @@ public class ProductRecoveryResolver {
 
     @MutationMapping
     @PreAuthorize("hasRole('CREATOR')")
-    public ProductDto retryProcessing(@Argument Long productId) {
-        return productRecoveryService.retryProcessing(productId, getCurrentUserId());
+    public ProductDto retryProcessing(@Argument Long productId, @Argument Long versionId) {
+        return productRecoveryService.retryProcessing(productId, versionId, getCurrentUserId());
     }
 
     @MutationMapping

@@ -20,6 +20,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.graphql.test.tester.HttpGraphQlTester;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
 import java.io.BufferedReader;
@@ -54,6 +55,7 @@ import static org.awaitility.Awaitility.await;
  * conflict with the rest of the suite.
  */
 @ActiveProfiles({"test", "sse-real-redis"})
+@TestPropertySource(properties = "processing.worker.enabled=false")   // secondary context: keep its job poller off the shared DB
 class NotificationSseIT extends AbstractIntegrationTest {
 
     @LocalServerPort
@@ -101,7 +103,9 @@ class NotificationSseIT extends AbstractIntegrationTest {
         version.setRawMinioBucket("secureleaf-raw");
         version.setRawMinioObjectKey("raw/" + freeProduct.getId() + ".pdf");
         version.setPageCount(3);
-        documentVersionRepository.save(version);
+        version = documentVersionRepository.save(version);
+        freeProduct.setCurrentDocumentVersion(version);   // Phase 15, D1
+        freeProduct = productRepository.save(freeProduct);
 
         asCreator = tester(creator);
         asBuyer = tester(buyer);

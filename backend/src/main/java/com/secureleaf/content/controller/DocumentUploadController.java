@@ -7,6 +7,8 @@ import com.secureleaf.common.exception.ErrorCode;
 import com.secureleaf.common.storage.StorageService;
 import com.secureleaf.content.dto.UploadResponseDto;
 import com.secureleaf.content.entity.DocumentVersion;
+import com.secureleaf.content.entity.UpdatePolicy;
+import com.secureleaf.content.service.DocumentVersionService;
 import com.secureleaf.content.repository.DocumentVersionRepository;
 import com.secureleaf.creator.entity.JobStatus;
 import com.secureleaf.creator.entity.ProcessingJob;
@@ -63,6 +65,7 @@ public class DocumentUploadController {
     private final ProductRepository productRepository;
     private final DocumentVersionRepository documentVersionRepository;
     private final ProcessingJobRepository processingJobRepository;
+    private final DocumentVersionService documentVersionService;
     private final StorageService storageService;
     private final MinioProperties minioProperties;
 
@@ -74,7 +77,9 @@ public class DocumentUploadController {
      * happens asynchronously in the background. The caller polls myProducts
      * to watch status transition PROCESSING → LIVE.
      *
-     * MVP 1: one document per product. A re-upload replaces version 1.
+     * This endpoint is for the FIRST document only. A re-upload before the first version has
+     * finished (e.g. after a failure) still replaces version 1; once the product has a current
+     * version, new content goes through {@link #uploadNewVersion} (Phase 15) instead.
      */
     @PostMapping("/{productId}/document")
     @PreAuthorize("hasRole('CREATOR')")
@@ -92,20 +97,14 @@ public class DocumentUploadController {
                     "You do not have permission to upload to this product.");
         }
 
-        // 2. Size check (UPLOAD-02) — before reading bytes
-        if (file.getSize() > MAX_FILE_SIZE_BYTES) {
-            throw new BusinessException(ErrorCode.FILE_TOO_LARGE,
-                    "File exceeds the 50MB limit. Actual size: %d bytes".formatted(file.getSize()));
+        if (product.getCurrentDocumentVersion() != null) {
+            throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION,
+                    "Product " + productId + " already has a document. Upload a new edition with "
+                            + "POST /api/products/{id}/versions.");
         }
 
-        // 3. Magic-byte validation (UPLOAD-03)
-        // Never trust the client's Content-Type — anyone can send "application/pdf"
-        // with a PNG, JavaScript, or executable inside. Read the actual first bytes.
-        byte[] fileBytes = file.getBytes();
-        if (!hasPdfMagicBytes(fileBytes)) {
-            throw new BusinessException(ErrorCode.INVALID_FILE,
-                    "File is not a valid PDF. Only PDF files are accepted.");
-        }
+        // 2-3. Size (UPLOAD-02) and magic-byte (UPLOAD-03) validation
+        byte[] fileBytes = validatedPdfBytes(file);
 
         // 4. Store raw PDF in MinIO (UPLOAD-11)
         // The key encodes product ID and a UUID for uniqueness on re-upload.
@@ -158,6 +157,75 @@ public class DocumentUploadController {
 
         return ResponseEntity.status(HttpStatus.ACCEPTED)
                 .body(new UploadResponseDto(docVersion.getId(), job.getId(), "PROCESSING"));
+    }
+
+    /**
+     * Phase 15, D2 — uploads a NEW VERSION of a product that already has a current version.
+     *
+     * Same validation as the first upload (50 MB, PDF magic bytes). The product stays LIVE on its
+     * old version while this one processes; the pointer moves when the job completes
+     * (see DocumentProcessingService.markLive). {@code updatePolicy} is the creator's choice for
+     * buyers already on an older version (D3).
+     */
+    @PostMapping("/{productId}/versions")
+    @PreAuthorize("hasRole('CREATOR')")
+    public ResponseEntity<UploadResponseDto> uploadNewVersion(
+            @PathVariable Long productId,
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "updatePolicy", defaultValue = "NEW_BUYERS_ONLY") String updatePolicy)
+            throws IOException {
+
+        Long creatorId = getCurrentUserId();
+        log.info("[job-correlate] New version upload started: productId={}, creatorId={}", productId, creatorId);
+
+        // Fail fast on ownership BEFORE reading 50 MB; DocumentVersionService re-checks under a row lock.
+        Product product = productService.getProductById(productId);
+        if (!product.getCreator().getId().equals(creatorId)) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED,
+                    "You do not have permission to upload to this product.");
+        }
+        UpdatePolicy policy = parsePolicy(updatePolicy);
+        byte[] fileBytes = validatedPdfBytes(file);
+
+        // The key needs no version number (it isn't known until the row is created under the lock);
+        // the UUID alone makes it unique. The version's tiles get deterministic keys later.
+        String rawBucket = minioProperties.getBucket().getRawUploads();
+        String objectKey = "products/%d/uploads/%s.pdf".formatted(productId, UUID.randomUUID());
+        storageService.put(rawBucket, objectKey, fileBytes, "application/pdf");
+
+        try {
+            UploadResponseDto response = documentVersionService.createVersion(productId, creatorId,
+                    file.getOriginalFilename(), file.getSize(), rawBucket, objectKey, policy);
+            return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
+        } catch (RuntimeException e) {
+            // Rejected (another version in flight, no current version, …): don't leave an orphan PDF.
+            storageService.delete(rawBucket, objectKey);
+            throw e;
+        }
+    }
+
+    private byte[] validatedPdfBytes(MultipartFile file) throws IOException {
+        if (file.getSize() > MAX_FILE_SIZE_BYTES) {
+            throw new BusinessException(ErrorCode.FILE_TOO_LARGE,
+                    "File exceeds the 50MB limit. Actual size: %d bytes".formatted(file.getSize()));
+        }
+        // Never trust the client's Content-Type — anyone can send "application/pdf"
+        // with a PNG, JavaScript, or executable inside. Read the actual first bytes.
+        byte[] fileBytes = file.getBytes();
+        if (!hasPdfMagicBytes(fileBytes)) {
+            throw new BusinessException(ErrorCode.INVALID_FILE,
+                    "File is not a valid PDF. Only PDF files are accepted.");
+        }
+        return fileBytes;
+    }
+
+    private static UpdatePolicy parsePolicy(String raw) {
+        try {
+            return UpdatePolicy.valueOf(raw);
+        } catch (IllegalArgumentException e) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT,
+                    "updatePolicy must be NEW_BUYERS_ONLY or FREE_UPDATE_FOR_EXISTING.");
+        }
     }
 
     /**

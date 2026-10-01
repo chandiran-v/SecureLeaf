@@ -16,6 +16,8 @@ export const MY_LIBRARY = gql`
       id
       purchasedAt
       status
+      versionNumber
+      newEditionAvailable
       product {
         id
         title

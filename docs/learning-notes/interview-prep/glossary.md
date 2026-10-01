@@ -212,3 +212,13 @@
 | **W-TinyLFU** | Caffeine's eviction policy: recency + frequency with an admission filter (not strict LRU/FIFO) | [Phase 13](../phase-13-watermarked-tile-cache.md) |
 | **Hit rate** | hits / (hits + misses); decides whether a cache pays for itself | [Phase 13](../phase-13-watermarked-tile-cache.md) |
 | **Cache stampede** | Many concurrent misses on one key all doing the expensive work; fix with single-flight | [Phase 13](../phase-13-watermarked-tile-cache.md) |
+| **Immutable version** | A processed document version that is never edited; a change creates a new version | [Phase 15](../phase-15-document-versioning.md) |
+| **Current-version pointer** | One column on the product naming the live version; moves between immutable versions (like a git branch or Docker tag) | [Phase 15](../phase-15-document-versioning.md) |
+| **Entitlement pinning** | A purchase stores the version it grants, so later versions can't change what a buyer owns | [Phase 15](../phase-15-document-versioning.md) |
+| **Backfill migration** | A migration that also fills a new column for existing rows; test it from the previous schema version | [Phase 15](../phase-15-document-versioning.md) |
+| **Update policy** | Creator's per-version choice for existing buyers: `NEW_BUYERS_ONLY` or `FREE_UPDATE_FOR_EXISTING` | [Phase 15](../phase-15-document-versioning.md) |
+| **Chunked batch job** | Processing many rows in small, separately committed batches so locks stay short and a crash loses little | [Phase 15](../phase-15-document-versioning.md) |
+| **Checkpoint (batch job)** | State telling a restarted job where it stopped; the most robust one is derived from the data ("rows not yet done") | [Phase 15](../phase-15-document-versioning.md) |
+| **Soft retirement** | Marking a version `retired_at` instead of deleting it, so history and foreign keys stay intact | [Phase 15](../phase-15-document-versioning.md) |
+| **Zero-downtime content update** | Building new content beside the live one and switching with one atomic write | [Phase 15](../phase-15-document-versioning.md) |
+| **BOLA** | Broken Object Level Authorization: a logged-in user acting on an object id they don't own (OWASP API #1) | [Phase 15](../phase-15-document-versioning.md) |
