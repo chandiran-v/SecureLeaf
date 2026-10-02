@@ -229,3 +229,16 @@
 | **Composite unique key** | Uniqueness over several columns together, e.g. `(version, page, variant)` | [Phase 16](../phase-16-adaptive-tile-resolution.md) |
 | **Graceful fallback** | Serving a slightly worse answer (DESKTOP) instead of an error when the ideal one (MOBILE) is missing | [Phase 16](../phase-16-adaptive-tile-resolution.md) |
 | **Debounce** | Waiting for a burst of events (resize) to stop before acting | [Phase 16](../phase-16-adaptive-tile-resolution.md) |
+| **Capacity test** | Finds how much load a whole system carries within agreed targets, and what gives out first | [Phase 17](../phase-17-capacity-verification.md) |
+| **Benchmark** | Measures one operation's speed under controlled conditions; not the same as capacity | [Phase 17](../phase-17-capacity-verification.md) |
+| **Hold (load test)** | The steady stretch at each load level, after the ramp, where pass criteria are judged | [Phase 17](../phase-17-capacity-verification.md) |
+| **USE method** | Per resource: Utilisation, Saturation, Errors; the saturated one is the bottleneck | [Phase 17](../phase-17-capacity-verification.md) |
+| **Amdahl's law** | Speeding up one part is capped by the parts you didn't speed up, so the next bottleneck appears | [Phase 17](../phase-17-capacity-verification.md) |
+| **Little's Law** | Concurrent users = throughput × time in system; connects readers, think time and tiles/s | [Phase 17](../phase-17-capacity-verification.md) |
+| **Think time** | The pause between a user's actions; sets how much load each user generates | [Phase 17](../phase-17-capacity-verification.md) |
+| **Open vs closed load model** | Open: arrivals ignore responses. Closed: each user waits for the reply (k6 `ramping-vus`) | [Phase 17](../phase-17-capacity-verification.md) |
+| **Load generator** | The machines producing test traffic; can itself be the bottleneck, so measure it | [Phase 17](../phase-17-capacity-verification.md) |
+| **Live data after GC** | Heap still referenced after a collection; its floor over time reveals leaks | [Phase 17](../phase-17-capacity-verification.md) |
+| **G1 vs ZGC** | Throughput-balanced collector vs ultra-low-pause collector (measured: ZGC cost 22 % throughput here) | [Phase 17](../phase-17-capacity-verification.md) |
+| **Persona (load test)** | A fixed reader behaviour (sequential, back-navigation, mobile) assigned per virtual user | [Phase 17](../phase-17-capacity-verification.md) |
+| **Regression guard** | A small, fast test (here `smoke.js`) that fails when something gets slower | [Phase 17](../phase-17-capacity-verification.md) |

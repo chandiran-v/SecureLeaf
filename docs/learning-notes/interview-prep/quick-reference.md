@@ -417,6 +417,20 @@ a secret in a variable spelled unexpectedly still slips through. Say this unprom
 - **Backfill checkpoint = the data:** "versions with fewer pages of this variant than page_count"; idempotent, resumes at page level, one transaction per version, one run at a time (per JVM), low priority.
 - **Watermark font = base × width / reference (min 12);** contract test on ink coverage (≈1.4 % at both widths). Bumped `tilecache.watermark-version` because cached DESKTOP tiles had the old font.
 
+## Phase 17 — Capacity verification · [full note](../phase-17-capacity-verification.md)
+
+- **Capacity test ≠ benchmark:** per-step pass criteria (p95 < 500 ms, p99 < 1 s, errors < 0.5 %, no heap trend); the first failing step is the capacity.
+- **Latency without the error rate is meaningless:** a run showed p95 14 ms with 50 % errors (storage wiped on restart). A fast failure is the fastest response.
+- **USE method:** at 50+ VUs machine CPU 99 %, render queue up to 72, queue wait 2.86 s of a 3.02 s p95, GC 8 ms/s → CPU in the Java2D render is the bottleneck, nothing else.
+- **Number to remember:** ~0.13 core-seconds per tile (Xeon, shared). Little's Law `X ≈ N/(Z+R)`: 5,000 readers = ~130 cores at 5 s think, ~22 at 30 s, ~11 at 60 s. Think time decides the target.
+- **MVP2 attribution, honestly:** rate limiting protects the ceiling; render pool makes overload survivable (queues, no failures); cache helps by the real hit rate (~5 % under the 70/20/10 mix, not 40 %); libvips (biggest lever) is not built; versioning is neutral; MOBILE ≈ −5 % render CPU at a 10 % share.
+- **Tuning, measured:** pool 4→8: +6 % throughput / −14 % p95 (probably the shared host; not adopted); heap 1 GB→2 GB: OOMs gone, no speed change; ZGC: −22 % throughput; dev logging: 2–3 % (noise ±5 %).
+- **Memory is correctness:** heap ≥ render pool size × per-render working set; `-Xmx1g` threw OOM (3× at 4 threads, 15× at 8).
+- **Pool maths:** busy connections ≈ queries/s × seconds each; pool × instances < Postgres `max_connections`; watch `connections_pending`.
+- **Measure the load generator** (>80 % CPU invalidates a run); split VUs across generators; compare k6 latency with the server's own histogram.
+- **Leak check:** post-GC live heap *floor* (rolling min) slope, not heap used; needs minutes of hold and G1.
+- **Pitch:** "from 500 to 5,000: here's what moved each number", then name what is unproven (no real-hardware run yet, libvips missing).
+
 ## Cross-cutting themes to weave into any answer
 
 1. **Threat-model each decision.** Every security choice here has a "what attack does this stop" answer. Say it.
