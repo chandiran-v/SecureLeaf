@@ -685,6 +685,338 @@
           "legendFormat": "evictions/s {{reason}}"
         }
       ]
+    },
+    {
+      "id": 13,
+      "type": "row",
+      "title": "Capacity (Phase 17) — VUs vs p95, errors, CPU, threads, cache",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 48,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "VUs vs tile p95",
+      "description": "Phase 17. Active viewer sessions (= concurrent readers, one session per VU) against tile p95 on the right axis: the step where p95 leaves the floor is the capacity of the current build. k6_vus appears only when k6 streams to Prometheus (loadtest/docker-compose.k6.yml).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "secureleaf-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 49,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "p95 (s, right axis)"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "secureleaf-prometheus"
+          },
+          "expr": "secureleaf_viewer_sessions_active",
+          "legendFormat": "active sessions"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "secureleaf-prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(secureleaf_tile_request_seconds_bucket{outcome=\"ok\"}[1m])))",
+          "legendFormat": "p95 (s, right axis)"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "secureleaf-prometheus"
+          },
+          "expr": "sum(k6_vus)",
+          "legendFormat": "k6 VUs (optional)"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "Errors and load shed per second",
+      "description": "Phase 17. Tile requests that did not end in ok (by outcome), plus render-pool rejections and timeouts. Intended 429s are rate-limit rejections, shown separately: they are not errors.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "secureleaf-prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 49,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "secureleaf-prometheus"
+          },
+          "expr": "sum by (outcome) (rate(secureleaf_tile_request_seconds_count{outcome!=\"ok\"}[1m]))",
+          "legendFormat": "{{outcome}}"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "secureleaf-prometheus"
+          },
+          "expr": "sum(rate(secureleaf_render_rejected_total[1m]))",
+          "legendFormat": "render queue full (503)"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "secureleaf-prometheus"
+          },
+          "expr": "sum(rate(secureleaf_render_timeout_total[1m]))",
+          "legendFormat": "render timeout (503)"
+        },
+        {
+          "refId": "D",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "secureleaf-prometheus"
+          },
+          "expr": "sum(rate(secureleaf_ratelimit_rejected_total[1m]))",
+          "legendFormat": "rate-limited (429, intended)"
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
+      "title": "CPU: process vs whole machine",
+      "description": "Phase 17. USE method, utilisation. Process = this JVM; system = the host (k6 and Postgres included when they share the machine). Watermarking is CPU-bound, so this is the first resource expected to saturate.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "secureleaf-prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 49,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "secureleaf-prometheus"
+          },
+          "expr": "process_cpu_usage",
+          "legendFormat": "JVM process"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "secureleaf-prometheus"
+          },
+          "expr": "system_cpu_usage",
+          "legendFormat": "whole machine"
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "type": "timeseries",
+      "title": "Threads: render pool, queue, JVM",
+      "description": "Phase 17. USE method, saturation. Busy render threads against the pool size, and the queue behind them (a queue that stays above 0 means requests wait). Tomcat itself runs on virtual threads, so its busy-thread gauge is not meaningful; live platform threads show pool growth.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "secureleaf-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 57,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "secureleaf-prometheus"
+          },
+          "expr": "secureleaf_render_active",
+          "legendFormat": "render threads busy"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "secureleaf-prometheus"
+          },
+          "expr": "secureleaf_render_queue_size",
+          "legendFormat": "render queue depth"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "secureleaf-prometheus"
+          },
+          "expr": "jvm_threads_live_threads",
+          "legendFormat": "JVM live platform threads"
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "type": "timeseries",
+      "title": "Tile cache hit rate",
+      "description": "Phase 17. Share of authorised tile requests answered from the Phase 13 cache. Under the k6 capacity mix it should track the back-navigation share, not rise to 100 %.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "secureleaf-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 57,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "secureleaf-prometheus"
+          },
+          "expr": "sum(rate(secureleaf_tilecache_hit_total[1m])) / clamp_min(sum(rate(secureleaf_tilecache_hit_total[1m])) + sum(rate(secureleaf_tilecache_miss_total[1m])), 0.001)",
+          "legendFormat": "hit rate"
+        }
+      ]
     }
   ],
   "templating": {
