@@ -1,0 +1,94 @@
+name: Nightly perf smoke
+
+# Phase 17, D6 — a regression guard, not a capacity test: 20 readers for 60 s against a freshly built
+# backend; fails when tile p95 reaches 500 ms (loadtest/smoke.js). It catches "last week's change made
+# the viewer's hot path slower" while the cause is still one day's commits.
+# Delivered as a `*.example` file because the automation that builds a phase may not add or edit
+# anything under `.github/workflows/`. Copy to `.github/workflows/perf-smoke.yml` to turn it on.
+#
+# WHAT IT CAN AND CANNOT SAY
+# A shared GitHub-hosted runner (4 vCPU) runs k6, the backend, Postgres, Redis and MinIO together, so
+# the absolute numbers are NOT production numbers. What is comparable is the trend night to night on
+# the same runner type. Expect some noise; if the 500 ms threshold flaps, look at the trend in the
+# uploaded k6 summary before loosening anything.
+#
+# WHY THE `loadtest` PROFILE AND THE QUIET LOGGING FLAGS
+# The `dev` profile logs every SQL statement and every Spring Security decision. At load that is
+# millions of lines and some of the CPU (docs/perf/tuning-log.md, entry 1: only 2-3 % at CI scale, but it removes a variable and 4.5 million log lines), which would
+# make the smoke test measure the logger. The flags below switch that off.
+
+on:
+  schedule:
+    - cron: '30 2 * * *'     # 02:30 UTC, when nobody is pushing
+  workflow_dispatch:
+
+jobs:
+  perf-smoke:
+    name: Viewer smoke (20 VUs, 60 s)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Start infra (Postgres, Redis, MinIO)
+        run: docker compose -f infra/docker-compose.yml up -d postgres redis minio minio-init
+
+      - name: Wait for infra to be healthy
+        run: |
+          for i in $(seq 1 30); do
+            docker compose -f infra/docker-compose.yml ps --format json | grep -q '"Health":"healthy"' && break
+            sleep 2
+          done
+
+      - name: Build backend
+        working-directory: backend
+        run: ./mvnw -q -DskipTests package
+
+      - name: Start backend (seeds 50 buyers and a 12-page book)
+        working-directory: backend
+        run: |
+          nohup java -Xmx1g -XX:+UseG1GC \
+            -Dspring.jpa.show-sql=false -Dlogging.level.com.secureleaf=INFO \
+            -Dlogging.level.org.springframework.security=WARN -Dlogging.level.org.springframework.graphql=WARN \
+            -jar target/*.jar > /tmp/backend.log 2>&1 &
+        env:
+          SPRING_PROFILES_ACTIVE: dev,loadtest
+          LOADTEST_USERS: '50'
+          NOTIFICATION_EMAIL_ENABLED: 'false'
+
+      - name: Wait for the seed to finish
+        run: |
+          for i in $(seq 1 90); do
+            grep -q "Load-test seed done" /tmp/backend.log && exit 0
+            sleep 2
+          done
+          echo "seed did not finish"; tail -50 /tmp/backend.log; exit 1
+
+      - name: Run k6 smoke
+        run: |
+          cp backend/loadtest/users.csv loadtest/users.csv
+          docker run --rm -i --network host -v "$PWD/loadtest:/loadtest" \
+            -e BASE_URL=http://localhost:8080 \
+            grafana/k6 run --summary-export=/loadtest/smoke-summary.json /loadtest/smoke.js
+
+      - name: Upload the k6 summary (the trend is the signal)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-smoke-summary
+          path: loadtest/smoke-summary.json
+          retention-days: 30
+
+      - name: Upload backend log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-log
+          path: /tmp/backend.log

@@ -52,6 +52,9 @@ They serve a dual purpose:
 17. **[Phase 16 — Adaptive tile resolution](phase-16-adaptive-tile-resolution.md)** — MVP2-06
    - Covers: `devicePixelRatio` and picking the smallest sharp image, rendering from a vector source vs resampling, storage vs CPU vs bandwidth with measured sizes, widening a composite unique key safely, graceful fallback during a backfill, signing a data-selecting parameter, a data-derived resumable backfill, scaling a watermark with image width.
 
+18. **[Phase 17 — 5,000-viewer capacity verification](phase-17-capacity-verification.md)** — MVP2-07 · **MVP2 complete** (harness + CI-scale proof; full-scale run and Phase 14 libvips still owed — see [`../release-mvp2.md`](../release-mvp2.md))
+   - Covers: capacity test vs benchmark, the USE method on real numbers, Amdahl's law and why the next bottleneck moves, Little's Law and why think time decides "5,000 viewers" (130 cores vs 22), connection-pool maths, G1 vs ZGC measured, heap as a correctness knob for a render pool, leak detection by post-GC floor, distributed load generation and measuring the generator, and how to present performance work honestly.
+
 **Tooling / DevOps**
 
 - **[Ops 01 — Phase Scheduler](ops-01-phase-scheduler.md)**

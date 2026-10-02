@@ -2,6 +2,7 @@ package com.secureleaf.viewer.metrics;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.secureleaf.ratelimit.RateLimiter;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -66,6 +67,7 @@ class GrafanaDashboardTest {
         names.add(ViewerMetrics.TILECACHE_MISS.replace('.', '_') + "_total");
         names.add(ViewerMetrics.TILECACHE_SIZE_BYTES.replace('.', '_'));
         names.add(ViewerMetrics.TILECACHE_EVICTIONS.replace('.', '_') + "_total");
+        names.add(RateLimiter.REJECTED.replace('.', '_') + "_total"); // Phase 17 capacity row
         return names;
     }
 }

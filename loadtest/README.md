@@ -120,3 +120,44 @@ lists the user.
 The render pool answers `503` + `Retry-After` when saturated, and k6 counts that as a failed
 request. See [`docs/perf/phase-12-render-pool.md`](../docs/perf/phase-12-render-pool.md) for the
 before/after procedure and what the dashboard's *Render pool* panels show.
+
+## Phase 17: capacity matrix (`capacity.js`), smoke guard (`smoke.js`)
+
+`capacity.js` is the **5,000-viewer matrix**: ramps `500 → 1,000 → 2,500 → 5,000` VUs (`STEPS`), a
+10-minute hold at each (`HOLD`), a fixed reader mix of 70 % sequential / 20 % back-navigation / 10 % MOBILE,
+and rate limits left alone. Every request is tagged `step=hold-<N>`, so each hold has its own thresholds
+(tile p95 < 500 ms, p99 < 1 s, errors < 0.5 % with 429s excluded). Method, hardware, results and the
+owner's checklist: [`docs/perf/capacity-report-mvp2.md`](../docs/perf/capacity-report-mvp2.md).
+
+```bash
+# the whole thing: 4 distributed k6 generators + the heap-trend check per hold
+# (backend side first: LOADTEST_USERS=5000, loadtest profile, quiet logging, Prometheus scraping it)
+BASE_URL=http://<backend>:8080 PROMETHEUS_URL=http://<prometheus>:9090 ./loadtest/run-capacity.sh
+
+# CI-scale (validates the scripts; NOT capacity evidence), one generator:
+docker run --rm -i --network host -v "$PWD/loadtest:/loadtest" -e BASE_URL=http://localhost:8080 \
+  -e STEPS=20,50,100 -e HOLD=1m -e RAMP=15s -e THINK_TIME=1 grafana/k6 run /loadtest/capacity.js
+```
+
+| Extra env var | Default | Meaning |
+|---|---|---|
+| `STEPS` / `HOLD` / `RAMP` | `500,1000,2500,5000` / `10m` / `2m` | The matrix |
+| `BACK_NAV_RATE` | `0.4` | Back-navigation chance for the 20 % persona |
+| `TILE_P99_MS`, `MAX_ERROR_RATE` | `1000`, `0.005` | Extra thresholds |
+| `GENERATORS`, `GENERATOR_INDEX` | `1`, `0` | This k6 process is generator I of N (`docker-compose.k6.yml`) |
+
+**Measure the load generator too** (`docker stats`; > 80 % CPU invalidates a run) and run
+the generators on machines other than the backend. See the comments in `docker-compose.k6.yml`.
+
+**Heap growth** is not visible to k6: `node loadtest/heap-trend.js --start <ISO> --end <ISO>` fits a line
+through the post-GC live heap in Prometheus. It needs holds of several minutes and G1.
+
+**Use a quiet profile for capacity runs:** the `dev` profile logs every SQL statement and security decision
+(4.5 million lines in a 4-minute CI-scale run). Add
+`-Dspring.jpa.show-sql=false -Dlogging.level.com.secureleaf=INFO -Dlogging.level.org.springframework.security=WARN -Dlogging.level.org.springframework.graphql=WARN`.
+Also: a fresh database for every run if storage is the in-memory test implementation (restarting wipes the
+tiles but not the page rows: every tile then fails instantly, which looks like very fast latency).
+
+`smoke.js` is the **regression guard**: 20 VUs for 60 s, tile p95 < 500 ms. It is what
+[`docs/ci/perf-smoke.yml.example`](../docs/ci/perf-smoke.yml.example) runs nightly. It proves "the hot path did
+not get slower", not capacity.

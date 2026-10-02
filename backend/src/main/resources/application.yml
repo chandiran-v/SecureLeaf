@@ -8,6 +8,10 @@ spring:
     username: ${DB_USER:secureleaf_user}
     password: ${DB_PASSWORD:secureleaf_pass}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      # Phase 17 D3 — HikariCP's default (10), made explicit so a capacity run can change it with
+      # one env var. Sum over every backend instance must stay below Postgres max_connections.
+      maximum-pool-size: ${DB_POOL_MAX:10}
   jpa:
     hibernate:
       ddl-auto: validate          # Flyway manages schema; Hibernate validates only
