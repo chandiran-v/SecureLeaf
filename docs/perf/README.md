@@ -3,7 +3,7 @@
 > Phase 10. MVP2 exists to go from ~500 to 5,000+ concurrent viewers, and the rule in
 > [`requirements.md`](../requirements.md) is *don't optimise what you haven't measured*. This page is
 > the method; results live in [`baseline-mvp1.md`](baseline-mvp1.md) and later reports (phases 11–17
-> are judged against that baseline). Scripts: [`loadtest/`](../../loadtest/README.md).
+> are judged against that baseline; Phase 17's matrix, report and tuning log: [`capacity-report-mvp2.md`](capacity-report-mvp2.md), [`tuning-log.md`](tuning-log.md), [`ci-scale-results.md`](ci-scale-results.md)). Scripts: [`loadtest/`](../../loadtest/README.md).
 
 ## What is measured
 

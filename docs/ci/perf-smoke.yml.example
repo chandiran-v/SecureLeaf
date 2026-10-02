@@ -14,7 +14,7 @@ name: Nightly perf smoke
 #
 # WHY THE `loadtest` PROFILE AND THE QUIET LOGGING FLAGS
 # The `dev` profile logs every SQL statement and every Spring Security decision. At load that is
-# millions of lines and a measurable share of the CPU (docs/perf/tuning-log.md, entry 1), which would
+# millions of lines and some of the CPU (docs/perf/tuning-log.md, entry 1: only 2-3 % at CI scale, but it removes a variable and 4.5 million log lines), which would
 # make the smoke test measure the logger. The flags below switch that off.
 
 on:
