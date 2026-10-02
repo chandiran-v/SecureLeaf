@@ -49,11 +49,12 @@ public class ViewerResolver {
 
     @QueryMapping
     @PreAuthorize("isAuthenticated()")
-    public SignedPageUrlDto viewerPageUrl(@Argument String sessionToken, @Argument int pageNumber) {
+    public SignedPageUrlDto viewerPageUrl(@Argument String sessionToken, @Argument int pageNumber,
+                                          @Argument String variant) {
         Long userId = getCurrentUserId();
         // Phase 11, D3 — checked before any DB lookup or signing work.
         rateLimiter.assertAllowed(RateLimitBucket.PAGE_URL, String.valueOf(userId));
-        return viewerSessionService.signPageUrl(userId, sessionToken, pageNumber);
+        return viewerSessionService.signPageUrl(userId, sessionToken, pageNumber, variant);
     }
 
     private Long getCurrentUserId() {

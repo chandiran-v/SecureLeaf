@@ -26,6 +26,10 @@ public class ContentPage {
     @Column(name = "page_number", nullable = false)
     private Integer pageNumber;
 
+    /** Phase 16, D2 — which resolution this row is (DESKTOP, MOBILE, …); see TileVariantProperties. */
+    @Column(name = "variant", nullable = false, length = 16)
+    private String variant = "DESKTOP";
+
     @Column(name = "bucket_name", nullable = false, length = 100)
     private String bucketName;
 

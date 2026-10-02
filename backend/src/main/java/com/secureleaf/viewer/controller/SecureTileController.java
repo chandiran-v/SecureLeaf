@@ -42,6 +42,7 @@ public class SecureTileController {
             @PathVariable int pageNumber,
             @RequestParam long exp,
             @RequestParam String sig,
+            @RequestParam(name = "v", required = false) String variant,
             HttpServletRequest request,
             HttpServletResponse response) {
 
@@ -60,7 +61,7 @@ public class SecureTileController {
         // thread and throw synchronously; only the watermark is handed to the tile-render- pool.
         // A full pool throws RenderUnavailableException here (503, D4), a slow one fails the future.
         return asyncTileService.getTile(new SecureTileService.TileRequest(
-                        sessionId, pageNumber, exp, sig, currentUserId(),
+                        sessionId, pageNumber, variant, exp, sig, currentUserId(),
                         request.getRemoteAddr(), request.getHeader(HttpHeaders.USER_AGENT), correlationId))
                 .thenApply(SecureTileController::toResponse);
     }

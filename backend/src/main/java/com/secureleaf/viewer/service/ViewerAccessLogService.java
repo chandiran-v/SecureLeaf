@@ -30,7 +30,7 @@ public class ViewerAccessLogService {
 
     @Transactional
     public void record(ViewerSession session, DocumentVersion documentVersion, ContentPage contentPage,
-                        int pageNumber, String ipAddress, String userAgent, String correlationId) {
+                        int pageNumber, String variant, String ipAddress, String userAgent, String correlationId) {
         ViewerAccessLog log = new ViewerAccessLog();
         log.setViewerSession(session);
         log.setUser(session.getUser());
@@ -38,6 +38,7 @@ public class ViewerAccessLogService {
         log.setDocumentVersion(documentVersion);
         log.setContentPage(contentPage);
         log.setPageNumber(pageNumber);
+        log.setVariant(variant);
         log.setIpAddress(ipAddress);
         log.setUserAgent(userAgent);
         log.setCorrelationId(correlationId);

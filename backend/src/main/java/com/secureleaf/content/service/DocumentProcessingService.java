@@ -6,6 +6,8 @@ import com.secureleaf.content.entity.ContentPage;
 import com.secureleaf.content.entity.DocumentVersion;
 import com.secureleaf.content.repository.ContentPageRepository;
 import com.secureleaf.content.repository.DocumentVersionRepository;
+import com.secureleaf.content.tiles.PageTileRenderer;
+import com.secureleaf.content.tiles.TileVariantProperties;
 import com.secureleaf.creator.entity.JobStage;
 import com.secureleaf.creator.entity.JobStatus;
 import com.secureleaf.creator.entity.ProcessingJob;
@@ -47,8 +49,8 @@ import java.time.Instant;
  * us see exactly where in the pipeline a job stalled when debugging.
  *
  * Idempotency: every stage is designed to be safe to re-run:
- * - Tiles overwrite by deterministic MinIO key (products/{id}/v{v}/tiles/{page}.png)
- * - ContentPage inserts are guarded by the uq_content_pages_version_page constraint
+ * - Tiles overwrite by deterministic MinIO key (products/{id}/v{v}/tiles/{VARIANT}/{page}.png)
+ * - ContentPage inserts are guarded by the uq_content_pages_version_page_variant constraint
  *   (we delete-before-insert to avoid conflicts on retry)
  * - Thumbnail overwrites the same key on retry
  *
@@ -62,7 +64,6 @@ import java.time.Instant;
 @Slf4j
 public class DocumentProcessingService {
 
-    private static final float TILE_DPI = 150f;
     private static final int THUMBNAIL_WIDTH_PX = 400;
 
     private final ProcessingJobRepository processingJobRepository;
@@ -73,6 +74,8 @@ public class DocumentProcessingService {
     private final StorageService storageService;
     private final MinioProperties minioProperties;
     private final NotificationService notificationService;
+    private final TileVariantProperties tileVariants;
+    private final PageTileRenderer pageTileRenderer;
 
     /**
      * Entry point called by ProcessingJobWorker.
@@ -159,47 +162,62 @@ public class DocumentProcessingService {
         PDFRenderer renderer = new PDFRenderer(pdf);
         String tilesBucket = minioProperties.getBucket().getTiles();
 
-        // Idempotent: clear existing ContentPage rows before re-inserting.
-        // Without this, a retry would hit the unique constraint uq_content_pages_version_page.
+        // Idempotent: clear existing ContentPage rows (every variant) before re-inserting.
+        // Without this, a retry would hit the unique constraint uq_content_pages_version_page_variant.
         contentPageRepository.deleteByDocumentVersionId(docVersion.getId());
 
         for (int i = 0; i < pageCount; i++) {
             int pageNo = i + 1; // 1-indexed
 
-            // renderImageWithDPI renders a full-resolution raster of one page.
-            // 150 DPI is high enough for readable text, small enough for fast load.
-            BufferedImage image = renderer.renderImageWithDPI(i, TILE_DPI);
-            byte[] pngBytes = toPngBytes(image);
+            // Phase 16, D3 — every variant is rendered from the PDF page itself, never by shrinking
+            // another variant's PNG. DESKTOP goes first: it is the one that carries the links.
+            for (TileVariantProperties.Variant variant : tileVariants.variants()) {
+                BufferedImage image = pageTileRenderer.render(pdf, renderer, i, variant);
+                byte[] pngBytes = toPngBytes(image);
 
-            // Deterministic key: same key on retry → MinIO overwrites silently
-            String key = "products/%d/v%d/tiles/%d.png"
-                    .formatted(productId, docVersion.getVersionNumber(), pageNo);
+                // Deterministic key: same key on retry → MinIO overwrites silently
+                String key = tileKey(productId, docVersion.getVersionNumber(), variant.name(), pageNo);
+                storageService.put(tilesBucket, key, pngBytes, "image/png");
 
-            storageService.put(tilesBucket, key, pngBytes, "image/png");
+                ContentPage page = newContentPage(docVersion, pageNo, variant.name(), tilesBucket, key, image, pngBytes);
+                try {
+                    contentPageRepository.save(page);
+                    if (variant.name().equals(TileVariantProperties.DESKTOP)) {
+                        // V8 — the PDF's clickable links, while the document is already open. Stored once per
+                        // page (ratios fit every variant). The DELETE above cascades to the old links.
+                        pageLinkService.saveLinks(pdf, page);
+                    }
+                } catch (DataIntegrityViolationException e) {
+                    // Race condition on retry — the unique constraint fired but the
+                    // DELETE-before-INSERT should have prevented this. Log and continue.
+                    log.warn("[job-{}] ContentPage already exists for page {} ({}), skipping",
+                            jobId, pageNo, variant.name());
+                }
 
-            // Record the page in the DB
-            ContentPage page = new ContentPage();
-            page.setDocumentVersion(docVersion);
-            page.setPageNumber(pageNo);
-            page.setBucketName(tilesBucket);
-            page.setMinioObjectKey(key);
-            page.setWidthPx(image.getWidth());
-            page.setHeightPx(image.getHeight());
-            page.setFileSizeBytes((long) pngBytes.length);
-            try {
-                contentPageRepository.save(page);
-                // V8 — the PDF's clickable links, while the document is already open. (The
-                // DELETE above cascades to the old links, so a retry doesn't duplicate them.)
-                pageLinkService.saveLinks(pdf, page);
-            } catch (DataIntegrityViolationException e) {
-                // Race condition on retry — the unique constraint fired but the
-                // DELETE-before-INSERT should have prevented this. Log and continue.
-                log.warn("[job-{}] ContentPage already exists for page {}, skipping", jobId, pageNo);
+                log.debug("[job-{}] Tile {}/{} {} written: {}x{}px, {} bytes", jobId, pageNo, pageCount,
+                        variant.name(), image.getWidth(), image.getHeight(), pngBytes.length);
             }
-
-            log.debug("[job-{}] Tile {}/{} written: {}x{}px, {} bytes",
-                    jobId, pageNo, pageCount, image.getWidth(), image.getHeight(), pngBytes.length);
         }
+    }
+
+    /** Phase 16, D3 — the variant is part of the storage key, so variants never overwrite each other. */
+    public static String tileKey(Long productId, int versionNumber, String variant, int pageNo) {
+        return "products/%d/v%d/tiles/%s/%d.png".formatted(productId, versionNumber, variant, pageNo);
+    }
+
+    /** Shared with the Phase 16 backfill, so both paths record a variant identically. */
+    public static ContentPage newContentPage(DocumentVersion docVersion, int pageNo, String variant,
+                                             String bucket, String key, BufferedImage image, byte[] pngBytes) {
+        ContentPage page = new ContentPage();
+        page.setDocumentVersion(docVersion);
+        page.setPageNumber(pageNo);
+        page.setVariant(variant);
+        page.setBucketName(bucket);
+        page.setMinioObjectKey(key);
+        page.setWidthPx(image.getWidth());
+        page.setHeightPx(image.getHeight());
+        page.setFileSizeBytes((long) pngBytes.length);
+        return page;
     }
 
     private void generateThumbnail(PDDocument pdf, DocumentVersion docVersion,
@@ -328,7 +346,7 @@ public class DocumentProcessingService {
         log.debug("[job-{}] Stage: {}", job.getId(), stage);
     }
 
-    private byte[] toPngBytes(BufferedImage image) throws IOException {
+    public static byte[] toPngBytes(BufferedImage image) throws IOException {
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
             ImageIO.write(image, "PNG", baos);
             return baos.toByteArray();

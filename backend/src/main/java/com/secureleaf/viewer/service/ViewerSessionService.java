@@ -16,6 +16,7 @@ import com.secureleaf.viewer.entity.ViewerSession;
 import com.secureleaf.viewer.entity.ViewerSessionEndReason;
 import com.secureleaf.viewer.repository.ViewerSessionRepository;
 import com.secureleaf.viewer.security.TileUrlSigner;
+import com.secureleaf.content.tiles.TileVariantProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -98,6 +99,7 @@ public class ViewerSessionService {
     private final Clock clock;
     private final TileUrlSigner tileUrlSigner;
     private final ContentPageLinkRepository contentPageLinkRepository;
+    private final TileVariantProperties tileVariants;
 
     /** D1/D2 — starts (or takes over) the one viewer session for this buyer+product. */
     @Transactional
@@ -141,6 +143,9 @@ public class ViewerSessionService {
                 productId,
                 pageCount,
                 drmProperties.session().heartbeatIntervalSeconds(),
+                tileVariants.variants().stream()
+                        .map(v -> new ViewerSessionDto.TileVariantDto(v.name(), v.widthPx()))
+                        .toList(),
                 Instant.now(clock).plusSeconds(leaseSeconds).atOffset(ZoneOffset.UTC));
     }
 
@@ -227,15 +232,17 @@ public class ViewerSessionService {
      * safely — see the bug this fixed in the learning note's Gotchas table.
      */
     @Transactional(readOnly = true)
-    public SignedPageUrlDto signPageUrl(Long callerUserId, String sessionToken, int pageNumber) {
+    public SignedPageUrlDto signPageUrl(Long callerUserId, String sessionToken, int pageNumber, String variant) {
         ViewerSession session = viewerSessionRepository.findBySessionTokenHash(jwtService.hashToken(sessionToken))
                 .orElseThrow(() -> new BusinessException(ErrorCode.SIGNED_URL_INVALID, "Unknown viewer session."));
         if (!session.getUser().getId().equals(callerUserId)) {
             throw new BusinessException(ErrorCode.ACCESS_DENIED, "This viewer session belongs to another user.");
         }
-        TileUrlSigner.Signature signature = tileUrlSigner.sign(session.getId(), pageNumber, callerUserId);
-        String url = "/api/viewer/tiles/%d/%d?exp=%d&sig=%s"
-                .formatted(session.getId(), pageNumber, signature.expiresAtEpochSeconds(), signature.value());
+        // Phase 16, D5 — an unknown variant name from the client is treated as DESKTOP, the safe default.
+        String tileVariant = tileVariants.resolve(variant).name();
+        TileUrlSigner.Signature signature = tileUrlSigner.sign(session.getId(), pageNumber, callerUserId, tileVariant);
+        String url = "/api/viewer/tiles/%d/%d?exp=%d&sig=%s&v=%s"
+                .formatted(session.getId(), pageNumber, signature.expiresAtEpochSeconds(), signature.value(), tileVariant);
         // The page's clickable links (V8), from the version this buyer is ENTITLED to, the same
         // version the tile itself is served from.
         Long versionId = session.getEntitlement().getDocumentVersion().getId();

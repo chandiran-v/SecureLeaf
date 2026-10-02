@@ -49,6 +49,9 @@ They serve a dual purpose:
 16. **[Phase 15 — Full document versioning](phase-15-document-versioning.md)** — MVP2-05
    - Covers: immutable versions + a movable pointer (git refs / Docker tags), why buyers' rights pin to a version, backfill migrations and how to test them, idempotent + resumable chunked batch jobs, zero-downtime content updates, soft retirement, object-level authorisation on creator actions.
 
+17. **[Phase 16 — Adaptive tile resolution](phase-16-adaptive-tile-resolution.md)** — MVP2-06
+   - Covers: `devicePixelRatio` and picking the smallest sharp image, rendering from a vector source vs resampling, storage vs CPU vs bandwidth with measured sizes, widening a composite unique key safely, graceful fallback during a backfill, signing a data-selecting parameter, a data-derived resumable backfill, scaling a watermark with image width.
+
 **Tooling / DevOps**
 
 - **[Ops 01 — Phase Scheduler](ops-01-phase-scheduler.md)**

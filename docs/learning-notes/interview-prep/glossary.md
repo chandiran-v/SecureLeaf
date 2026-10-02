@@ -222,3 +222,10 @@
 | **Soft retirement** | Marking a version `retired_at` instead of deleting it, so history and foreign keys stay intact | [Phase 15](../phase-15-document-versioning.md) |
 | **Zero-downtime content update** | Building new content beside the live one and switching with one atomic write | [Phase 15](../phase-15-document-versioning.md) |
 | **BOLA** | Broken Object Level Authorization: a logged-in user acting on an object id they don't own (OWASP API #1) | [Phase 15](../phase-15-document-versioning.md) |
+| **Tile variant** | One resolution of a page image (DESKTOP, MOBILE, …); one `content_pages` row per page per variant | [Phase 16](../phase-16-adaptive-tile-resolution.md) |
+| **devicePixelRatio (DPR)** | Physical screen pixels per CSS pixel (1 monitor, 2 Retina, 3 many phones) | [Phase 16](../phase-16-adaptive-tile-resolution.md) |
+| **Responsive images** | Sending each device the smallest image that still looks sharp (`srcset`; here a canvas + a chooser function) | [Phase 16](../phase-16-adaptive-tile-resolution.md) |
+| **Vector vs raster rendering** | Redrawing from shape data at the target size vs resampling a fixed pixel grid | [Phase 16](../phase-16-adaptive-tile-resolution.md) |
+| **Composite unique key** | Uniqueness over several columns together, e.g. `(version, page, variant)` | [Phase 16](../phase-16-adaptive-tile-resolution.md) |
+| **Graceful fallback** | Serving a slightly worse answer (DESKTOP) instead of an error when the ideal one (MOBILE) is missing | [Phase 16](../phase-16-adaptive-tile-resolution.md) |
+| **Debounce** | Waiting for a burst of events (resize) to stop before acting | [Phase 16](../phase-16-adaptive-tile-resolution.md) |

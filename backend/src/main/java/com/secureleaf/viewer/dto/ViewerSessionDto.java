@@ -1,6 +1,7 @@
 package com.secureleaf.viewer.dto;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 
 /**
  * GraphQL {@code ViewerSession} — returned once, at {@code startViewerSession}. {@code sessionToken}
@@ -13,5 +14,10 @@ public record ViewerSessionDto(
         Long productId,
         Integer pageCount,
         Integer heartbeatIntervalSeconds,
+        List<TileVariantDto> tileVariants,
         OffsetDateTime expiresAt
-) {}
+) {
+
+    /** Phase 16, D5 — a resolution the viewer may ask for, and how wide its images are. */
+    public record TileVariantDto(String name, int widthPx) {}
+}

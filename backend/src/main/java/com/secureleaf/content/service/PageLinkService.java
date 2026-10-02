@@ -7,6 +7,7 @@ import com.secureleaf.content.entity.DocumentVersion;
 import com.secureleaf.content.repository.ContentPageLinkRepository;
 import com.secureleaf.content.repository.ContentPageRepository;
 import com.secureleaf.content.repository.DocumentVersionRepository;
+import com.secureleaf.content.tiles.TileVariantProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.Loader;
@@ -68,7 +69,8 @@ public class PageLinkService {
         try {
             byte[] pdfBytes = storageService.get(version.getRawMinioBucket(), version.getRawMinioObjectKey());
             try (PDDocument pdf = Loader.loadPDF(pdfBytes)) {
-                for (ContentPage page : contentPageRepository.findByDocumentVersionIdOrderByPageNumber(documentVersionId)) {
+                for (ContentPage page : contentPageRepository.findByDocumentVersionIdAndVariantOrderByPageNumber(
+                        documentVersionId, TileVariantProperties.DESKTOP)) {
                     if (page.getPageNumber() <= pdf.getNumberOfPages()) {
                         total += saveLinks(pdf, page);
                     }

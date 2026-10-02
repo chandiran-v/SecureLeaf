@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { Navigate, useParams, useSearchParams } from 'react-router-dom';
 import { useViewerSession } from '../../hooks/viewer/useViewerSession';
 import { useSecureTile } from '../../hooks/viewer/useSecureTile';
+import { useTileVariant } from '../../hooks/viewer/useTileVariant';
 import { useBlockContextMenu } from '../../hooks/viewer/useBlockContextMenu';
 import { useBlurOnFocusLoss } from '../../hooks/viewer/useBlurOnFocusLoss';
 import { useDevToolsHeuristic } from '../../hooks/viewer/useDevToolsHeuristic';
@@ -36,6 +37,7 @@ export default function ReaderPage() {
 
   const { status, session, restart, notifySuperseded } = useViewerSession(productId ?? '');
   const pageCount = session?.pageCount ?? null;
+  const tileVariant = useTileVariant(session?.tileVariants, canvasRef);   // Phase 16, D5
 
   const currentPage = useViewerStore((state) => state.currentPage);
   const setCurrentPage = useViewerStore((state) => state.setCurrentPage);
@@ -90,6 +92,7 @@ export default function ReaderPage() {
     session: status === 'active' ? session : null,
     pageNumber: clampedPage,
     pageCount,
+    variant: tileVariant,
     canvasRef,
     onSuperseded: notifySuperseded,
     onExpired: restart,

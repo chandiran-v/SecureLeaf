@@ -36,7 +36,9 @@ class LoadTestSeederIT extends AbstractIntegrationTest {
         assertThat(count("users WHERE email LIKE 'loadtest-buyer-%'")).isEqualTo(3);
         assertThat(count("entitlements e JOIN users u ON u.id = e.buyer_id "
                 + "WHERE u.email LIKE 'loadtest-buyer-%' AND e.status = 'ACTIVE'")).isEqualTo(3);
-        assertThat(count("content_pages")).isEqualTo(12);   // the bundled PDF has 12 pages
+        // the bundled PDF has 12 pages, each rendered once per configured variant (Phase 16)
+        assertThat(count("content_pages WHERE variant = 'DESKTOP'")).isEqualTo(12);
+        assertThat(count("content_pages WHERE variant = 'MOBILE'")).isEqualTo(12);
 
         long entitlementsBefore = count("entitlements");
         long ordersBefore = count("orders");

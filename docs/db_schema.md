@@ -379,6 +379,10 @@ CREATE INDEX idx_content_pages_document_version_id ON content_pages (document_ve
 CREATE INDEX idx_content_pages_version_page ON content_pages (document_version_id, page_number);
 ```
 
+> **Phase 16 (V13):** `variant VARCHAR(16) NOT NULL DEFAULT 'DESKTOP'` was added and the unique key became
+> `uq_content_pages_version_page_variant (document_version_id, page_number, variant)`: one row per page per
+> resolution. `viewer_access_logs` gained the same `variant` column. The DDL above is the V1 original.
+
 **Key Decision:** Stores the **clean** tile path. The watermark is burned server-side per request at tile-serve time — the clean tile in MinIO is never sent directly to any client (Security NFR).
 
 ---

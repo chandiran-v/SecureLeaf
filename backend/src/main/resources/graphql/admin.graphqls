@@ -158,6 +158,10 @@ extend type Mutation {
     approvePayout(id: ID!): Payout!
     markPayoutPaid(id: ID!, reference: String!): Payout!
     rejectPayout(id: ID!, reason: String!): Payout!
+
+    # Phase 16, D4 — starts the background render of every missing tile variant for existing
+    # documents. Idempotent and resumable; true = a run was started, false = one is already running.
+    generateMissingVariants: Boolean!
 }
 
 # Phase 11 D6 — one row per suspected scraper (user id only: an admin can look the user up).

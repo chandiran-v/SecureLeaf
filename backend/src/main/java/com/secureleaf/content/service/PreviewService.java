@@ -5,6 +5,7 @@ import com.secureleaf.common.storage.StorageService;
 import com.secureleaf.content.entity.ContentPage;
 import com.secureleaf.content.entity.DocumentVersion;
 import com.secureleaf.content.repository.ContentPageRepository;
+import com.secureleaf.content.tiles.TileVariantProperties;
 import com.secureleaf.content.watermark.WatermarkRenderer;
 import com.secureleaf.marketplace.entity.Product;
 import com.secureleaf.marketplace.entity.ProductStatus;
@@ -66,7 +67,7 @@ public class PreviewService {
         }
 
         ContentPage contentPage = contentPageRepository
-                .findByDocumentVersionIdAndPageNumber(documentVersion.getId(), pageNumber)
+                .findByDocumentVersionIdAndPageNumberAndVariant(documentVersion.getId(), pageNumber, TileVariantProperties.DESKTOP)
                 .orElseThrow(() -> new ResourceNotFoundException("ContentPage", "pageNumber", pageNumber));
 
         byte[] cleanBytes = storageService.get(contentPage.getBucketName(), contentPage.getMinioObjectKey());

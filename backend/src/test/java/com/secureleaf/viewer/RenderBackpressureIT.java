@@ -215,7 +215,7 @@ class RenderBackpressureIT extends AbstractIntegrationTest {
             logThreads.add(Thread.currentThread());
             return inv.callRealMethod();
         }).when(spiedAccessLog).record(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.anyInt(),
-                Mockito.any(), Mockito.any(), Mockito.any());
+                Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
 
         tileSettled(1).andExpectStatus200();
 

@@ -142,7 +142,8 @@ drm:
   watermark:
     renderer: java2d             # Strategy: java2d | libvips (future)
     opacity: 0.25
-    font-size: 24
+    font-size: 24                # at reference-width-px; scaled by image width, min 12 (Phase 16, D6)
+    reference-width-px: 1240     # DESKTOP width (A4 at 150 DPI): the width font-size was chosen for
 
 # ── Render bulkhead (Phase 12, D1/D3) ─────────────────────────────────────────
 # Watermarking is CPU-bound, so it gets its own bounded platform-thread pool ("tile-render-").
@@ -161,7 +162,19 @@ tilecache:
   ttl: 15m
   max-bytes: 2147483648        # disk: total size bound (2 GB)
   max-bytes-per-entry: 2097152 # redis: larger tiles are not cached
-  watermark-version: "1"       # part of every key: bump to invalidate every cached tile
+  watermark-version: "2"       # part of every key: bump to invalidate every cached tile
+
+# ── Adaptive tile resolution (Phase 16, D1) ───────────────────────────────────
+# Every page is rendered once per variant, straight from the PDF. dpi-driven variants follow the
+# page's physical size; width-driven ones are scaled to exactly width-px. width-px is also what the
+# viewer compares against canvas width x devicePixelRatio. A TABLET entry here needs no code change.
+content:
+  tiles:
+    variants:
+      - { name: DESKTOP, width-px: 1240, dpi: 150 }
+      - { name: MOBILE, width-px: 900 }
+    backfill:
+      pause-ms: 200              # D4 — breather between versions, so the backfill stays low priority
 
 # ── Async thread pool (content processing pipeline) ──────────────────────────
 processing:
