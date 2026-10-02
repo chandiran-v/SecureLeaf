@@ -1,0 +1,60 @@
+# Phase 17 D2 — several k6 containers share one run, so the LOAD GENERATOR is not the bottleneck.
+#
+# One k6 process can drive a few thousand VUs on a big machine, but each VU holds a TLS/HTTP
+# connection, a JS runtime and (for tiles) ~350 KB of response body per request. At 5,000 readers
+# (~ 5,000 / 5 s = 1,000 tiles/s ~ 350 MB/s) a single box runs out of CPU or NIC before the server does,
+# and the symptom looks exactly like a slow server. So: split the VUs, and WATCH the generators.
+#
+#   BASE_URL=http://<backend-host>:8080 docker compose -f loadtest/docker-compose.k6.yml up
+#
+# Every generator runs the same capacity.js with GENERATORS=4 and its own GENERATOR_INDEX; each
+# one runs a quarter of the VUs and its own slice of users.csv (so no buyer is logged in twice and
+# the 70/20/10 reader mix holds overall). Put them on DIFFERENT machines for the real run (copy
+# this file and run one service per machine, same env); on one machine this only helps when the
+# machine has spare cores and NIC.
+#
+# THE TIMING: containers started by one `up` begin together, and the schedule is relative to each
+# process's own start, so the steps line up to within a second or two. Starting them by hand on
+# separate machines? Use `sleep until <time>` so they begin together, or the "step" tags will not
+# line up across generators.
+#
+# MEASURE THE GENERATORS: `docker stats` on every generator for the whole run. Rule of thumb: any
+# generator above ~80 % CPU, or a NIC near its limit, invalidates the run - add generators.
+# k6 also reports it: `dropped_iterations` and `http_req_blocked` / `http_req_connecting` climbing,
+# or a gap between k6's `http_req_duration` and the backend's own tile histogram (the backend says
+# 90 ms, k6 says 900 ms => the time is being lost on the generator or the network, not in Spring).
+#
+# Optional: stream k6's own metrics into Prometheus (Prometheus must run with
+# --web.enable-remote-write-receiver, and add `-o experimental-prometheus-rw` to `command` below) to
+# overlay k6_vus on the Grafana "capacity" row:
+#   K6_PROM_RW=http://<prometheus-host>:9090/api/v1/write
+
+x-k6: &k6
+  image: grafana/k6:latest
+  volumes:
+    - ./:/loadtest:ro
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+  environment: &k6-env
+    BASE_URL: ${BASE_URL:-http://host.docker.internal:8080}
+    STEPS: ${STEPS:-500,1000,2500,5000}
+    HOLD: ${HOLD:-10m}
+    RAMP: ${RAMP:-2m}
+    THINK_TIME: ${THINK_TIME:-5}
+    GENERATORS: "4"
+    K6_PROMETHEUS_RW_SERVER_URL: ${K6_PROM_RW:-}
+  command: ["run", "/loadtest/capacity.js"]
+
+services:
+  k6-0:
+    <<: *k6
+    environment: { <<: *k6-env, GENERATOR_INDEX: "0" }
+  k6-1:
+    <<: *k6
+    environment: { <<: *k6-env, GENERATOR_INDEX: "1" }
+  k6-2:
+    <<: *k6
+    environment: { <<: *k6-env, GENERATOR_INDEX: "2" }
+  k6-3:
+    <<: *k6
+    environment: { <<: *k6-env, GENERATOR_INDEX: "3" }
