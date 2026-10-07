@@ -70,10 +70,10 @@ class CommerceIT extends AbstractCommerceIT {
                     "∅→PENDING (CHECKOUT)",
                     "PENDING→COMPLETED (CHECKOUT_CALLBACK)");
 
-            // PAY-10 — 10% of ₹499 = ₹49.90 fee, ₹449.10 to the creator, snapshotted on the item.
+            // PAY-10 — 5% of ₹499 = ₹24.95 fee, ₹474.05 to the creator, snapshotted on the item.
             Map<String, Object> split = jdbcTemplate.queryForMap(
                     "SELECT platform_fee_paise, creator_earnings_paise FROM order_items");
-            assertThat(split).containsEntry("platform_fee_paise", 4_990L).containsEntry("creator_earnings_paise", 44_910L);
+            assertThat(split).containsEntry("platform_fee_paise", 2_495L).containsEntry("creator_earnings_paise", 47_405L);
         }
 
         @Test
@@ -115,8 +115,8 @@ class CommerceIT extends AbstractCommerceIT {
                     .execute()
                     .path("creatorEarnings.salesCount").entity(Long.class).isEqualTo(2L)
                     .path("creatorEarnings.grossSalesPaise").entity(Long.class).isEqualTo(49_900L)
-                    .path("creatorEarnings.platformFeePaise").entity(Long.class).isEqualTo(4_990L)
-                    .path("creatorEarnings.netEarningsPaise").entity(Long.class).isEqualTo(44_910L);
+                    .path("creatorEarnings.platformFeePaise").entity(Long.class).isEqualTo(2_495L)
+                    .path("creatorEarnings.netEarningsPaise").entity(Long.class).isEqualTo(47_405L);
         }
 
         @Test

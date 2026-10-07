@@ -52,10 +52,11 @@ describe('legal pages (Phase 09C D6)', () => {
     expect(screen.getByText(/ask us to access, correct or delete/i)).toBeInTheDocument();
   });
 
-  it('the terms cover creator rights, the 10% commission, the hold and takedowns', () => {
+  it('the terms cover creator rights, the 5% commission, the hold and takedowns', () => {
     renderPage(<TermsPage />);
     expect(screen.getByText(/own, or hold the rights to sell/i)).toBeInTheDocument();
-    expect(screen.getByText(/10% commission/i)).toBeInTheDocument();
+    expect(screen.getByText(/5% commission/i)).toBeInTheDocument();
+    expect(screen.getByText(/remaining 95%/i)).toBeInTheDocument();
     expect(screen.getByText(/held for 7 days/i)).toBeInTheDocument();
     expect(screen.getByText(/take a product down/i)).toBeInTheDocument();
   });

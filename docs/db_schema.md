@@ -695,7 +695,7 @@ CREATE TABLE creator_payouts (
 
     -- Calculation snapshot at request time
     gross_revenue_paise  BIGINT        NOT NULL,  -- total earnings
-    platform_fee_paise   BIGINT        NOT NULL,  -- platform commission (10%)
+    platform_fee_paise   BIGINT        NOT NULL,  -- platform commission (5%; snapshotted per sale — older rows may be 10%)
     net_payout_paise     BIGINT        NOT NULL,  -- gross - fee
 
     payout_method        VARCHAR(50),             -- 'UPI', 'BANK_TRANSFER', etc.

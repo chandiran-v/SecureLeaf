@@ -1,5 +1,6 @@
 import { formatRupees } from '../../lib/formatPrice';
 import type { CreatorBalance } from '../../types';
+import { PLATFORM_FEE_PERCENT } from '../../content/legal/types';
 
 /** Phase 09C D1 — the four balance figures. "Available" is the one a payout can be requested from. */
 export default function BalanceCard({ balance }: { balance: CreatorBalance | null }) {
@@ -8,7 +9,7 @@ export default function BalanceCard({ balance }: { balance: CreatorBalance | nul
     { label: 'Available to withdraw', value: show(balance?.availablePaise), hint: 'Earnings older than 7 days', primary: true },
     { label: 'Pending', value: show(balance?.pendingPaise), hint: 'Still in the 7-day refund window', primary: false },
     { label: 'Paid out', value: show(balance?.paidOutPaise), hint: 'Already sent to you', primary: false },
-    { label: 'Lifetime earnings', value: show(balance?.lifetimeEarningsPaise), hint: 'After the 10% commission', primary: false },
+    { label: 'Lifetime earnings', value: show(balance?.lifetimeEarningsPaise), hint: `After the ${PLATFORM_FEE_PERCENT}% commission`, primary: false },
   ];
   return (
     <section aria-label="Balance" className="grid grid-cols-2 lg:grid-cols-4 gap-4">

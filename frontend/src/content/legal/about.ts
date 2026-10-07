@@ -1,4 +1,4 @@
-import type { LegalDocument } from './types';
+import { PLATFORM_FEE_PERCENT, type LegalDocument } from './types';
 
 export const about: LegalDocument = {
   title: 'About SecureLeaf',
@@ -13,7 +13,7 @@ export const about: LegalDocument = {
     {
       heading: 'How it works',
       bullets: [
-        'Creators upload a PDF, set a price and publish. SecureLeaf keeps 10%; the creator gets 90%.',
+        `Creators upload a PDF, set a price and publish. SecureLeaf keeps ${PLATFORM_FEE_PERCENT}%; the creator gets ${100 - PLATFORM_FEE_PERCENT}%.`,
         'Buyers pay through Razorpay and read the document from their library straight away.',
         'Creators request a payout once their earnings have cleared the 7-day refund window.',
       ],

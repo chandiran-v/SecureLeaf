@@ -152,7 +152,7 @@ shaped exactly like Razorpay**: order → checkout → HMAC-signed `razorpay_sig
 gateway timeout** (money taken, browser told nothing — the webhook still completes the order). Every
 purchase is idempotent (client idempotency key + row locks), every payment state change is written to
 an append-only audit log, and the buyer gets an **entitlement** — the access grant the Phase 5 secure
-viewer checks on every single page turn. Also: **My Library** (`/library`), a creator **earnings card** (10% platform fee,
+viewer checks on every single page turn. Also: **My Library** (`/library`), a creator **earnings card** (5% platform fee,
 snapshotted per sale), and purchase **notifications** (in-app bell, Redis Pub/Sub, email via Mailpit
 at <http://localhost:8025>).
 

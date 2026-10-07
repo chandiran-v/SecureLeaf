@@ -5,7 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 /**
  * {@code commerce.*} settings, bound from application.yml.
  *
- * @param platformFeeBps platform commission in basis points (1 bps = 0.01%; 1000 = 10%, D7).
+ * @param platformFeeBps platform commission in basis points (1 bps = 0.01%; 500 = 5%, D7).
  *                       Basis points keep the rate an integer, so fee maths never touches
  *                       floating point.
  * @param currency       ISO currency code sent to the gateway.

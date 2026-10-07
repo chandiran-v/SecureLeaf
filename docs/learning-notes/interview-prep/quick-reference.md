@@ -341,7 +341,7 @@ a secret in a variable spelled unexpectedly still slips through. Say this unprom
 | Reconciliation | Every 10 min: PENDING orders > 15 min old → ask gateway; captured → complete; > 24 h with nothing → FAILED ("expired") |
 | Refund = state transition | Order/payment `REFUNDED`, entitlement `REVOKED`, notification + email, `payment_events` + `admin_actions` rows; nothing deleted |
 | Refund two entrances | Admin mutation and `refund.processed` webhook both go through `applyRefund`; replay is a no-op because the order is already `REFUNDED` |
-| Gateway fees | Platform absorbs them; stored per payment; creators keep price − 10%; platform net = fee − gateway fee − GST; refunds don't return the fee |
+| Gateway fees | Platform absorbs them; stored per payment; creators keep price − 5% (was 10% until 2026-10-03); platform net = fee − gateway fee − GST; refunds don't return the fee |
 | CSP for checkout | Name exact hosts: `checkout.razorpay.com` (script + frame), `api.razorpay.com` (connect) — no `unsafe-inline` |
 | Known-answer crypto tests | Signature test vectors computed independently in Python so the code can't validate itself |
 
@@ -477,6 +477,14 @@ a secret in a variable spelled unexpectedly still slips through. Say this unprom
 - **Measure the load generator** (>80 % CPU invalidates a run); split VUs across generators; compare k6 latency with the server's own histogram.
 - **Leak check:** post-GC live heap *floor* (rolling min) slope, not heap used; needs minutes of hold and G1.
 - **Pitch:** "from 500 to 5,000: here's what moved each number", then name what is unproven (no real-hardware run yet, libvips missing).
+
+## Biz 1 — Commission 10% → 5% · [full note](../biz-01-commission-5-percent.md)
+
+- **Backend = one config line:** `commerce.platform-fee-bps: 500`; `platformFeeFor` does `(price × bps + 5000) / 10000` in integers.
+- **No migration, no history rewrite:** each order item snapshots `platform_fee_paise` + `creator_earnings_paise` at purchase; everything downstream *sums* them. Old sales stay 10%, new ones 5%.
+- **Numbers to remember:** ₹499 → fee ₹24.95, creator ₹474.05; platform net after Razorpay (~2.36%) ≈ ₹13.17 per sale (was ₹38.12).
+- **Frontend:** four hardcoded "10%" → one `PLATFORM_FEE_PERCENT`; creator share derived as `100 − x`. Weak spot: still two sources (YAML + TS); fix by serving the rate from the backend.
+- **Known-answer tests:** assert `2_495` literally; never compute the expectation with the code under test.
 
 ## Cross-cutting themes to weave into any answer
 

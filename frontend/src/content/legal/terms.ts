@@ -1,4 +1,4 @@
-import { BUSINESS, REFUND_WINDOW_DAYS, type LegalDocument } from './types';
+import { BUSINESS, PLATFORM_FEE_PERCENT, REFUND_WINDOW_DAYS, type LegalDocument } from './types';
 
 export const terms: LegalDocument = {
   title: 'Terms of Service',
@@ -31,7 +31,7 @@ export const terms: LegalDocument = {
       heading: '4. Selling (creator terms)',
       bullets: [
         'You confirm that you own, or hold the rights to sell, everything you upload, and that it does not infringe anyone else\'s rights or break the law.',
-        'SecureLeaf keeps a 10% commission on each sale; you receive the remaining 90% of the sale price. Payment-gateway charges are paid by SecureLeaf and are not deducted from your share.',
+        `SecureLeaf keeps a ${PLATFORM_FEE_PERCENT}% commission on each sale; you receive the remaining ${100 - PLATFORM_FEE_PERCENT}% of the sale price. Payment-gateway charges are paid by SecureLeaf and are not deducted from your share.`,
         `Earnings from a sale are held for ${REFUND_WINDOW_DAYS} days (the refund window) before they can be paid out. Earnings from a sale that is refunded are not paid.`,
         'Payouts are requested from your dashboard (minimum ₹100, one open request at a time) and are sent manually to the UPI id or email you provide. You are responsible for the accuracy of those details and for any taxes you owe.',
         'We may take a product down at any time, for example after a copyright complaint or a breach of these terms. People who already bought it keep their access unless the purchase is refunded.',

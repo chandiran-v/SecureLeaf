@@ -9,6 +9,7 @@ import StatementsTab from '../../components/payouts/StatementsTab';
 import { useCreatorProducts } from '../../hooks/useCreatorProducts';
 import { CREATOR_EARNINGS } from '../../graphql/queries/commerce.queries';
 import type { CreatorEarnings, JobStage, Product } from '../../types';
+import { PLATFORM_FEE_PERCENT } from '../../content/legal/types';
 
 // ── Price formatter ───────────────────────────────────────────────────────────
 
@@ -334,7 +335,7 @@ export default function CreatorDashboardPage() {
               {
                 label: 'Your Earnings',
                 value: earnings ? formatRupees(earnings.netEarningsPaise) : '—',
-                hint: earnings ? `after ${formatRupees(earnings.platformFeePaise)} platform fee (10%)` : null,
+                hint: earnings ? `after ${formatRupees(earnings.platformFeePaise)} platform fee (${PLATFORM_FEE_PERCENT}%)` : null,
               },
             ].map((stat) => (
               <div

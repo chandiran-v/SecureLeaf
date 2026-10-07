@@ -104,6 +104,7 @@ When a new phase is complete, duplicate `TEMPLATE.md`, name it appropriately, an
 | UI 2 | [ui-02-creator-owner-preview.md](ui-02-creator-owner-preview.md) | ✅ Done | Threat-modelling an exception, isolating a security bypass from the hot path, RBAC + object-level authz (BOLA), 404-not-403, object URLs + revoke, rate-limiting the valuable path |
 | Ops 2 | [ops-02-render-free-tier-deployment.md](ops-02-render-free-tier-deployment.md) | ✅ Done (not deployed) | Same- vs split-origin, Adapter pattern (SMTP → HTTPS mail), fail-open hiding a TLS bug, placement-dependent security (actuator on one port), liveness vs readiness for restarts, secrets in blueprints |
 | Ops 1 | [ops-01-phase-scheduler.md](ops-01-phase-scheduler.md) | ✅ Done | Cron + event-driven CI, WIP limit of one, reconciliation, privilege separation, `GITHUB_TOKEN` vs PAT, prompt injection, bounded retries |
+| Biz 1 | [biz-01-commission-5-percent.md](biz-01-commission-5-percent.md) | ✅ Done | Config-driven business rules, snapshotting money at write time (why a rate cut needs no migration), basis points, single source of truth and its limit, known-answer tests |
 
 ---
 

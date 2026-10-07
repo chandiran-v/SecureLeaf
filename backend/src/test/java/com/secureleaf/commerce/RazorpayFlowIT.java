@@ -172,11 +172,11 @@ class RazorpayFlowIT extends AbstractCommerceIT {
             assertThat(jdbcTemplate.queryForList("SELECT gateway_fee_paise + gateway_tax_paise FROM payments", Long.class))
                     .containsExactly(fee + tax, fee + tax);
 
-            // Creator earnings are untouched by gateway fees: price − 10% snapshot.
+            // Creator earnings are untouched by gateway fees: price − 5% snapshot.
             asCreator.document(EARNINGS).execute()
-                    .path("creatorEarnings.netEarningsPaise").entity(Long.class).isEqualTo(2 * 44_910L);
+                    .path("creatorEarnings.netEarningsPaise").entity(Long.class).isEqualTo(2 * 47_405L);
 
-            long platformFee = 2 * 4_990L;
+            long platformFee = 2 * 2_495L;
             long gatewayFees = 2 * (fee + tax);
             asAdmin.document(STATS).execute()
                     .path("platformStats.platformFeePaiseAllTime").entity(Long.class).isEqualTo(platformFee)

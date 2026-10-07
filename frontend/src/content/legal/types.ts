@@ -26,3 +26,10 @@ export const BUSINESS = {
 
 /** Days a buyer can ask for a refund, and creators' earnings stay on hold. One number, used everywhere. */
 export const REFUND_WINDOW_DAYS = 7;
+
+/**
+ * SecureLeaf's commission on each sale, in percent. Display-only: the backend's
+ * `commerce.platform-fee-bps` (application.yml) is what actually splits the money, so the two
+ * must change together. 5% = 500 bps.
+ */
+export const PLATFORM_FEE_PERCENT = 5;

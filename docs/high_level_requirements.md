@@ -83,7 +83,7 @@ Creators (teachers, professionals, designers, students) upload their digital kno
 | PAY-04 | Idempotency: Same buyer cannot be charged twice for the same product (duplicate payment prevention) |
 | PAY-05 | Purchase receipt / confirmation via email notification |
 | PAY-06 | Purchase history visible in Buyer's library |
-| PAY-07 | Creator revenue = Product price minus platform commission (e.g., 10%) |
+| PAY-07 | Creator revenue = Product price minus platform commission (currently 5%) |
 
 ---
 

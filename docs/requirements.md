@@ -73,7 +73,7 @@
 | PAY-07 | Idempotent webhook processing — duplicate payment provider events must not create duplicate entitlements |
 | PAY-08 | Purchase confirmation notification to buyer (in-app via Redis Pub/Sub + email async) |
 | PAY-09 | Purchase history visible in buyer's library |
-| PAY-10 | Creator revenue = product price minus platform commission (10%) |
+| PAY-10 | Creator revenue = product price minus platform commission (5%; was 10% before 2026-10-03 — past sales keep their snapshotted rate) |
 
 ---
 

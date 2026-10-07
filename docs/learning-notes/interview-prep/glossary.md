@@ -45,7 +45,7 @@
 | **Effectively-once** | At-least-once delivery + idempotent processing — the practical substitute for exactly-once | [Phase 4](../phase-04-commerce.md) |
 | **HMAC** | Hash computed with a secret key — proves a message is unaltered *and* who sent it | [Phase 4](../phase-04-commerce.md) |
 | **Timing attack** | Inferring a secret from how long a comparison takes; stopped by constant-time comparison | [Phase 4](../phase-04-commerce.md) |
-| **Basis point (bps)** | 0.01% — rates as integers (10% = 1000 bps) so money maths never uses floating point | [Phase 4](../phase-04-commerce.md) |
+| **Basis point (bps)** | 0.01% — rates as integers (5% = 500 bps, 10% = 1000 bps) so money maths never uses floating point | [Phase 4](../phase-04-commerce.md) |
 | **Partial unique index** | A UNIQUE index over only the rows matching a WHERE clause (e.g. only ACTIVE entitlements) | [Phase 4](../phase-04-commerce.md) |
 | **Transactional Outbox** | Write outgoing messages in the business transaction; a poller sends them — no lost messages on crash | [Phase 4](../phase-04-commerce.md) |
 | **AFTER_COMMIT listener** | `@TransactionalEventListener` that runs only if the transaction commits — for irreversible side effects | [Phase 4](../phase-04-commerce.md) |
@@ -260,3 +260,6 @@
 | **G1 vs ZGC** | Throughput-balanced collector vs ultra-low-pause collector (measured: ZGC cost 22 % throughput here) | [Phase 17](../phase-17-capacity-verification.md) |
 | **Persona (load test)** | A fixed reader behaviour (sequential, back-navigation, mobile) assigned per virtual user | [Phase 17](../phase-17-capacity-verification.md) |
 | **Regression guard** | A small, fast test (here `smoke.js`) that fails when something gets slower | [Phase 17](../phase-17-capacity-verification.md) |
+| **Config-driven business rule** | A business number (rate, limit) kept in configuration so changing it isn't a code change | [Biz 1](../biz-01-commission-5-percent.md) |
+| **Known-answer test** | A test whose expected value is worked out independently, not by calling the code under test | [Biz 1](../biz-01-commission-5-percent.md) |
+| **Effective rate** | Total fee ÷ total gross across history; differs from the current rate after a rate change | [Biz 1](../biz-01-commission-5-percent.md) |

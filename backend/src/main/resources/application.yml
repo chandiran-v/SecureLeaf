@@ -108,7 +108,7 @@ google:
 
 # ── Commerce (Phase 4) ────────────────────────────────────────────────────────
 commerce:
-  platform-fee-bps: 1000         # 10% platform commission, in basis points (PAY-10, D7)
+  platform-fee-bps: 500          # 5% platform commission, in basis points (PAY-10, D7). Keep in sync with PLATFORM_FEE_PERCENT in frontend/src/content/legal/types.ts
   currency: INR
 
 # ── Payment gateway (Razorpay-shaped, D1; real Razorpay in Phase 09B) ─────────

@@ -15,7 +15,7 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
 
     /**
      * PAY-10 — one aggregate query, computed by the database from the snapshotted split
-     * (D7). Summing stored snapshots instead of recomputing `price × 10%` means a future
+     * (D7). Summing stored snapshots instead of recomputing `price × today's rate` means a future
      * change to the commission rate cannot rewrite historical earnings.
      *
      * Status passed as a parameter, not a JPQL enum literal — see OrderRepository.findOpenOrders.
