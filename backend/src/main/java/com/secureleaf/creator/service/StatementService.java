@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.YearMonth;
 import java.time.ZoneId;
@@ -79,25 +80,38 @@ public class StatementService {
         return new CreatorStatementDto(ym.toString(), lines, grossSales, refunds, fees, net, payouts);
     }
 
-    /** CSV of the same data. Amounts stay integer paise (no float rounding); see {@link #csvCell}. */
+    /**
+     * CSV of the same data, with amounts in rupees (e.g. 1700.00) because a human opens this in a
+     * spreadsheet. Stored and computed values stay integer paise; {@link #rupees} only formats them.
+     */
     @Transactional(readOnly = true)
     public String statementCsv(Long creatorId, String month) {
         CreatorStatementDto s = statement(creatorId, month);
-        StringBuilder sb = new StringBuilder("date,type,description,gross_paise,fee_paise,net_paise\r\n");
+        StringBuilder sb = new StringBuilder(
+                "Date,Type,Description,Gross amount (INR),Platform fee (INR),Net earnings (INR)\r\n");
         for (StatementLineDto l : s.lines()) {
             sb.append(csvCell(l.date().toString())).append(',')
               .append(l.type()).append(',')
               .append(csvCell(l.description())).append(',')
-              .append(l.grossPaise()).append(',')
-              .append(l.feePaise()).append(',')
-              .append(l.netPaise()).append("\r\n");
+              .append(rupees(l.grossPaise())).append(',')
+              .append(rupees(l.feePaise())).append(',')
+              .append(rupees(l.netPaise())).append("\r\n");
         }
-        sb.append(",TOTAL,Gross sales,").append(s.grossSalesPaise()).append(",,\r\n");
-        sb.append(",TOTAL,Refunds,").append(-s.refundsPaise()).append(",,\r\n");
-        sb.append(",TOTAL,Platform fee (net of refunds),,").append(s.platformFeePaise()).append(",\r\n");
-        sb.append(",TOTAL,Net earnings,,,").append(s.netEarningsPaise()).append("\r\n");
-        sb.append(",TOTAL,Payouts,,,").append(-s.payoutsPaise()).append("\r\n");
+        sb.append(",TOTAL,Gross sales,").append(rupees(s.grossSalesPaise())).append(",,\r\n");
+        sb.append(",TOTAL,Refunds,").append(rupees(-s.refundsPaise())).append(",,\r\n");
+        sb.append(",TOTAL,Platform fee (net of refunds),,").append(rupees(s.platformFeePaise())).append(",\r\n");
+        sb.append(",TOTAL,Net earnings,,,").append(rupees(s.netEarningsPaise())).append("\r\n");
+        sb.append(",TOTAL,Payouts,,,").append(rupees(-s.payoutsPaise())).append("\r\n");
         return sb.toString();
+    }
+
+    /**
+     * Paise to a plain rupee string: 170000 → "1700.00", -2050 → "-20.50". BigDecimal with scale 2 is
+     * exact (no double rounding), and there is no ₹ sign or thousands separator so spreadsheets read
+     * the cell as a number and a comma can't split the CSV column.
+     */
+    static String rupees(long paise) {
+        return BigDecimal.valueOf(paise, 2).toPlainString();
     }
 
     static YearMonth parse(String month) {

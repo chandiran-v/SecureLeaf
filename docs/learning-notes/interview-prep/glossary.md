@@ -169,6 +169,11 @@
 | **Snapshot (of a value)** | Copying a value onto a record when it matters (payout destination) so later edits can't rewrite history | [Phase 9C](../phase-09c-payouts-legal.md) |
 | **Manual payout** | Money is sent outside the app (UPI/bank) and recorded afterwards with a transfer reference | [Phase 9C](../phase-09c-payouts-legal.md) |
 | **CSV injection** | A spreadsheet formula (`=`, `+`, `-`, `@` prefix) hidden in exported data that runs when the file is opened | [Phase 9C](../phase-09c-payouts-legal.md) |
+| **Storage unit vs display unit** | Compute and save money in the smallest unit (paise); convert to what a person reads (rupees) only at the edge, e.g. a CSV export | [Phase 9C](../phase-09c-payouts-legal.md) |
+| **`BigDecimal.valueOf(unscaled, scale)`** | Exact decimal from an integer: `valueOf(170000, 2)` = `1700.00`; no floating-point rounding | [Phase 9C](../phase-09c-payouts-legal.md) |
+| **BOM (byte-order mark)** | Invisible bytes at the start of a text file that announce its encoding (`EF BB BF` for UTF-8); Excel needs one to read a UTF-8 CSV correctly | [Phase 9C](../phase-09c-payouts-legal.md) |
+| **Character encoding** | The rule mapping bytes to characters; UTF-8 stores `—` as 3 bytes, Windows-1252 reads those as 3 characters | [Phase 9C](../phase-09c-payouts-legal.md) |
+| **Mojibake** | Garbled text from decoding bytes with the wrong encoding, e.g. `—` shown as `â€”` | [Phase 9C](../phase-09c-payouts-legal.md) |
 | **`ALTER TYPE … ADD VALUE`** | Adds a Postgres enum value; the value can't be used in the same transaction, so it gets its own migration | [Phase 9C](../phase-09c-payouts-legal.md) |
 | **DPDP Act 2023 / data fiduciary** | India's data-protection law and its term for whoever decides how personal data is processed | [Phase 9C](../phase-09c-payouts-legal.md) |
 | **`body.sl-reading` / `.no-print`** | The CSS hooks for printing: blank the page only while the secure reader is mounted; hide site chrome on paper | [Phase 9C](../phase-09c-payouts-legal.md) |

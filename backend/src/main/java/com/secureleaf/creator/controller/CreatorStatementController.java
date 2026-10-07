@@ -24,6 +24,13 @@ import java.nio.charset.StandardCharsets;
 @RequiredArgsConstructor
 public class CreatorStatementController {
 
+    /**
+     * UTF-8 byte-order mark. Excel on Windows ignores the charset in Content-Type once the file is on
+     * disk and opens a BOM-less CSV in the legacy codepage, so "—" in descriptions shows as "â€”".
+     * The BOM tells it the file is UTF-8; Sheets, LibreOffice and Numbers skip it.
+     */
+    static final String UTF8_BOM = String.valueOf((char) 0xFEFF);
+
     private final StatementService statementService;
 
     @GetMapping("/{month}.csv")
@@ -32,6 +39,6 @@ public class CreatorStatementController {
         return ResponseEntity.ok()
                 .contentType(new MediaType("text", "csv", StandardCharsets.UTF_8))
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"secureleaf-statement-" + month + ".csv\"")
-                .body(csv.getBytes(StandardCharsets.UTF_8));
+                .body((UTF8_BOM + csv).getBytes(StandardCharsets.UTF_8));
     }
 }

@@ -22,6 +22,18 @@ class StatementServiceTest {
     }
 
     @Test
+    void rupeesFormatsPaiseExactlyWithTwoDecimals() {
+        assertThat(StatementService.rupees(170_000)).isEqualTo("1700.00");
+        assertThat(StatementService.rupees(2_050)).isEqualTo("20.50");
+        assertThat(StatementService.rupees(5)).isEqualTo("0.05");
+        assertThat(StatementService.rupees(0)).isEqualTo("0.00");
+        assertThat(StatementService.rupees(-30_000)).isEqualTo("-300.00");
+        assertThat(StatementService.rupees(-7)).isEqualTo("-0.07");
+        // no thousands separator: a comma would split the CSV column
+        assertThat(StatementService.rupees(123_456_789)).isEqualTo("1234567.89");
+    }
+
+    @Test
     void monthMustBeYyyyMm() {
         assertThat(StatementService.parse("2026-03").toString()).isEqualTo("2026-03");
         for (String bad : new String[]{null, "", "2026-3", "2026-13", "March", "2026-03-01"}) {

@@ -360,7 +360,9 @@ a secret in a variable spelled unexpectedly still slips through. Say this unprom
 | Payout state machine | REQUESTED → APPROVED → PAID; REQUESTED/APPROVED → REJECTED; else `INVALID_STATE_TRANSITION`; each admin action = lock + guard + one audit row + one notification, one transaction |
 | Rejected vs paid | Rejected stops being counted (money returns automatically); paid stays counted forever |
 | Enum value | `ALTER TYPE … ADD VALUE` in its own migration — can't be used in the transaction that adds it |
-| Statement/CSV | Same service feeds GraphQL and CSV; IST months; integer paise; quoted cells + leading `'` against formula injection |
+| Statement/CSV | Same service feeds GraphQL and CSV; IST months; quoted cells + leading `'` against formula injection |
+| Paise in, rupees out | Compute/store paise; CSV shows rupees via `BigDecimal.valueOf(paise, 2)` (exact), `(INR)` headers, no `₹`/thousands commas so cells stay numeric |
+| CSV encoding | Prepend UTF-8 BOM (`﻿` → `EF BB BF`) in the controller; `charset=UTF-8` is an HTTP header and is lost once the file is saved, so Excel guesses Windows-1252 (`—` → `â€”`) |
 | Owner-only CSV | `/api/creator/**` = CREATOR role, id from the JWT — nothing in the URL to tamper with |
 | Receipt | Owner-only (someone else's order = NOT_FOUND), payment id masked to last 4 |
 | Print bug | `body { display:none }` was site-wide; now `body.sl-reading`, class added/removed by `useReadingMode` on reader mount/unmount |

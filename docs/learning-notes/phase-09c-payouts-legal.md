@@ -149,9 +149,61 @@ long available = Math.max(0, cleared - committed);
 
 **What it is:** the statement CSV contains product titles, which creators control. A cell that starts with `=`, `+`, `-` or `@` is executed as a **formula** when opened in Excel or Google Sheets — an attacker names a product `=HYPERLINK(...)` and it runs on the victim's machine.
 
-**How we defend:** `csvCell` quotes every text cell per RFC 4180 (doubling embedded quotes) and prefixes a leading apostrophe to anything starting with a formula character, which spreadsheets treat as "this is text". Amounts stay integer paise, so there is no rounding in the file.
+**How we defend:** `csvCell` quotes every text cell per RFC 4180 (doubling embedded quotes) and prefixes a leading apostrophe to anything starting with a formula character, which spreadsheets treat as "this is text". The amount columns never go through `csvCell`. They are numbers we generate, and a negative refund like `-200.00` should stay a number. See 3.10 for how they are formatted.
 
-**In our code:** `backend/src/main/java/com/secureleaf/creator/service/StatementService.java:117`; unit test `StatementServiceTest`.
+**In our code:** `backend/src/main/java/com/secureleaf/creator/service/StatementService.java:131`; unit test `StatementServiceTest`.
+
+### 3.10 Store in paise, show in rupees (the statement CSV fix)
+
+**What it is:** the **storage unit** is the unit the system computes and saves in (paise, an integer). The **display unit** is what a human reads (rupees, e.g. `1700.00`). Convert only at the edge where data leaves the system for a person, and never convert back.
+
+**Analogy:** a bank's ledger counts in paise, but your printed bank statement shows rupees. Nobody does arithmetic on the printout.
+
+**Why it changed:** the first version of the CSV wrote raw paise under headers like `gross_paise`. That is correct, but a creator who opens the file in Excel sees `170000` and reads it as one lakh seventy thousand rupees, not ₹1,700. The CSV is a **presentation** of the data, like the dashboard, so it should use the presentation unit. The GraphQL API keeps paise because its readers are programs.
+
+**How:** one formatting helper, used only while writing the CSV:
+
+```java
+static String rupees(long paise) {
+    return BigDecimal.valueOf(paise, 2).toPlainString();
+}
+```
+
+`BigDecimal.valueOf(170000, 2)` means "170000 × 10⁻²", which is exactly `1700.00`. It is exact decimal arithmetic, with no `double` anywhere (see 3.8 for why `double` is dangerous with money). Deliberate choices:
+- **Headers name the unit:** `Gross amount (INR)`, `Platform fee (INR)`, `Net earnings (INR)`. A number column without a unit is ambiguous.
+- **`INR` instead of `₹`:** ASCII-only headers survive any tool that reads the file, even ones that ignore the BOM (see 3.11). `INR` is also the ISO 4217 code accountants expect.
+- **No `₹` sign or thousands separator in the cells:** `₹1,700.00` would be text to a spreadsheet, so `SUM()` stops working. The comma would also split the CSV column in two.
+- **Always two decimals:** `20.50` rather than `20.5`, so ₹20.50 can't be misread as 20 rupees 5 paise.
+
+**What breaks without it:** a creator or their accountant reads every amount as 100× too big, or divides by 100 by hand in some cells and forgets in others.
+
+**In our code:** `backend/src/main/java/com/secureleaf/creator/service/StatementService.java:113`; tests `StatementServiceTest.rupeesFormatsPaiseExactlyWithTwoDecimals` and `PayoutIT.Statement.csvContainsTheSameTotals`.
+
+### 3.11 Character encoding and the UTF-8 BOM (why "—" showed as "â€”")
+
+**What it is:** a file is just bytes. An **encoding** is the rule that maps bytes to characters. **UTF-8** stores the em dash `—` as three bytes, `E2 80 94`. **Windows-1252**, the old Western-Windows encoding, reads each byte as its own character: `â`, `€`, `”`. Same bytes, wrong rule, garbled text. This is called **mojibake**.
+
+**Analogy:** a note written in shorthand. The ink is fine, but a reader who doesn't know it's shorthand reads nonsense. The BOM is a stamp at the top saying "this is shorthand".
+
+**Why it happened:** our HTTP response already said `Content-Type: text/csv; charset=UTF-8`, but that header belongs to the HTTP response, not the file. Once the browser saves the file to disk, the header is gone. Excel on Windows then opens a CSV with no other clue and assumes the legacy codepage. Statement descriptions contain `—` ("Order #12 — Guide"), and creators can put any Unicode in product titles (Hindi, Tamil, emoji), so every one of those showed as garbage.
+
+**The fix:** start the file with the **BOM (byte-order mark)**, `U+FEFF`, which UTF-8 encodes as `EF BB BF`. Excel sees those three bytes and switches to UTF-8. Google Sheets, LibreOffice and Numbers recognise it and skip it.
+
+```java
+static final String UTF8_BOM = String.valueOf((char) 0xFEFF);
+...
+.body((UTF8_BOM + csv).getBytes(StandardCharsets.UTF_8));
+```
+
+**Why in the controller, not the service:** the BOM is about how the downloaded bytes are encoded, and the controller is the one turning text into bytes. `statementCsv` keeps returning clean text, so anything else that uses it (a future email attachment, a test) doesn't have to strip an invisible character.
+
+**Trade-off rejected: Excel-native `.xlsx`.** A real workbook (via Apache POI) has no encoding question, and the amount cells could carry a ₹ number format. It was rejected because it adds a large dependency on a memory-budgeted ARM server, and because CSV is what accountants' import tools expect. The BOM fixes the actual bug in one line.
+
+**Cost of the BOM:** a naive script that reads the file and checks `header == "Date,..."` sees an invisible `﻿` in front and fails. Python's `utf-8-sig` codec and every mainstream CSV library handle it, but it is a real gotcha. Our own test shows it: it reads the bytes, asserts the BOM, then drops the first character before checking the header.
+
+**What breaks without it:** every non-ASCII character in a creator's statement is garbled in Excel, the most common way an accountant opens it.
+
+**In our code:** `backend/src/main/java/com/secureleaf/creator/controller/CreatorStatementController.java:32`; test `PayoutIT.Statement.csvContainsTheSameTotals` (asserts bytes `EF BB BF` and an intact ` — `).
 
 ---
 
@@ -273,7 +325,13 @@ A: A table lock would make every creator wait for every other. The profile row i
 A: No, and I'd say so plainly. Payouts are manual: the admin transfers by UPI outside the app and records the transaction id. The app records who did it, when, and the reference in the audit log, but "paid" is the admin's assertion. Automating that is RazorpayX, which needs Phase 18's business account.
 
 **Q: How do you stop CSV injection in the statement download?**
-A: Product titles are creator-controlled, and a cell starting with `=`, `+`, `-` or `@` runs as a formula in Excel. Every text cell is quoted and anything starting with one of those characters gets a leading apostrophe so the spreadsheet treats it as text. Amounts are integer paise so nothing gets rounded.
+A: Product titles are creator-controlled, and a cell starting with `=`, `+`, `-` or `@` runs as a formula in Excel. Every text cell is quoted and anything starting with one of those characters gets a leading apostrophe so the spreadsheet treats it as text. The amount columns are numbers we produce ourselves, so they skip that quoting.
+
+**Q: Money is stored in paise. Why does the CSV show rupees, and how do you convert without rounding errors?**
+A: The CSV is for a human, usually an accountant in Excel, and `170000` under a "gross" column reads as ₹1.7 lakh, not ₹1,700. So I keep paise everywhere inside the system and convert only when writing the file. The conversion is `BigDecimal.valueOf(paise, 2)`, which is exact decimal: 170000 with scale 2 is `1700.00`, with no `double` involved. Headers say `(INR)`, and cells have no currency sign or thousands separator, so Excel still treats them as numbers and a comma can't break the CSV.
+
+**Q: You already send `charset=UTF-8`. Why did Excel still garble the em dash?**
+A: Because that charset is in the HTTP response header, and the header is thrown away once the browser saves the file. Excel on Windows opens a bare CSV, has no clue about the encoding, and falls back to Windows-1252. That reads UTF-8's three bytes for `—` as three separate characters, `â€”`. The fix is to make the file describe itself: start it with the UTF-8 byte-order mark, `EF BB BF`. I add it in the controller because it's about the bytes, not the content, and the test checks those exact bytes. The cost is that a naive script comparing the header string sees an invisible character first, so you read it with something BOM-aware like Python's `utf-8-sig`.
 
 **Q: How do you make sure a creator can only download their own statement?**
 A: The URL has no creator id. The controller reads the id from the authenticated JWT, and `SecurityConfig` restricts `/api/creator/**` to the CREATOR role, so a buyer gets 403 and an anonymous caller 401. There's nothing in the URL to change.
@@ -310,6 +368,8 @@ A: The reader-blocking print rule from an earlier phase was written for the whol
 | CSS-scoping test saw an empty stylesheet | Vitest doesn't process CSS, so `import x from './index.css?raw'` is `''`; and jsdom's `import.meta.url` isn't a `file:` URL | Read `src/index.css` with `fs.readFileSync` (vitest runs from `frontend/`) | Test what you think you're testing; an empty string matches nothing and should have made you suspicious |
 | `react-refresh/only-export-components` lint warning | Exported constants alongside components in `LegalPage.tsx` / `SiteFooter.tsx` | Moved constants to `content/legal/footerLinks.ts` and `lib/legalReview.ts` | Keep component files component-only |
 | `ProductRecoveryIT.retryProcessing…` timed out once during the full `verify` run | A pre-existing timing-sensitive test of the async pipeline; it passes on its own (re-run) and does not touch payouts | Re-ran it; no code change | Flaky async tests are noise until proven otherwise — but say so, don't hide it (§10) |
+| Creator opened the statement in Excel and saw `170000` for a ₹1,700 month | CSV wrote raw paise (`gross_paise` headers): correct for a program, misleading for a person | Format with `BigDecimal.valueOf(paise, 2)` only in the CSV writer; headers renamed `… (INR)` | Store in the smallest unit, display in the human unit, and convert at the edge |
+| Statement descriptions showed `Order #12 â€” Guide` in Excel | File was UTF-8 with no BOM; `charset=UTF-8` lives in the HTTP header, which is lost once the file is saved, so Excel guessed Windows-1252 | Controller prepends `﻿` (bytes `EF BB BF`); test asserts the bytes and an intact `—` | An HTTP header is not part of the file; if a desktop app will open it, the file must describe itself |
 | An enum value can't be used in the migration that adds it | Postgres "unsafe use of new value" inside a transaction | Own migration (`V11`) | Read the docs for `ALTER TYPE … ADD VALUE` before you write it |
 
 ---

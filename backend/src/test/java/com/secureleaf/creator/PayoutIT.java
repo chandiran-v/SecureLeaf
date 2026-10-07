@@ -13,6 +13,7 @@ import org.springframework.graphql.test.tester.HttpGraphQlTester;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 
+import java.nio.charset.StandardCharsets;
 import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -369,17 +370,22 @@ class PayoutIT extends AbstractCommerceIT {
 
         @Test
         void csvContainsTheSameTotals() throws Exception {
-            String csv = mockMvc.perform(MockMvcRequestBuilders.get("/api/creator/statements/" + month + ".csv")
+            byte[] body = mockMvc.perform(MockMvcRequestBuilders.get("/api/creator/statements/" + month + ".csv")
                             .header("Authorization", "Bearer " + jwtService.generateAccessToken(creator)))
                     .andExpect(status().isOk())
                     .andExpect(content().contentTypeCompatibleWith(MediaType.parseMediaType("text/csv")))
-                    .andReturn().getResponse().getContentAsString();
-            assertThat(csv).startsWith("date,type,description,gross_paise,fee_paise,net_paise");
-            assertThat(csv).contains(",TOTAL,Gross sales,170000,,");
-            assertThat(csv).contains(",TOTAL,Refunds,-20000,,");
-            assertThat(csv).contains(",TOTAL,Platform fee (net of refunds),,15000,");
-            assertThat(csv).contains(",TOTAL,Net earnings,,,135000");
-            assertThat(csv).contains(",TOTAL,Payouts,,,-30000");
+                    .andReturn().getResponse().getContentAsByteArray();
+            // UTF-8 BOM first, so Excel decodes "—" in descriptions instead of showing "â€”"
+            assertThat(body).startsWith((byte) 0xEF, (byte) 0xBB, (byte) 0xBF);
+            String csv = new String(body, StandardCharsets.UTF_8).substring(1);
+            assertThat(csv).contains("Order #").contains(" — ");
+            // amounts are rupees in the file (paise / 100, two decimals), not raw paise
+            assertThat(csv).startsWith("Date,Type,Description,Gross amount (INR),Platform fee (INR),Net earnings (INR)");
+            assertThat(csv).contains(",TOTAL,Gross sales,1700.00,,");
+            assertThat(csv).contains(",TOTAL,Refunds,-200.00,,");
+            assertThat(csv).contains(",TOTAL,Platform fee (net of refunds),,150.00,");
+            assertThat(csv).contains(",TOTAL,Net earnings,,,1350.00");
+            assertThat(csv).contains(",TOTAL,Payouts,,,-300.00");
         }
 
         @Test
@@ -396,7 +402,7 @@ class PayoutIT extends AbstractCommerceIT {
             String csv = mockMvc.perform(MockMvcRequestBuilders.get(path)
                             .header("Authorization", "Bearer " + jwtService.generateAccessToken(rival)))
                     .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
-            assertThat(csv).contains(",TOTAL,Gross sales,0,,").doesNotContain("Paid Guide");
+            assertThat(csv).contains(",TOTAL,Gross sales,0.00,,").doesNotContain("Paid Guide");
         }
     }
 }
