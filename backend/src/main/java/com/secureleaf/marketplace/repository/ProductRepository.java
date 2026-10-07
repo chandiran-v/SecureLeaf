@@ -21,9 +21,10 @@ public interface ProductRepository extends JpaRepository<Product, Long>, Product
      *
      * N+1 problem: if we didn't do this, fetching 20 products would cause
      * 20 extra SELECT queries for creator, and 20 more for category = 41 total.
-     * With @EntityGraph, it's 1 query with JOINs.
+     * With @EntityGraph, it's 1 query with JOINs. currentDocumentVersion is in the graph for the
+     * same reason: myProducts reads its pageCount for every product.
      */
-    @EntityGraph(attributePaths = {"creator", "category", "tags"})
+    @EntityGraph(attributePaths = {"creator", "category", "tags", "currentDocumentVersion"})
     List<Product> findByCreatorIdAndDeletedAtIsNull(Long creatorId);
 
     boolean existsBySlug(String slug);

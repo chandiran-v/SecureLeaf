@@ -12,6 +12,7 @@ import BecomeCreatorPage from './pages/creator/BecomeCreatorPage';
 import CreatorDashboardPage from './pages/creator/CreatorDashboardPage';
 import UploadProductPage from './pages/creator/UploadProductPage';
 import ProductVersionsPage from './pages/creator/ProductVersionsPage';
+import CreatorPreviewPage from './pages/creator/CreatorPreviewPage';
 import MarketplacePage from './pages/marketplace/MarketplacePage';
 import ProductDetailPage from './pages/marketplace/ProductDetailPage';
 import CheckoutPage from './pages/buyer/CheckoutPage';
@@ -81,6 +82,16 @@ function App() {
             element={
               <ProtectedRoute requiredRole="CREATOR">
                 <ProductVersionsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Owner preview — the creator reads their own product without a watermark */}
+          <Route
+            path="/creator/products/:id/view"
+            element={
+              <ProtectedRoute requiredRole="CREATOR">
+                <CreatorPreviewPage />
               </ProtectedRoute>
             }
           />

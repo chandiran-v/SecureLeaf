@@ -149,6 +149,27 @@ describe('CreatorDashboardPage', () => {
     await waitFor(() => expect(unpublishCalled).toBe(true));
   });
 
+  it('labels the buttons column "Actions"', async () => {
+    renderDashboard([myProductsMock([makeProduct()]), earningsMock]);
+
+    expect(await screen.findByRole('columnheader', { name: 'Actions' })).toBeInTheDocument();
+  });
+
+  it('links a processed product to its watermark-free owner preview', async () => {
+    renderDashboard([myProductsMock([makeProduct({ id: '7' })]), earningsMock]);
+
+    const link = await screen.findByRole('link', { name: /view my guide/i });
+    expect(link).toHaveAttribute('href', '/creator/products/7/view');
+  });
+
+  it('does not link a product that has no pages yet', async () => {
+    const draft = makeProduct({ id: '8', status: 'DRAFT', pageCount: null });
+    renderDashboard([myProductsMock([draft]), earningsMock]);
+
+    expect(await screen.findByText('My Guide')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /view my guide/i })).not.toBeInTheDocument();
+  });
+
   it('cancelling the confirm dialog never calls the mutation', async () => {
     const live = makeProduct({ id: '5', status: 'LIVE' });
     renderDashboard([myProductsMock([live]), earningsMock]);

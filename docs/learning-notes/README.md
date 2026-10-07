@@ -100,6 +100,7 @@ When a new phase is complete, duplicate `TEMPLATE.md`, name it appropriately, an
 | 15 | [Full document versioning](phase-15-document-versioning.md) | ✅ Done | Immutable versions + pointer, pinned entitlements, backfill migration (tested from V11), idempotent/resumable chunked batch job, zero-downtime publish, soft retirement, BOLA tests |
 | 14, 16–17 | MVP2 — [roadmap](../phases/README.md) | ⏳ Queued / parked | libvips (parked), adaptive resolution, capacity |
 | UI 1 | [ui-01-responsive-navigation.md](ui-01-responsive-navigation.md) | ✅ Done | Mobile-first breakpoints, accessible disclosure menu (`aria-expanded`), single source of truth for nav |
+| UI 2 | [ui-02-creator-owner-preview.md](ui-02-creator-owner-preview.md) | ✅ Done | Threat-modelling an exception, isolating a security bypass from the hot path, RBAC + object-level authz (BOLA), 404-not-403, object URLs + revoke, rate-limiting the valuable path |
 | Ops 1 | [ops-01-phase-scheduler.md](ops-01-phase-scheduler.md) | ✅ Done | Cron + event-driven CI, WIP limit of one, reconciliation, privilege separation, `GITHUB_TOKEN` vs PAT, prompt injection, bounded retries |
 
 ---

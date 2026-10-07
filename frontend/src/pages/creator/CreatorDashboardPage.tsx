@@ -84,28 +84,49 @@ function ProductRow({
     setPendingAction(null);
   };
 
+  // Owner preview: only a product whose document has been processed has pages to show.
+  const viewable = (product.pageCount ?? 0) > 0;
+  const productCell = (
+    <>
+      {/* Thumbnail */}
+      <div className="w-10 h-12 rounded bg-gray-100 flex-shrink-0 overflow-hidden">
+        {product.thumbnailUrl ? (
+          <img src={product.thumbnailUrl} alt={product.title} className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+            </svg>
+          </div>
+        )}
+      </div>
+      <div>
+        <p className={`text-sm font-medium line-clamp-1 ${
+          viewable ? 'text-gray-900 group-hover:text-emerald-700 group-hover:underline' : 'text-gray-900'
+        }`}>
+          {product.title}
+        </p>
+        <p className="text-xs text-gray-400">{product.category.name}</p>
+      </div>
+    </>
+  );
+
   return (
     <tr className="hover:bg-gray-50 transition-colors">
       <td className="py-4 px-6">
-        <div className="flex items-center gap-3">
-          {/* Thumbnail */}
-          <div className="w-10 h-12 rounded bg-gray-100 flex-shrink-0 overflow-hidden">
-            {product.thumbnailUrl ? (
-              <img src={product.thumbnailUrl} alt={product.title} className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                    d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                </svg>
-              </div>
-            )}
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-900 line-clamp-1">{product.title}</p>
-            <p className="text-xs text-gray-400">{product.category.name}</p>
-          </div>
-        </div>
+        {viewable ? (
+          <Link
+            to={`/creator/products/${product.id}/view`}
+            title="Open without watermark"
+            aria-label={`View ${product.title}`}
+            className="group flex items-center gap-3 rounded-lg -m-1 p-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+          >
+            {productCell}
+          </Link>
+        ) : (
+          <div className="flex items-center gap-3">{productCell}</div>
+        )}
       </td>
       <td className="py-4 px-6">
         <StatusBadge status={product.status} />
@@ -133,7 +154,7 @@ function ProductRow({
         )}
       </td>
       <td className="py-4 px-6">
-        <div className="flex items-center gap-2 justify-end">
+        <div className="flex items-center gap-2 justify-center">
           {product.status === 'LIVE' && (
             <button
               onClick={() => setPendingAction('unpublish')}
@@ -351,8 +372,13 @@ export default function CreatorDashboardPage() {
             <table className="w-full text-left" aria-label="Your products">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50/60">
-                  {['Product', 'Status', 'Price', 'Sales', ''].map((h) => (
-                    <th key={h} className="py-3 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                  {['Product', 'Status', 'Price', 'Sales', 'Actions'].map((h) => (
+                    <th
+                      key={h}
+                      className={`py-3 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wide ${
+                        h === 'Actions' ? 'text-center' : ''
+                      }`}
+                    >
                       {h}
                     </th>
                   ))}

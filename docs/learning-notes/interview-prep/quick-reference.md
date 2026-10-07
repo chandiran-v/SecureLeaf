@@ -259,6 +259,21 @@ a secret in a variable spelled unexpectedly still slips through. Say this unprom
 
 ---
 
+## UI 2 — Actions column + watermark-free owner preview · [full note](../ui-02-creator-owner-preview.md)
+
+| Concept | The one-line answer |
+|---|---|
+| Why no watermark for the creator | The watermark traces a leak to a *buyer*; the creator uploaded the original, so it protects nothing |
+| Where the bypass lives | A separate `/api/creator/products/{id}/pages/{n}` endpoint, never a branch in `SecureTileService` ("no clean bytes, ever" stays provable) |
+| Two auth layers | `SecurityConfig`: CREATOR role on `/api/creator/**`; service: `product.creator.id == jwt user id`. Role alone = BOLA |
+| 404 not 403 | Missing, deleted and not-yours all look the same, so there's no id enumeration |
+| Rate limit | Shares the buyer `tile:{userId}` bucket: clean pages are what a stolen creator login is worth |
+| Frontend | `restClient` blob → `URL.createObjectURL` → `<img>`; revoke in the effect cleanup or every page leaks |
+
+**Weakest point to volunteer:** clean pages are now one password away; add step-up auth (recent login / 2FA) and log owner-preview reads.
+
+---
+
 ## Phase 9 — Hardening & release readiness · [full note](../phase-09-hardening-release.md)
 
 | Concept | The one-line answer |

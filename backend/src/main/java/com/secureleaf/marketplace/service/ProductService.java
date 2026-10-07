@@ -105,7 +105,11 @@ public class ProductService {
     public List<ProductDto> myProducts(Long creatorId) {
         return productRepository.findByCreatorIdAndDeletedAtIsNull(creatorId)
                 .stream()
-                .map(ProductMapper::toDto)
+                // The dashboard needs pageCount: it decides whether a product can be opened in the
+                // owner preview. Same rule as getLiveProduct — the CURRENT version's page count.
+                .map(p -> ProductMapper.toDto(p, p.getCurrentDocumentVersion() != null
+                        ? p.getCurrentDocumentVersion().getPageCount()
+                        : null))
                 .toList();
     }
 

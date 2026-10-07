@@ -22,6 +22,9 @@ import java.util.regex.Pattern;
  *   <li>{@code GET /api/viewer/tiles/**} — bucket {@code tile:{userId}}. No authenticated user
  *       means we let the request through untouched: Spring Security answers 401 next.</li>
  *   <li>{@code GET /api/products/{id}/preview/{n}} — bucket {@code preview:{clientIp}} (public endpoint).</li>
+ *   <li>{@code GET /api/creator/products/{id}/pages/{n}} — the creator's clean owner preview. Shares
+ *       {@code tile:{userId}}: a clean page is worth more to a scraper than a watermarked one, so it
+ *       gets no looser a budget.</li>
  * </ul>
  * The check happens here, before the controller, so a rejected request never reaches storage or
  * the watermark renderer — the whole point is to make rejection cheap.
@@ -36,6 +39,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private static final String TILE_PREFIX = "/api/viewer/tiles/";
     private static final Pattern PREVIEW_PATH = Pattern.compile("^/api/products/[^/]+/preview/[^/]+$");
+    private static final Pattern CREATOR_PAGE_PATH = Pattern.compile("^/api/creator/products/[^/]+/pages/[^/]+$");
 
     private final RateLimiter rateLimiter;
     private final ClientIpResolver clientIpResolver;
@@ -46,7 +50,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
             return true;
         }
         String path = request.getRequestURI();
-        return !(path.startsWith(TILE_PREFIX) || PREVIEW_PATH.matcher(path).matches());
+        return !(path.startsWith(TILE_PREFIX) || PREVIEW_PATH.matcher(path).matches()
+                || CREATOR_PAGE_PATH.matcher(path).matches());
     }
 
     @Override
@@ -54,7 +59,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         RateLimitBucket bucket;
         String key;
-        if (request.getRequestURI().startsWith(TILE_PREFIX)) {
+        String path = request.getRequestURI();
+        if (path.startsWith(TILE_PREFIX) || CREATOR_PAGE_PATH.matcher(path).matches()) {
             Long userId = currentUserId();
             if (userId == null) {
                 chain.doFilter(request, response);
