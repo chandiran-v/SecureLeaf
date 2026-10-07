@@ -259,6 +259,22 @@ a secret in a variable spelled unexpectedly still slips through. Say this unprom
 
 ---
 
+## Perf 1 — Purchase-time watermarking · [full note](../perf-01-purchase-time-watermarking.md)
+
+| Concept | The one-line answer |
+|---|---|
+| Why | On 512 MB / 0.1 CPU (Render free), per-view watermarking gave **42 s per page** and 6/11 timeouts with 5 readers |
+| What | Each buyer's pages watermarked **once**, in the background, stored; a view = one storage fetch; missing page → live watermark |
+| How it stays correct | A **reconciliation loop** (desired vs actual state) covers purchase, refund, version migration, seeding, backfill; idempotent, crash-safe |
+| Threading | CPU work on its **own platform thread**: virtual threads share one carrier per core, and 0.1 CPU = one carrier |
+| Encoder | Measured: text 4–8 ms, encode 100–200 ms. ImageIO disk cache **off** + `3BYTE_BGR` + PNG zlib **2** = 263 → 157 ms. JPEG rejected (lossy text) |
+| JVM on 512 MB | Defaults OOM-killed (heap ≠ process). `-Xmx256m`, metaspace/code-cache caps, SerialGC, C1 only: survives; startup 25 → 14 min |
+| Forensics | Stored label = email · #user · purchase date · **e{entitlementId}** (no session id); access log still has every view |
+
+**Weakest point to volunteer:** 14-minute startup on 0.1 CPU, so every deploy is an outage; next: AppCDS + Spring AOT.
+
+---
+
 ## UI 2 — Actions column + watermark-free owner preview · [full note](../ui-02-creator-owner-preview.md)
 
 | Concept | The one-line answer |

@@ -17,6 +17,7 @@ import com.secureleaf.viewer.cache.TileCacheKeyFactory;
 import com.secureleaf.viewer.cache.WatermarkedTileCache;
 import com.secureleaf.viewer.entity.ViewerSession;
 import com.secureleaf.viewer.metrics.ViewerMetrics;
+import com.secureleaf.viewer.prewatermark.PrewatermarkedPages;
 import com.secureleaf.viewer.entity.ViewerSessionEndReason;
 import com.secureleaf.viewer.repository.ViewerSessionRepository;
 import com.secureleaf.viewer.security.TileUrlSigner;
@@ -35,8 +36,8 @@ import java.util.Optional;
 /**
  * D6 — the tile endpoint's checks, in order, then the watermarked bytes. The core invariant this
  * class exists to hold (same as {@code PreviewService} in Phase 3): every byte this class returns
- * has gone through {@link WatermarkRenderer} first. There is no path here that returns clean
- * storage bytes.
+ * has gone through {@link WatermarkRenderer} first — live, or earlier for a pre-watermarked page
+ * or a cached tile. There is no path here that returns clean storage bytes.
  *
  * Every check below throws before touching storage, in the exact order D6 specifies — cheapest
  * and least-sensitive checks (signature shape) first, so a probing attacker learns nothing about
@@ -64,6 +65,7 @@ public class SecureTileService {
     private final ViewerMetrics metrics;
     private final WatermarkedTileCache tileCache;
     private final TileCacheKeyFactory tileCacheKeys;
+    private final PrewatermarkedPages prewatermarkedPages;
 
     /** {@code variant} is what the (signed) URL asked for; null means a legacy URL, i.e. DESKTOP. */
     public record TileRequest(Long sessionId, int pageNumber, String variant, long exp, String signature,
@@ -71,8 +73,8 @@ public class SecureTileService {
     }
 
     /**
-     * Everything the checks decided plus either the clean bytes (cache miss: handed to the render
-     * pool) or the finished watermarked bytes (cache hit, Phase 13). Exactly one of
+     * Everything the checks decided plus either the clean bytes (handed to the render pool) or
+     * finished watermarked bytes (a pre-watermarked page, or a Phase 13 cache hit). Exactly one of
      * {@code cleanBytes} / {@code cachedTile} is non-null. The entities are detached once
      * {@link #prepareTile} returns; they are only used as foreign-key references when the access
      * log row is written, never navigated lazily.
@@ -150,10 +152,22 @@ public class SecureTileService {
                 .orElseThrow(() -> new ResourceNotFoundException("ViewerPage", "pageNumber", request.pageNumber()));
         String servedVariant = contentPage.getVariant();
 
-        // Phase 13, D4 — only here, with every check above passed, may the cache be consulted. A hit
-        // skips the storage fetch and the render; it does not skip the access-log row (VIEW-13).
         TileCacheKey cacheKey = tileCacheKeys.keyFor(session.getUser().getId(), session.getId(),
                 documentVersion.getId(), request.pageNumber(), servedVariant);
+
+        // Purchase-time watermarking — the buyer's own page, watermarked once in the background and
+        // stored (BuyerPageReconciler). Consulted only here, after every check above, like the cache.
+        // A hit skips the clean-tile fetch and the render, never the access-log row. A miss (not
+        // generated yet) falls through to live watermarking, unchanged.
+        Optional<byte[]> prewatermarked = prewatermarkedPages.find(
+                entitlement.getId(), documentVersion.getId(), request.pageNumber(), servedVariant);
+        if (prewatermarked.isPresent()) {
+            return new PreparedTile(request, session, documentVersion, contentPage, null, prewatermarked.get(),
+                    null, cacheKey);
+        }
+
+        // Phase 13, D4 — only here, with every check above passed, may the cache be consulted. A hit
+        // skips the storage fetch and the render; it does not skip the access-log row (VIEW-13).
         Optional<byte[]> cached = cacheLookup(cacheKey);
         if (cached.isPresent()) {
             metrics.recordTileCacheHit();

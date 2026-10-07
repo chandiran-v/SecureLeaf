@@ -33,6 +33,11 @@ drm:
   session:
     heartbeat-interval-seconds: 1
     lease-seconds: 2
+  # The purchase-time watermarking timer would race tests that count renders or drive it step by
+  # step; BuyerPageReconcilerIT calls BuyerPageReconciler.runOnce() directly instead. With no
+  # buyer_pages rows every other test sees exactly the live-watermark pipeline.
+  prewatermark:
+    enabled: false
 
 # V8 — the link backfill timer would add background queries to query-count tests;
 # PageLinkBackfillIT calls PageLinkService.backfill directly instead.

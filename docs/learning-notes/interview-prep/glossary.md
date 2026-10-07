@@ -117,6 +117,12 @@
 | **Reactive null rule** | Reactor `Flux`/`Mono` can't carry `null`; a `@BatchMapping` whose values may be null must return a `Map` (missing key = null), not a `List` | [Phase 6](../phase-06-library-dashboard-notifications.md) |
 | **Mobile-first** | Styles target the smallest screen by default; breakpoint prefixes (`md:`) add rules for larger screens | [UI 1](../ui-01-responsive-navigation.md) |
 | **Disclosure pattern** | A button that shows/hides a region and announces its state with `aria-expanded` (e.g. a hamburger menu) | [UI 1](../ui-01-responsive-navigation.md) |
+| **Precompute at write time** | Do expensive work once when data changes so reads are cheap (purchase-time watermarking) | [Perf 1](../perf-01-purchase-time-watermarking.md) |
+| **Reconciliation loop** | Repeatedly drive actual state towards desired state instead of reacting to events; heals missed events | [Perf 1](../perf-01-purchase-time-watermarking.md) |
+| **Level- vs edge-triggered** | Act on the current state (level) vs on change events (edges) | [Perf 1](../perf-01-purchase-time-watermarking.md) |
+| **Carrier thread** | The OS thread under virtual threads; CPU-bound virtual threads monopolise it | [Perf 1](../perf-01-purchase-time-watermarking.md) |
+| **zlib compression level** | 0 (none) to 9 (smallest, slowest); PNG's deflate setting | [Perf 1](../perf-01-purchase-time-watermarking.md) |
+| **Off-heap memory** | Metaspace, code cache, thread stacks, native buffers: outside -Xmx but inside the container limit | [Perf 1](../perf-01-purchase-time-watermarking.md) |
 | **Owner preview** | The creator viewing their own product's pages clean, through an owner-only endpoint separate from the buyer DRM path | [UI 2](../ui-02-creator-owner-preview.md) |
 | **Object URL** | A temporary `blob:` URL for bytes already in memory (`URL.createObjectURL`); revoke it or the bytes leak | [UI 2](../ui-02-creator-owner-preview.md) |
 | **Security exception isolation** | Put a rule's exception in its own small, tested path, never as a branch inside the code enforcing the rule | [UI 2](../ui-02-creator-owner-preview.md) |

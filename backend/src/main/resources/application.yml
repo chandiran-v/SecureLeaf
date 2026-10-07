@@ -148,6 +148,15 @@ drm:
     opacity: 0.25
     font-size: 24                # at reference-width-px; scaled by image width, min 12 (Phase 16, D6)
     reference-width-px: 1240     # DESKTOP width (A4 at 150 DPI): the width font-size was chosen for
+  # Purchase-time watermarking (BuyerPageReconciler): every ACTIVE entitlement gets its own stored,
+  # watermarked copy of each page, so a page view is a storage fetch instead of a render. Views of
+  # pages not generated yet are watermarked live, exactly as before.
+  prewatermark:
+    enabled: ${PREWATERMARK_ENABLED:true}   # the background timer; the view path always checks for stored pages
+    initial-delay-ms: 20000
+    interval-ms: 15000                      # a new purchase starts generating within ~15 s
+    entitlements-per-run: 5                 # bounds one run, so other work keeps getting the CPU
+    version: "1"                            # bump when the watermark design changes: old pages are deleted and regenerated
 
 # ── Render bulkhead (Phase 12, D1/D3) ─────────────────────────────────────────
 # Watermarking is CPU-bound, so it gets its own bounded platform-thread pool ("tile-render-").

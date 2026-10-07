@@ -4,6 +4,7 @@ import com.secureleaf.common.config.MinioProperties;
 import com.secureleaf.common.storage.StorageService;
 import com.secureleaf.content.entity.ContentPage;
 import com.secureleaf.content.entity.DocumentVersion;
+import com.secureleaf.content.image.PngEncoder;
 import com.secureleaf.content.repository.ContentPageRepository;
 import com.secureleaf.content.repository.DocumentVersionRepository;
 import com.secureleaf.content.tiles.PageTileRenderer;
@@ -26,11 +27,9 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.imageio.ImageIO;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
@@ -347,9 +346,6 @@ public class DocumentProcessingService {
     }
 
     public static byte[] toPngBytes(BufferedImage image) throws IOException {
-        try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-            ImageIO.write(image, "PNG", baos);
-            return baos.toByteArray();
-        }
+        return PngEncoder.encode(image);   // faster zlib level, see PngEncoder for the numbers
     }
 }

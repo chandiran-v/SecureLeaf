@@ -46,6 +46,11 @@ public class ViewerMetrics {
     public static final String TILECACHE_SIZE_BYTES = "secureleaf.tilecache.size.bytes";
     public static final String TILECACHE_EVICTIONS = "secureleaf.tilecache.evictions";
 
+    /** Purchase-time watermarking: views served from a stored per-buyer page vs. watermarked live. */
+    public static final String PREWATERMARK_HIT = "secureleaf.prewatermark.hit";
+    public static final String PREWATERMARK_MISS = "secureleaf.prewatermark.miss";
+    public static final String PREWATERMARK_GENERATED = "secureleaf.prewatermark.generated";
+
     /** Values of the {@code outcome} tag on {@link #TILE_REQUEST}. */
     public static final String OUTCOME_OK = "ok";
     public static final String OUTCOME_FORBIDDEN = "forbidden";
@@ -175,6 +180,21 @@ public class ViewerMetrics {
     /** Phase 13, D7 — an authorised tile that was not cached (or the cache failed). */
     public void recordTileCacheMiss() {
         registry.counter(TILECACHE_MISS).increment();
+    }
+
+    /** A view served from the buyer's pre-watermarked page: a storage fetch, no render. */
+    public void recordPrewatermarkHit() {
+        registry.counter(PREWATERMARK_HIT).increment();
+    }
+
+    /** A view whose pre-watermarked page did not exist (yet), so it was watermarked live. */
+    public void recordPrewatermarkMiss() {
+        registry.counter(PREWATERMARK_MISS).increment();
+    }
+
+    /** One page (one variant) watermarked and stored for a buyer by the background reconciler. */
+    public void recordPrewatermarkGenerated() {
+        registry.counter(PREWATERMARK_GENERATED).increment();
     }
 
     /** Phase 13, D7 — entries removed, tagged by why (expired, size, explicit, replaced). */
