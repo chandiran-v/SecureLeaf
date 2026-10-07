@@ -117,6 +117,10 @@
 | **Reactive null rule** | Reactor `Flux`/`Mono` can't carry `null`; a `@BatchMapping` whose values may be null must return a `Map` (missing key = null), not a `List` | [Phase 6](../phase-06-library-dashboard-notifications.md) |
 | **Mobile-first** | Styles target the smallest screen by default; breakpoint prefixes (`md:`) add rules for larger screens | [UI 1](../ui-01-responsive-navigation.md) |
 | **Disclosure pattern** | A button that shows/hides a region and announces its state with `aria-expanded` (e.g. a hamburger menu) | [UI 1](../ui-01-responsive-navigation.md) |
+| **Origin** | Scheme + host + port; the browser's unit of "same site" | [Ops 2](../ops-02-render-free-tier-deployment.md) |
+| **Split-origin deployment** | Frontend and API on different domains; needs absolute URLs, CORS and CSP entries | [Ops 2](../ops-02-render-free-tier-deployment.md) |
+| **Adapter pattern** | Implement the interface callers expect on top of a different mechanism (JavaMailSender over HTTPS) | [Ops 2](../ops-02-render-free-tier-deployment.md) |
+| **Liveness vs readiness** | "Restart me if this fails" vs "stop routing to me while this fails" | [Ops 2](../ops-02-render-free-tier-deployment.md) |
 | **Precompute at write time** | Do expensive work once when data changes so reads are cheap (purchase-time watermarking) | [Perf 1](../perf-01-purchase-time-watermarking.md) |
 | **Reconciliation loop** | Repeatedly drive actual state towards desired state instead of reacting to events; heals missed events | [Perf 1](../perf-01-purchase-time-watermarking.md) |
 | **Level- vs edge-triggered** | Act on the current state (level) vs on change events (edges) | [Perf 1](../perf-01-purchase-time-watermarking.md) |

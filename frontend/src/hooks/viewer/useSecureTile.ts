@@ -4,6 +4,7 @@ import { useApolloClient } from '@apollo/client';
 import { VIEWER_PAGE_URL } from '../../graphql/queries/viewer.queries';
 import { useAuthStore } from '../../store/authStore';
 import { recoverFromUnauthorized } from '../../lib/session';
+import { resolveApiUrl } from '../../lib/apiUrl';
 import {
   RateLimitedError,
   RequestBudget,
@@ -146,7 +147,8 @@ export function useSecureTile({
       } catch (err) {
         throw rateLimitedFromGraphQlError(err) ?? err;
       }
-      const url = data.viewerPageUrl.url;
+      // The signed URL is server-relative; on a split-origin deploy it must go to the API's origin.
+      const url = resolveApiUrl(data.viewerPageUrl.url);
       const fetchTile = () => {
         const accessToken = useAuthStore.getState().accessToken;
         return fetch(url, {

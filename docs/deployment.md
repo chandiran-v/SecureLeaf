@@ -233,6 +233,11 @@ profile refuses dev defaults (`ProdSecretsConfig`, `DrmConfig`, `CommerceConfig`
 
 ## Appendix A — Plan B: managed free tiers
 
+> **Superseded by [`deployment-render.md`](deployment-render.md)** (2026-10), which makes this path
+> work for a ~5-user beta: measured JVM settings for 512 MB, purchase-time watermarking, a Brevo
+> HTTPS mail adapter, TLS for the rate limiter's Redis client, and the split-origin tile URL fix.
+> The table below is the original analysis and is kept for history.
+
 Kept only as an emergency demo path; **not** the production plan. [ADR 0001](adr/0001-hosting-oracle-always-free.md)
 explains why it was rejected, using measured numbers. Its limits:
 

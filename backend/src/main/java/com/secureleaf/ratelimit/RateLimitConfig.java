@@ -34,9 +34,17 @@ public class RateLimitConfig {
         RedisURI.Builder uri = RedisURI.builder()
                 .withHost(redis.getHost())
                 .withPort(redis.getPort())
-                .withTimeout(IO_TIMEOUT);
+                .withTimeout(IO_TIMEOUT)
+                // Mirror spring.data.redis.ssl.enabled. Hosted Redis (Upstash) is TLS-only: without
+                // this the limiter could never connect, would fail OPEN (D5) and rate limiting would
+                // be silently off while every other Redis user worked fine.
+                .withSsl(redis.getSsl().isEnabled());
         if (redis.getPassword() != null && !redis.getPassword().isEmpty()) {
-            uri.withPassword(redis.getPassword().toCharArray());
+            if (redis.getUsername() != null && !redis.getUsername().isEmpty()) {
+                uri.withAuthentication(redis.getUsername(), redis.getPassword());   // Redis 6 ACL user
+            } else {
+                uri.withPassword(redis.getPassword().toCharArray());
+            }
         }
         RedisClient client = RedisClient.create(uri.build());
         client.setOptions(ClientOptions.builder()

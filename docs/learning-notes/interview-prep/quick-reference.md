@@ -259,6 +259,20 @@ a secret in a variable spelled unexpectedly still slips through. Say this unprom
 
 ---
 
+## Ops 2 — Free managed-service deployment · [full note](../ops-02-render-free-tier-deployment.md)
+
+| Concept | The one-line answer |
+|---|---|
+| Split origin | Vercel ≠ Render: relative `/api/...` tile URLs hit Vercel → `resolveApiUrl`; plus CORS, `VITE_*_URL`, CSP |
+| SMTP blocked | `BrevoApiMailSender implements JavaMailSender` (Adapter); mailers unchanged; errors never echo the address |
+| Silent bug | Rate limiter's own Redis client ignored TLS → can't reach Upstash → fails OPEN → limiting silently off |
+| One public port | Actuator must share it; expose **only health** or Prometheus goes public (test-guarded) |
+| Health check | Liveness, not readiness: a DB blip must not trigger a 14-min restart |
+
+**Weakest point to volunteer:** not deployed yet; startup (~14 min) vs Render's deploy timeout is unmeasured.
+
+---
+
 ## Perf 1 — Purchase-time watermarking · [full note](../perf-01-purchase-time-watermarking.md)
 
 | Concept | The one-line answer |

@@ -31,6 +31,13 @@ public class MinioProperties {
     @NotBlank
     private String secretKey;
 
+    /**
+     * Optional S3 signing region. Blank (local MinIO) = the client discovers it. Set it for an
+     * S3-compatible provider such as Backblaze B2 ({@code us-west-004}, from the endpoint
+     * {@code s3.us-west-004.backblazeb2.com}): it saves a location lookup and avoids a wrong guess.
+     */
+    private String region;
+
     private Bucket bucket = new Bucket();
 
     @Data

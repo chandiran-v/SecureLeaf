@@ -1,0 +1,47 @@
+# ── Render free web service (512 MB, 0.1 CPU, one public port, SMTP blocked) ──────────────────
+# Activate ON TOP of prod:  SPRING_PROFILES_ACTIVE=prod,render
+# Every number here was measured under those exact limits in Docker (--memory=512m --cpus=0.1):
+# docs/learning-notes/perf-01-purchase-time-watermarking.md. The JVM flags live in JAVA_OPTS
+# (render.yaml), because heap and JIT settings must be set before Spring starts.
+
+server:
+  port: ${PORT:8080}            # Render tells the app which port to listen on via $PORT
+
+management:
+  server:
+    # prod puts actuator on a private port 8081 (Phase 10 D1). Render publishes ONE port, so
+    # actuator shares it: same port as the app = served by the app's own server.
+    port: ${PORT:8080}
+  endpoints:
+    web:
+      exposure:
+        # ONLY health. SecurityConfig leaves /actuator/prometheus open because, in prod, it lives on
+        # the unpublished management port. On a shared public port, exposing it would publish every
+        # metric to the internet. Health is what Render's health check and UptimeRobot need.
+        include: health
+
+spring:
+  datasource:
+    # Neon (and most hosted Postgres) require TLS. DB_HOST/DB_NAME/DB_USER/DB_PASSWORD come from Neon.
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT:5432}/${DB_NAME}?sslmode=require
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX:3}   # 5 users need few connections; each idle one costs memory
+  data:
+    redis:
+      ssl:
+        enabled: ${REDIS_SSL:true}         # Upstash is TLS-only (the rate limiter honours this too)
+  mvc:
+    async:
+      # The tile endpoint is async (Phase 12). Longer than render.timeout-ms below, so a slow live
+      # render ends in the render pool's own 503 + Retry-After, not a bare container timeout.
+      request-timeout: 70s
+
+# A live watermark (only for pages not pre-watermarked yet) takes seconds on 0.1 CPU, not ms.
+render:
+  timeout-ms: ${RENDER_TIMEOUTMS:60000}
+
+# Render's free tier blocks SMTP ports; send through Brevo's HTTPS API instead (BrevoMailConfig).
+mail:
+  transport: brevo-api
+  brevo:
+    api-key: ${BREVO_API_KEY:}

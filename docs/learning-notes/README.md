@@ -102,6 +102,7 @@ When a new phase is complete, duplicate `TEMPLATE.md`, name it appropriately, an
 | UI 1 | [ui-01-responsive-navigation.md](ui-01-responsive-navigation.md) | ✅ Done | Mobile-first breakpoints, accessible disclosure menu (`aria-expanded`), single source of truth for nav |
 | Perf 1 | [perf-01-purchase-time-watermarking.md](perf-01-purchase-time-watermarking.md) | ✅ Done | Precompute at write time vs read time, reconciliation loops (level-triggered), CPU work vs virtual-thread carriers, profiling beats intuition (ImageIO cache, pixel layout, zlib level), heap ≠ process memory, JIT cost on a starved CPU |
 | UI 2 | [ui-02-creator-owner-preview.md](ui-02-creator-owner-preview.md) | ✅ Done | Threat-modelling an exception, isolating a security bypass from the hot path, RBAC + object-level authz (BOLA), 404-not-403, object URLs + revoke, rate-limiting the valuable path |
+| Ops 2 | [ops-02-render-free-tier-deployment.md](ops-02-render-free-tier-deployment.md) | ✅ Done (not deployed) | Same- vs split-origin, Adapter pattern (SMTP → HTTPS mail), fail-open hiding a TLS bug, placement-dependent security (actuator on one port), liveness vs readiness for restarts, secrets in blueprints |
 | Ops 1 | [ops-01-phase-scheduler.md](ops-01-phase-scheduler.md) | ✅ Done | Cron + event-driven CI, WIP limit of one, reconciliation, privilege separation, `GITHUB_TOKEN` vs PAT, prompt injection, bounded retries |
 
 ---

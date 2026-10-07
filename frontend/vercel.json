@@ -6,7 +6,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' https://checkout.razorpay.com; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self' data:; connect-src 'self' https://secureleaf-backend.onrender.com https://api.razorpay.com; frame-src https://checkout.razorpay.com https://api.razorpay.com; frame-ancestors 'none'; base-uri 'self'"
+          "value": "default-src 'self'; script-src 'self' https://checkout.razorpay.com https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' blob: data: https://*.googleusercontent.com https://*.backblazeb2.com; font-src 'self' data:; connect-src 'self' https://secureleaf-backend.onrender.com https://api.razorpay.com https://lumberjack.razorpay.com https://accounts.google.com/gsi/ https://*.ingest.sentry.io https://*.ingest.de.sentry.io https://*.ingest.us.sentry.io; frame-src https://checkout.razorpay.com https://api.razorpay.com https://accounts.google.com/gsi/; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
         },
         { "key": "X-Frame-Options", "value": "DENY" },
         { "key": "Referrer-Policy", "value": "no-referrer" },
