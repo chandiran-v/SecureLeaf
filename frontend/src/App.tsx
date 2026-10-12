@@ -7,6 +7,7 @@ import RegisterPage from './pages/auth/RegisterPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import ResetPasswordPage from './pages/auth/ResetPasswordPage';
 import ProtectedRoute from './components/layout/ProtectedRoute';
+import HomeRoute from './components/layout/HomeRoute';
 import SessionExpiredModal from './components/auth/SessionExpiredModal';
 import BecomeCreatorPage from './pages/creator/BecomeCreatorPage';
 import CreatorDashboardPage from './pages/creator/CreatorDashboardPage';
@@ -39,8 +40,10 @@ function App() {
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
 
+          {/* Front door: logged-out visitors go to /login (with "Continue as guest"); signed-in → marketplace */}
+          <Route path="/" element={<HomeRoute />} />
+
           {/* Public marketplace — browsing and free preview need no auth (Phase 3) */}
-          <Route path="/" element={<MarketplacePage />} />
           <Route path="/marketplace" element={<MarketplacePage />} />
           <Route path="/product/:id" element={<ProductDetailPage />} />
 

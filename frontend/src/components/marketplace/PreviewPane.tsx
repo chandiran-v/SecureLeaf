@@ -4,6 +4,11 @@ import restClient from '../../lib/restClient';
 interface PreviewPaneProps {
   productId: string;
   freePreviewPages: number;
+  /**
+   * When given, the last preview page offers "Keep reading" (instead of a dead Next) that calls
+   * this, e.g. to ask a guest to sign in. Left out, Next simply stops at the last preview page.
+   */
+  onReadMore?: () => void;
 }
 
 /**
@@ -17,7 +22,7 @@ interface PreviewPaneProps {
  * A canvas still isn't hack-proof (nothing client-side is), but it removes the
  * one-click affordances a "free preview" shouldn't hand out for free.
  */
-export default function PreviewPane({ productId, freePreviewPages }: PreviewPaneProps) {
+export default function PreviewPane({ productId, freePreviewPages, onReadMore }: PreviewPaneProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [pageNumber, setPageNumber] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -99,13 +104,22 @@ export default function PreviewPane({ productId, freePreviewPages }: PreviewPane
         <span className="text-xs text-gray-500">
           Preview page {pageNumber} of {freePreviewPages}
         </span>
-        <button
-          onClick={() => setPageNumber((p) => Math.min(freePreviewPages, p + 1))}
-          disabled={pageNumber >= freePreviewPages}
-          className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 text-gray-600 disabled:opacity-40"
-        >
-          Next
-        </button>
+        {onReadMore && pageNumber >= freePreviewPages ? (
+          <button
+            onClick={onReadMore}
+            className="px-3 py-1.5 text-sm rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 transition-colors"
+          >
+            Keep reading
+          </button>
+        ) : (
+          <button
+            onClick={() => setPageNumber((p) => Math.min(freePreviewPages, p + 1))}
+            disabled={pageNumber >= freePreviewPages}
+            className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 text-gray-600 disabled:opacity-40"
+          >
+            Next
+          </button>
+        )}
       </div>
     </div>
   );

@@ -1,5 +1,7 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
+import SignInPromptModal from '../auth/SignInPromptModal';
 import { useBuyProduct } from '../../hooks/useBuyProduct';
 import { formatPrice } from '../../lib/formatPrice';
 import type { Product } from '../../types';
@@ -12,13 +14,12 @@ const primary =
 /**
  * The product page's call to action. Five states, checked in this order:
  *   owned → "Read now" (Phase 05B secure viewer)   ·   your own product → disabled
- *   logged out → "Log in to buy" ·   free → "Get for free"   ·   paid → "Buy for ₹X"
+ *   logged out → "Log in to buy" (opens the sign-in prompt) ·   free → "Get for free"   ·   paid → "Buy for ₹X"
  * The UI checks are for UX only — the server enforces every one of them again (D12).
  */
 export default function BuyPanel({ product }: { product: Product }) {
   const { isAuthenticated, user } = useAuthStore();
-  const navigate = useNavigate();
-  const location = useLocation();
+  const [signInPromptOpen, setSignInPromptOpen] = useState(false);
   const { buy, loading, error } = useBuyProduct(product.id);
 
   if (product.ownedByMe) {
@@ -39,9 +40,16 @@ export default function BuyPanel({ product }: { product: Product }) {
 
   if (!isAuthenticated) {
     return (
-      <button onClick={() => navigate('/login', { state: { from: location } })} className={primary}>
-        Log in to buy
-      </button>
+      <>
+        <button onClick={() => setSignInPromptOpen(true)} className={primary}>
+          Log in to buy
+        </button>
+        <SignInPromptModal
+          open={signInPromptOpen}
+          message="Sign in or create a free account to buy this book. You'll come straight back here afterwards."
+          onClose={() => setSignInPromptOpen(false)}
+        />
+      </>
     );
   }
 

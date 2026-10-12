@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { MockedProvider, type MockedResponse } from '@apollo/client/testing';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -65,6 +65,7 @@ function renderDetail(mocks: MockedResponse[], ownedByMe = false) {
       <MockedProvider mocks={[...mocks, ...reviewMocks(ownedByMe)]}>
         <Routes>
           <Route path="/product/:id" element={<ProductDetailPage />} />
+          <Route path="/login" element={<div data-testid="login-page">Login Page</div>} />
         </Routes>
       </MockedProvider>
     </MemoryRouter>
@@ -91,6 +92,58 @@ describe('ProductDetailPage — buy panel states', () => {
 
     expect(screen.getByRole('button', { name: /log in to buy/i })).toBeEnabled();
     expect(screen.getByText(/Jane/)).toBeInTheDocument();
+  });
+
+  it('pops up a sign-in prompt when a guest clicks "Log in to buy", and Sign in goes to /login', async () => {
+    renderDetail([detailMock()]);
+    await waitFor(() => expect(screen.getByText('Detail Book')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /log in to buy/i }));
+    const dialog = screen.getByRole('dialog', { name: /sign in to continue/i });
+    expect(dialog).toHaveTextContent(/to buy this book/i);
+
+    fireEvent.click(within(dialog).getByRole('button', { name: /^sign in$/i }));
+    expect(screen.getByTestId('login-page')).toBeInTheDocument();
+  });
+
+  it('"Not now" closes the prompt and leaves the guest on the product page', async () => {
+    renderDetail([detailMock()]);
+    await waitFor(() => expect(screen.getByText('Detail Book')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /log in to buy/i }));
+    fireEvent.click(screen.getByRole('button', { name: /not now/i }));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByText('Detail Book')).toBeInTheDocument();
+  });
+
+  it('offers a guest "Keep reading" at the end of the free preview, which asks them to sign in', async () => {
+    renderDetail([detailMock()]); // 3 free preview pages of 10
+    await waitFor(() => expect(screen.getByText('Detail Book')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(screen.queryByRole('button', { name: 'Next' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /keep reading/i }));
+    expect(screen.getByRole('dialog', { name: /sign in to continue/i })).toHaveTextContent(/end of the free preview/i);
+  });
+
+  it('does not offer "Keep reading" when the preview already covers the whole book', async () => {
+    renderDetail([detailMock({ freePreviewPages: 1, pageCount: 1 })]);
+    await waitFor(() => expect(screen.getByText('Detail Book')).toBeInTheDocument());
+
+    expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /keep reading/i })).not.toBeInTheDocument();
+  });
+
+  it('does not offer a signed-in user "Keep reading" (they buy from the panel instead)', async () => {
+    logInAs('buyer1');
+    renderDetail([detailMock({ freePreviewPages: 1 })]);
+    await waitFor(() => expect(screen.getByText('Detail Book')).toBeInTheDocument());
+
+    expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /keep reading/i })).not.toBeInTheDocument();
   });
 
   it('shows an enabled Buy button with the price to a logged-in buyer', async () => {

@@ -304,6 +304,21 @@ a secret in a variable spelled unexpectedly still slips through. Say this unprom
 
 ---
 
+## UI 3 — Login-first front door + sign-in prompt · [full note](../ui-03-guest-entry-and-sign-in-prompt.md)
+
+| Concept | The one-line answer |
+|---|---|
+| Front door | `HomeRoute` on `/`: signed-in → marketplace, guest → `<Navigate to="/login" replace>` |
+| Why not a full login wall | Guest role, shareable product links, Razorpay KYC must see products and prices |
+| `replace` | No history entry for the redirect, so Back doesn't loop `/login` → `/` → `/login` |
+| Client guards | UX only; the server's JWT checks are the security |
+| Return path | `navigate('/login', { state: { from: location } })`; `useAuth` sends the user back after login |
+| "Keep reading" | Optional `onReadMore` prop on `PreviewPane`; shown to guests only if `pageCount > freePreviewPages` |
+
+**Weakest point to volunteer:** a login form before any products may lose first-time visitors; measure the "Continue as guest" funnel.
+
+---
+
 ## Phase 9 — Hardening & release readiness · [full note](../phase-09-hardening-release.md)
 
 | Concept | The one-line answer |

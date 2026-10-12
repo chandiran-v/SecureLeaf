@@ -263,3 +263,8 @@
 | **Config-driven business rule** | A business number (rate, limit) kept in configuration so changing it isn't a code change | [Biz 1](../biz-01-commission-5-percent.md) |
 | **Known-answer test** | A test whose expected value is worked out independently, not by calling the code under test | [Biz 1](../biz-01-commission-5-percent.md) |
 | **Effective rate** | Total fee ÷ total gross across history; differs from the current rate after a rate change | [Biz 1](../biz-01-commission-5-percent.md) |
+| **Route guard** | A component that decides whether to render a page or redirect (e.g. `ProtectedRoute`, `HomeRoute`) | [UI 3](../ui-03-guest-entry-and-sign-in-prompt.md) |
+| **Login wall** | Requiring sign-in before any content is visible | [UI 3](../ui-03-guest-entry-and-sign-in-prompt.md) |
+| **Return path (`state.from`)** | The page to send a user back to after they log in | [UI 3](../ui-03-guest-entry-and-sign-in-prompt.md) |
+| **Open redirect** | A bug where an attacker-controlled URL parameter sends users to another site | [UI 3](../ui-03-guest-entry-and-sign-in-prompt.md) |
+| **Container / presentational components** | A "smart" parent decides behaviour; a "dumb" child renders and calls callbacks | [UI 3](../ui-03-guest-entry-and-sign-in-prompt.md) |

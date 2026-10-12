@@ -1,8 +1,11 @@
+import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@apollo/client';
 import AppLayout from '../../components/layout/AppLayout';
 import PreviewPane from '../../components/marketplace/PreviewPane';
 import BuyPanel from '../../components/marketplace/BuyPanel';
+import SignInPromptModal from '../../components/auth/SignInPromptModal';
+import { useAuthStore } from '../../store/authStore';
 import RatingHistogram from '../../components/reviews/RatingHistogram';
 import ReviewList from '../../components/reviews/ReviewList';
 import ReviewForm from '../../components/reviews/ReviewForm';
@@ -13,6 +16,8 @@ import type { Product } from '../../types';
 
 export default function ProductDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const { isAuthenticated } = useAuthStore();
+  const [signInPromptOpen, setSignInPromptOpen] = useState(false);
   const { data, loading, error } = useQuery<{ product: Product | null }>(PRODUCT_DETAIL, {
     variables: { id },
     skip: !id,
@@ -57,13 +62,24 @@ export default function ProductDetailPage() {
   }
 
   const product = data.product;
+  // A guest who reaches the last free page is asked to sign in, if there is anything left to read.
+  const guestCanReadMore = !isAuthenticated && (product.pageCount ?? 0) > product.freePreviewPages;
 
   return (
     <AppLayout>
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <div className="grid md:grid-cols-2 gap-10">
           <div>
-            <PreviewPane productId={product.id} freePreviewPages={product.freePreviewPages} />
+            <PreviewPane
+              productId={product.id}
+              freePreviewPages={product.freePreviewPages}
+              onReadMore={guestCanReadMore ? () => setSignInPromptOpen(true) : undefined}
+            />
+            <SignInPromptModal
+              open={signInPromptOpen}
+              message="That's the end of the free preview. Sign in or create a free account to get the full book."
+              onClose={() => setSignInPromptOpen(false)}
+            />
           </div>
 
           <div>
